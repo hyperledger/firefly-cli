@@ -41,7 +41,7 @@ func GetFireflyAsciiArt() string {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ff",
+	Use:   "firefly-cli",
 	Short: "FireFly CLI is a developer tool used to manage local development stacks",
 	Long: GetFireflyAsciiArt() + `
 FireFly CLI is a developer tool used to manage local development stacks
@@ -50,7 +50,7 @@ This tool automates creation of stacks with many infrastructure components which
 would otherwise be a time consuming manual task. It also wraps docker compose
 commands to manage the lifecycle of stacks.
 
-To get started run: ff init
+To get started run: firefly-cli init
 	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -77,9 +77,9 @@ func initConfig() {
 		home, err := homedir.Dir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".ff" (without extension).
+		// Search config in home directory with name ".firefly-cli" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".ff")
+		viper.SetConfigName(".firefly-cli")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

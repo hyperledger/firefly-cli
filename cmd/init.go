@@ -78,7 +78,7 @@ var initCmd = &cobra.Command{
 
 		stacks.InitStack(stackName, memberCount)
 
-		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nff start %s\n\n", stackName, stackName)
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nfirefly-cli start %s\n\n", stackName, stackName)
 	},
 }
 
