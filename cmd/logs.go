@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os/exec"
 	"path"
@@ -24,11 +25,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// stopCmd represents the stop command
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop a stack",
-	Long:  `Stop a stack`,
+// logsCmd represents the logs command
+var logsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "View log output from a stack",
+	Long: `View log output from a stack.
+
+The most recent logs can be viewed, or you can follow the
+output with the -f flag.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			fmt.Println("No stack specified!")
@@ -41,29 +45,51 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		dockerCmd := exec.Command("docker", "compose", "stop")
-		dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-		fmt.Printf("Stopping FireFly stack '%s'... ", stackName)
-		err := dockerCmd.Run()
-		if err != nil {
-			fmt.Printf("command finished with error: %v", err)
-		} else {
-			// TODO: Print some useful information about URL and ports to use the stack
-			fmt.Println("done!")
+		fmt.Println("Getting logs...")
+		follow, _ := cmd.Flags().GetBool("follow")
+		stdoutChan := make(chan string)
+		go runScript(stackName, follow, stdoutChan)
+		for s := range stdoutChan {
+			fmt.Print(s)
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(stopCmd)
+	rootCmd.AddCommand(logsCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// stopCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// logsCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// stopCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	logsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
+}
+
+func runScript(stackName string, follow bool, stdoutChan chan string) {
+	stackDir := path.Join(stacks.StacksDir, stackName)
+	cmd := exec.Command("docker", "compose", "--ansi", "always", "logs")
+	if follow {
+		cmd.Args = append(cmd.Args, "-f")
+	}
+	cmd.Dir = stackDir
+	// stdin := cmd.StdinPipe()
+	stdout, _ := cmd.StdoutPipe()
+	cmd.Start()
+	buf := bufio.NewReader(stdout)
+	for {
+		line, err := buf.ReadString('\n')
+		if err != nil {
+			close(stdoutChan)
+			break
+		} else {
+			stdoutChan <- line
+		}
+
+	}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
+Copyright © 2021 Kaleido, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,25 +17,24 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"path"
 	"time"
 
 	"github.com/briandowns/spinner"
-	"github.com/hyperledger/ff/internal/stacks"
+	"github.com/kaleido-io/ff/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Start a stack",
+	Long: `Start a stack
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+This command will start a stack and run it in the background.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			fmt.Println("No stack specified!")
@@ -48,10 +47,15 @@ to quickly create a Cobra application.`,
 			return
 		}
 
+		stackDir := path.Join(stacks.StacksDir, stackName)
 		dockerCmd := exec.Command("docker", "compose", "up", "-d")
-		dockerCmd.Dir = path.Join(stacks.FireflyDir, stackName)
+		dockerCmd.Dir = stackDir
 		fmt.Printf("Starting FireFly stack '%s'... ", stackName)
-		fmt.Println("\nThis will take a few seconds longer since this is the first time you're running this stack...")
+
+		files, _ := ioutil.ReadDir(path.Join(stackDir, "postgres"))
+		if len(files) == 0 {
+			fmt.Println("\nThis will take a few seconds longer since this is the first time you're running this stack...")
+		}
 
 		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 		s.Start()
@@ -62,6 +66,7 @@ to quickly create a Cobra application.`,
 		} else {
 			// TODO: Print some useful information about URL and ports to use the stack
 			fmt.Println("done!")
+			fmt.Printf("To see logs for your stack run:\n\nff logs %s\n\n", stackName)
 		}
 	},
 }

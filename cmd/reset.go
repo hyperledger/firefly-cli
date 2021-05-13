@@ -1,5 +1,5 @@
 /*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
+Copyright © 2021 Kaleido, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/hyperledger/ff/internal/stacks"
+	"github.com/kaleido-io/ff/internal/stacks"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -30,13 +30,14 @@ import (
 // resetCmd represents the reset command
 var resetCmd = &cobra.Command{
 	Use:   "reset",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Clear all data in a stack",
+	Long: `Clear all data in a stack
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+This command clears all data in a stack, but leaves the stack itself.
+This is useful for testing when you want to start with a clean slate
+but don't want to actually recreate the resources in the stack itself.
+The stack must be stopped to run this command.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Fatal("No stack specified!")
@@ -48,7 +49,7 @@ to quickly create a Cobra application.`,
 		}
 
 		prompt := promptui.Prompt{
-			Label:     "Reset all data in FireFly stack " + stackName,
+			Label:     fmt.Sprintf("Reset all data in FireFly stack '%s'", stackName),
 			IsConfirm: true,
 		}
 
@@ -60,7 +61,7 @@ to quickly create a Cobra application.`,
 			return
 		} else {
 			fmt.Printf("Reseting FireFly stack '%s'... ", stackName)
-			os.RemoveAll(path.Join(stacks.FireflyDir, stackName, "data"))
+			os.RemoveAll(path.Join(stacks.StacksDir, stackName, "data"))
 			fmt.Println("done!")
 		}
 	},

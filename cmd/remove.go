@@ -1,5 +1,5 @@
 /*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
+Copyright © 2021 Kaleido, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
-	"github.com/hyperledger/ff/internal/stacks"
+	"github.com/kaleido-io/ff/internal/stacks"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -30,13 +31,11 @@ import (
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Completely remove a stack",
+	Long: `Completely remove a stack
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+This command will completely delete a stack, including all of its data
+and configuration. The stack must be stopped to run this command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Fatal("No stack specified!")
@@ -48,7 +47,7 @@ to quickly create a Cobra application.`,
 		}
 
 		prompt := promptui.Prompt{
-			Label:     "Completely delete FireFly stack " + stackName,
+			Label:     fmt.Sprintf("Completely delete FireFly stack '%s'", stackName),
 			IsConfirm: true,
 		}
 
@@ -60,7 +59,16 @@ to quickly create a Cobra application.`,
 			return
 		} else {
 			fmt.Printf("Deleting FireFly stack '%s'... ", stackName)
-			os.RemoveAll(path.Join(stacks.FireflyDir, stackName))
+
+			dockerCmd := exec.Command("docker", "compose", "rm", "-f")
+			dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
+			err := dockerCmd.Run()
+			if err != nil {
+				fmt.Printf("command finished with error: %v", err)
+				return
+			}
+
+			os.RemoveAll(path.Join(stacks.StacksDir, stackName))
 			fmt.Println("done!")
 		}
 	},
@@ -68,14 +76,4 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(removeCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// removeCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// removeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

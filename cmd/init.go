@@ -1,5 +1,5 @@
 /*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
+Copyright © 2021 Kaleido, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,27 +23,24 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger/ff/internal/stacks"
+	"github.com/castillobgr/sententia"
+	"github.com/kaleido-io/ff/internal/stacks"
 )
 
-// initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Create a new FireFly local dev stack",
+	Long:  `Create a new FireFly local dev stack`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Initializing new FireFly stack...")
 
 		var stackName string
+		defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
 
 		if len(args) == 0 {
 			prompt := promptui.Prompt{
-				Label: "Stack name",
+				Label:   "Stack name",
+				Default: defaultStackName,
 				Validate: func(stackName string) error {
 					if stacks.CheckExists(stackName) {
 						return errors.New("stack '" + stackName + "' already exists!")
@@ -73,6 +70,7 @@ to quickly create a Cobra application.`,
 
 		prompt := promptui.Prompt{
 			Label:    "Number of members",
+			Default:  "2",
 			Validate: validate,
 		}
 		memberCountInput, _ := prompt.Run()
@@ -80,20 +78,10 @@ to quickly create a Cobra application.`,
 
 		stacks.InitStack(stackName, memberCount)
 
-		fmt.Printf("Stack '%s' created!", stackName)
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nff start %s\n\n", stackName, stackName)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// initCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -68,7 +68,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Address: "0.0.0.0",
 			},
 			Node: &NodeConfig{
-				Identity: "0x047ee11b7b7cbd9bd9e81993afd9b025f60e99cd",
+				Identity: member.address,
 			},
 			Blockchain: &BlockchainConfig{
 				Type: "ethereum",
