@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/castillobgr/sententia"
-	"github.com/kaleido-io/ff/internal/stacks"
+	"github.com/kaleido-io/firefly-cli/internal/stacks"
 )
 
 var initCmd = &cobra.Command{
