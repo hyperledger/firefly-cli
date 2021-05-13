@@ -14,7 +14,7 @@ In order to run the FireFly CLI, you will need a few things installed on your de
 ## Install the CLI
 
 ```
-$ go install github.com/kaleido-io/firefly-cli@latest
+$ go get github.com/kaleido-io/firefly-cli
 ```
 
 ## Create a new stack
