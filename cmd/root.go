@@ -44,7 +44,6 @@ var rootCmd = &cobra.Command{
 	Use:   "ff",
 	Short: "FireFly CLI is a developer tool used to manage local development stacks",
 	Long: GetFireflyAsciiArt() + `
-
 FireFly CLI is a developer tool used to manage local development stacks
 	
 This tool automates creation of stacks with many infrastructure components which
