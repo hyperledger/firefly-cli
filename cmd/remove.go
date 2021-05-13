@@ -23,7 +23,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/kaleido-io/ff/internal/stacks"
+	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )

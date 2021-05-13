@@ -14,25 +14,25 @@ In order to run the FireFly CLI, you will need a few things installed on your de
 ## Install the CLI
 
 ```
-$ go get https://github.com/kaleido-io/firefly-cli
+$ go install github.com/kaleido-io/firefly-cli
 ```
 
 ## Create a new stack
 
 ```
-$ ff init <stack_name>
+$ firefly-cli init <stack_name>
 ```
 
 ## Start a stack
 
 ```
-$ ff start <stack_name>
+$ firefly-cli start <stack_name>
 ```
 
 ## View logs
 
 ```
-$ ff logs <stack_name>
+$ firefly-cli logs <stack_name>
 ```
 
 > **NOTE**: You can use the `-f` flag on the `logs` command to follow the log output from all nodes in the stack
@@ -40,7 +40,7 @@ $ ff logs <stack_name>
 ## Stop a stack
 
 ```
-$ ff stop <stack_name>
+$ firefly-cli stop <stack_name>
 ```
 
 ## Clear all data from a stack
@@ -48,7 +48,7 @@ $ ff stop <stack_name>
 This command clears all data in a stack, but leaves the stack itself. This is useful for testing when you want to start with a clean slate but don't want to actually recreate the resources in the stack itself. The stack must be stopped to run this command.
 
 ```
-$ ff reset <stack_name>
+$ firefly-cli reset <stack_name>
 ```
 
 ## Completely delete a stack
@@ -56,5 +56,5 @@ $ ff reset <stack_name>
 This command will completely delete a stack, including all of its data and configuration. The stack must be stopped to run this command.
 
 ```
-$ ff remove <stack_name>
+$ firefly-cli remove <stack_name>
 ```

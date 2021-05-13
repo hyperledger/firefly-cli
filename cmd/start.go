@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
-	"github.com/kaleido-io/ff/internal/stacks"
+	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
