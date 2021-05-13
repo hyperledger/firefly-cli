@@ -66,7 +66,7 @@ This command will start a stack and run it in the background.
 		} else {
 			// TODO: Print some useful information about URL and ports to use the stack
 			fmt.Println("done!")
-			fmt.Printf("To see logs for your stack run:\n\nff logs %s\n\n", stackName)
+			fmt.Printf("To see logs for your stack run:\n\nfirefly-cli logs %s\n\n", stackName)
 		}
 	},
 }
