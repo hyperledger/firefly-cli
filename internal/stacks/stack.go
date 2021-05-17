@@ -1,16 +1,14 @@
 package stacks
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
 
-	"crypto/ecdsa"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
+	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
@@ -92,19 +90,16 @@ func writeConfigs(stack *Stack) {
 }
 
 func createMember(id string, index int) *member {
-	privateKey, _ := crypto.GenerateKey()
-
-	privateKeyBytes := crypto.FromECDSA(privateKey)
-	encodedPrivateKey := "0x" + hexutil.Encode(privateKeyBytes)[2:]
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, _ := publicKey.(*ecdsa.PublicKey)
-
-	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
-
+	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
+	privateKeyBytes := privateKey.Serialize()
+	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
+	// Remove the "04" prefix byte when computing the address. This byte indicates that it is an uncompressed public key.
+	publicKeyBytes := privateKey.PubKey().SerializeUncompressed()[1:]
+	// Take the hash of the public key to generate the address
 	hash := sha3.NewLegacyKeccak256()
-	hash.Write(publicKeyBytes[1:])
-	encodedAddress := hexutil.Encode(hash.Sum(nil)[12:])
+	hash.Write(publicKeyBytes)
+	// Ethereum addresses only use the lower 20 bytes, so toss the rest away
+	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	return &member{
 		id:             id,
