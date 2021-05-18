@@ -8,7 +8,7 @@ require (
 	github.com/castillobgr/sententia v0.0.0-20160918013314-9b04b4a53625
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nguyer/promptui v0.8.1-0.20210517133143-d9a192af4368 // indirect
+	github.com/nguyer/promptui v0.8.1-0.20210517133143-d9a192af4368
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2

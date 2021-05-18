@@ -2,6 +2,7 @@ package stacks
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,8 +19,9 @@ var homeDir, _ = os.UserHomeDir()
 var StacksDir = path.Join(homeDir, ".firefly", "stacks")
 
 type Stack struct {
-	name    string
-	members []*member
+	name     string
+	members  []*member
+	swarmKey string
 }
 
 type member struct {
@@ -29,12 +31,14 @@ type member struct {
 	privateKey     string
 	exposedApiPort int
 	exposedUiPort  int
+	ipfsIdentity   *IdentityConfig
 }
 
 func InitStack(stackName string, memberCount int) {
 	stack := &Stack{
-		name:    stackName,
-		members: make([]*member, memberCount),
+		name:     stackName,
+		members:  make([]*member, memberCount),
+		swarmKey: GenerateSwarmKey(),
 	}
 	for i := 0; i < memberCount; i++ {
 		stack.members[i] = createMember(fmt.Sprint(i), i)
@@ -79,14 +83,25 @@ func writeDockerCompose(stackName string, compose *DockerCompose) {
 }
 
 func writeConfigs(stack *Stack) {
-	configs := NewFireflyConfigs(stack)
-
 	stackDir := path.Join(StacksDir, stack.name)
 
-	for memberId, config := range configs {
+	fireflyConfigs := NewFireflyConfigs(stack)
+	for memberId, config := range fireflyConfigs {
 		bytes, _ := yaml.Marshal(config)
 		ioutil.WriteFile(path.Join(stackDir, "firefly_"+memberId+".core"), bytes, 0755)
 	}
+
+	ipfsConfigs := NewIpfsConfigs(stack)
+	for memberId, config := range ipfsConfigs {
+		bytes, _ := json.MarshalIndent(config, "", " ")
+		ioutil.WriteFile(path.Join(stackDir, "ipfs_config_"+memberId), bytes, 0755)
+	}
+
+	ioutil.WriteFile(path.Join(stackDir, "version"), []byte("11"), 0755)
+	ioutil.WriteFile(path.Join(stackDir, "swarm.key"), []byte(stack.swarmKey), 0755)
+
+	bytes := []byte(`{"mounts":[{"mountpoint":"/blocks","path":"blocks","shardFunc":"/repo/flatfs/shard/v1/next-to-last/2","type":"flatfs"},{"mountpoint":"/","path":"datastore","type":"levelds"}],"type":"mount"}`)
+	ioutil.WriteFile(path.Join(stackDir, "datastore_spec"), bytes, 0755)
 }
 
 func createMember(id string, index int) *member {
@@ -101,6 +116,8 @@ func createMember(id string, index int) *member {
 	// Ethereum addresses only use the lower 20 bytes, so toss the rest away
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
+	ipfsPrivateKey, ipfsPeerId := GenerateKeyAndPeerId()
+
 	return &member{
 		id:             id,
 		index:          index,
@@ -108,5 +125,9 @@ func createMember(id string, index int) *member {
 		privateKey:     encodedPrivateKey,
 		exposedApiPort: 5000 + index,
 		exposedUiPort:  3000 + index,
+		ipfsIdentity: &IdentityConfig{
+			PrivKey: ipfsPrivateKey,
+			PeerID:  ipfsPeerId,
+		},
 	}
 }
