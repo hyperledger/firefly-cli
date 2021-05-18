@@ -67,7 +67,7 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 
 	for _, member := range stack.members {
 		compose.Services["firefly_core_"+member.id] = &Service{
-			Image:     "kaleido-io/firefly",
+			Image:     "kaleidoinc/firefly",
 			Ports:     []string{fmt.Sprint(member.exposedApiPort) + ":5000"},
 			Volumes:   []string{path.Join(stackDir, "firefly_"+member.id+".core") + ":/etc/firefly/firefly.core"},
 			DependsOn: map[string]map[string]string{"postgres_" + member.id: {"condition": "service_healthy"}},
@@ -88,7 +88,7 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 		}
 
 		compose.Services["ethconnect_"+member.id] = &Service{
-			Image:     "kaleido-io/ethconnect",
+			Image:     "kaleidoinc/ethconnect",
 			Command:   "rest -U http://127.0.0.1:8080 -I / -r http://ganache_" + member.id + ":8545",
 			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_started"}},
 			Logging:   standardLogOptions,
