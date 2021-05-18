@@ -99,6 +99,14 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 			Volumes: []string{
 				path.Join(dataDir, "ipfs_"+member.id, "staging") + ":/export",
 				path.Join(dataDir, "ipfs_"+member.id, "data") + ":/data/ipfs",
+				path.Join(stackDir, "ipfs_config_"+member.id) + ":/data/ipfs/config",
+				path.Join(stackDir, "swarm.key") + ":/data/ipfs/swarm.key",
+				path.Join(stackDir, "version") + ":/data/ipfs/version",
+				path.Join(stackDir, "datastore_spec") + ":/data/ipfs/datastore_spec",
+			},
+			Environment: map[string]string{
+				"IPFS_SWARM_KEY":    stack.swarmKey,
+				"LIBP2P_FORCE_PNET": "1",
 			},
 			Logging: standardLogOptions,
 		}
