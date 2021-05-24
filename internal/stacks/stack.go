@@ -28,14 +28,13 @@ type Stack struct {
 }
 
 type Member struct {
-	ID                    string          `json:"id,omitempty"`
-	Index                 *int            `json:"index,omitempty"`
-	Address               string          `json:"address,omitempty"`
-	PrivateKey            string          `json:"privateKey,omitempty"`
-	ExposedFireflyPort    int             `json:"exposedFireflyPort,omitempty"`
-	ExposedEthconnectPort int             `json:"exposedEthconnectPort,omitempty"`
-	ExosedUIPort          int             `json:"exposedUiPort ,omitempty"`
-	IPFSIdentity          *IdentityConfig `json:"ipfsIdentity,omitempty"`
+	ID                    string `json:"id,omitempty"`
+	Index                 *int   `json:"index,omitempty"`
+	Address               string `json:"address,omitempty"`
+	PrivateKey            string `json:"privateKey,omitempty"`
+	ExposedFireflyPort    int    `json:"exposedFireflyPort,omitempty"`
+	ExposedEthconnectPort int    `json:"exposedEthconnectPort,omitempty"`
+	ExosedUIPort          int    `json:"exposedUiPort ,omitempty"`
 }
 
 func InitStack(stackName string, memberCount int) {
@@ -94,16 +93,6 @@ func writeConfigs(stack *Stack) {
 		bytes, _ := yaml.Marshal(config)
 		ioutil.WriteFile(path.Join(stackDir, "firefly_"+memberId+".core"), bytes, 0755)
 	}
-
-	ipfsConfigs := NewIpfsConfigs(stack)
-	for memberId, config := range ipfsConfigs {
-		bytes, _ := json.MarshalIndent(config, "", " ")
-		ioutil.WriteFile(path.Join(stackDir, "ipfs_config_"+memberId), bytes, 0755)
-	}
-
-	ioutil.WriteFile(path.Join(stackDir, "version"), []byte("11"), 0755)
-	ioutil.WriteFile(path.Join(stackDir, "swarm.key"), []byte(stack.SwarmKey), 0755)
-
 	bytes := []byte(`{"mounts":[{"mountpoint":"/blocks","path":"blocks","shardFunc":"/repo/flatfs/shard/v1/next-to-last/2","type":"flatfs"},{"mountpoint":"/","path":"datastore","type":"levelds"}],"type":"mount"}`)
 	ioutil.WriteFile(path.Join(stackDir, "datastore_spec"), bytes, 0755)
 
@@ -123,8 +112,6 @@ func createMember(id string, index int) *Member {
 	// Ethereum addresses only use the lower 20 bytes, so toss the rest away
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
-	ipfsPrivateKey, ipfsPeerId := GenerateKeyAndPeerId()
-
 	return &Member{
 		ID:                    id,
 		Index:                 &index,
@@ -133,10 +120,6 @@ func createMember(id string, index int) *Member {
 		ExposedFireflyPort:    5000 + index,
 		ExposedEthconnectPort: 8080 + index,
 		ExosedUIPort:          3000 + index,
-		IPFSIdentity: &IdentityConfig{
-			PrivKey: ipfsPrivateKey,
-			PeerID:  ipfsPeerId,
-		},
 	}
 }
 
