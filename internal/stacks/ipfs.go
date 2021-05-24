@@ -1,6 +1,7 @@
 package stacks
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -59,9 +60,9 @@ type IPFSConfig struct {
 }
 
 func GenerateSwarmKey() string {
-	privKey, _, _ := crypto.GenerateKeyPair(crypto.ECDSA, 2048)
-	privateKeyBytes, _ := privKey.Bytes()
-	hexKey := hex.EncodeToString(privateKeyBytes)
+	key := make([]byte, 32)
+	rand.Read(key)
+	hexKey := hex.EncodeToString(key)
 	return "/key/swarm/psk/1.0.0/\n/base16/\n" + hexKey
 }
 
@@ -76,14 +77,14 @@ func GenerateKeyAndPeerId() (privateKey string, peerId string) {
 
 func NewIpfsConfigs(stack *Stack) map[string]*IPFSConfig {
 	configs := make(map[string]*IPFSConfig)
-	bootstrapAddresses := make([]string, len(stack.members))
-	for i, member := range stack.members {
-		bootstrapAddresses[i] = fmt.Sprintf("/dnsaddr/ipfs_%s/p2p/%s", member.id, member.ipfsIdentity.PeerID)
+	bootstrapAddresses := make([]string, len(stack.Members))
+	for i, member := range stack.Members {
+		bootstrapAddresses[i] = fmt.Sprintf("/dnsaddr/ipfs_%s/p2p/%s", member.ID, member.IPFSIdentity.PeerID)
 	}
 
-	for _, member := range stack.members {
+	for _, member := range stack.Members {
 
-		configs[member.id] = &IPFSConfig{
+		configs[member.ID] = &IPFSConfig{
 			Addresses: &AddressesConfig{
 				API:        "/ip4/0.0.0.0/tcp/5001",
 				Announce:   []string{},
@@ -116,7 +117,7 @@ func NewIpfsConfigs(stack *Stack) map[string]*IPFSConfig {
 								Type:        "levelds",
 							},
 							MountPoint: "/",
-							Prefix:     "develdb.datastore",
+							Prefix:     "leveldb.datastore",
 							Type:       "measure",
 						},
 					},
@@ -126,8 +127,8 @@ func NewIpfsConfigs(stack *Stack) map[string]*IPFSConfig {
 				StorageMax:         "10GB",
 			},
 			Identity: &IdentityConfig{
-				PrivKey: member.ipfsIdentity.PrivKey,
-				PeerID:  member.ipfsIdentity.PeerID,
+				PrivKey: member.IPFSIdentity.PrivKey,
+				PeerID:  member.IPFSIdentity.PeerID,
 			},
 		}
 	}
