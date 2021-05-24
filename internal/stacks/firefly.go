@@ -19,6 +19,10 @@ type HttpEndpointConfig struct {
 	Auth BasicAuth `yaml:"auth,omitempty"`
 }
 
+type UIConfig struct {
+	Path string `yaml:"path,omitempty"`
+}
+
 type NodeConfig struct {
 	Identity string `yaml:"identity,omitempty"`
 }
@@ -69,6 +73,7 @@ type FireflyConfig struct {
 	Log        *LogConfig           `yaml:"log,omitempty"`
 	Debug      *HttpServerConfig    `yaml:"debug,omitempty"`
 	HTTP       *HttpServerConfig    `yaml:"http,omitempty"`
+	UI         *UIConfig            `yaml:"ui,omitempty"`
 	Node       *NodeConfig          `yaml:"node,omitempty"`
 	Blockchain *BlockchainConfig    `yaml:"blockchain,omitempty"`
 	Database   *DatabaseConfig      `yaml:"database,omitempty"`
@@ -78,8 +83,8 @@ type FireflyConfig struct {
 func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 	configs := make(map[string]*FireflyConfig)
 
-	for _, member := range stack.members {
-		configs[member.id] = &FireflyConfig{
+	for _, member := range stack.Members {
+		configs[member.ID] = &FireflyConfig{
 			Log: &LogConfig{
 				Level: "debug",
 			},
@@ -90,24 +95,26 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Port:    5000,
 				Address: "0.0.0.0",
 			},
+			UI: &UIConfig{
+				Path: "./frontend",
+			},
 			Node: &NodeConfig{
-				Identity: member.address,
+				Identity: member.Address,
 			},
 			Blockchain: &BlockchainConfig{
 				Type: "ethereum",
 				Ethereum: &EthereumConfig{
 					Ethconnect: &EthconnectConfig{
-						URL:                 "http://ethconnect_" + member.id + ":8080",
-						Instance:            "/instances/1c197604587f046fd40684a8f21f4609fb811a7b",
-						Topic:               member.id,
-						SkipEventStreamInit: true,
+						URL:      "http://ethconnect_" + member.ID + ":8080",
+						Instance: "/contracts/firefly",
+						Topic:    member.ID,
 					},
 				},
 			},
 			Database: &DatabaseConfig{
 				Type: "postgres",
 				Postgres: &PostgresConfig{
-					URL: "postgres://postgres:f1refly@postgres_" + member.id + ":5432?sslmode=disable",
+					URL: "postgres://postgres:f1refly@postgres_" + member.ID + ":5432?sslmode=disable",
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
@@ -117,10 +124,10 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Type: "ipfs",
 				IPFS: &FireflyIPFSConfig{
 					API: &HttpEndpointConfig{
-						URL: "http://ipfs_" + member.id + ":5001",
+						URL: "http://ipfs_" + member.ID + ":5001",
 					},
 					Gateway: &HttpEndpointConfig{
-						URL: "http://ipfs_" + member.id + ":5001",
+						URL: "http://ipfs_" + member.ID + ":8080",
 					},
 				},
 			},

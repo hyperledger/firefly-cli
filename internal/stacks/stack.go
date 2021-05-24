@@ -8,8 +8,11 @@ import (
 	"log"
 	"os"
 	"path"
+	"time"
 
+	"github.com/briandowns/spinner"
 	secp256k1 "github.com/btcsuite/btcd/btcec"
+	"github.com/kaleido-io/firefly-cli/internal/contracts"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
@@ -19,35 +22,36 @@ var homeDir, _ = os.UserHomeDir()
 var StacksDir = path.Join(homeDir, ".firefly", "stacks")
 
 type Stack struct {
-	name     string
-	members  []*member
-	swarmKey string
+	Name     string    `json:"name,omitempty"`
+	Members  []*Member `json:"members,omitempty"`
+	SwarmKey string    `json:"swarmKey,omitempty"`
 }
 
-type member struct {
-	id             string
-	index          int
-	address        string
-	privateKey     string
-	exposedApiPort int
-	exposedUiPort  int
-	ipfsIdentity   *IdentityConfig
+type Member struct {
+	ID                    string          `json:"id,omitempty"`
+	Index                 *int            `json:"index,omitempty"`
+	Address               string          `json:"address,omitempty"`
+	PrivateKey            string          `json:"privateKey,omitempty"`
+	ExposedFireflyPort    int             `json:"exposedFireflyPort,omitempty"`
+	ExposedEthconnectPort int             `json:"exposedEthconnectPort,omitempty"`
+	ExosedUIPort          int             `json:"exposedUiPort ,omitempty"`
+	IPFSIdentity          *IdentityConfig `json:"ipfsIdentity,omitempty"`
 }
 
 func InitStack(stackName string, memberCount int) {
 	stack := &Stack{
-		name:     stackName,
-		members:  make([]*member, memberCount),
-		swarmKey: GenerateSwarmKey(),
+		Name:     stackName,
+		Members:  make([]*Member, memberCount),
+		SwarmKey: GenerateSwarmKey(),
 	}
 	for i := 0; i < memberCount; i++ {
-		stack.members[i] = createMember(fmt.Sprint(i), i)
+		stack.Members[i] = createMember(fmt.Sprint(i), i)
 	}
 
 	compose := CreateDockerCompose(stack)
 
 	ensureDirectories(stack)
-	writeDockerCompose(stack.name, compose)
+	writeDockerCompose(stack.Name, compose)
 	writeConfigs(stack)
 }
 
@@ -62,12 +66,12 @@ func CheckExists(stackName string) bool {
 
 func ensureDirectories(stack *Stack) {
 
-	dataDir := path.Join(StacksDir, stack.name, "data")
+	dataDir := path.Join(StacksDir, stack.Name, "data")
 
-	for _, member := range stack.members {
-		os.MkdirAll(path.Join(dataDir, "postgres_"+member.id), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.id, "staging"), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.id, "data"), 0755)
+	for _, member := range stack.Members {
+		os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755)
+		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755)
+		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755)
 	}
 	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
@@ -83,7 +87,7 @@ func writeDockerCompose(stackName string, compose *DockerCompose) {
 }
 
 func writeConfigs(stack *Stack) {
-	stackDir := path.Join(StacksDir, stack.name)
+	stackDir := path.Join(StacksDir, stack.Name)
 
 	fireflyConfigs := NewFireflyConfigs(stack)
 	for memberId, config := range fireflyConfigs {
@@ -98,13 +102,16 @@ func writeConfigs(stack *Stack) {
 	}
 
 	ioutil.WriteFile(path.Join(stackDir, "version"), []byte("11"), 0755)
-	ioutil.WriteFile(path.Join(stackDir, "swarm.key"), []byte(stack.swarmKey), 0755)
+	ioutil.WriteFile(path.Join(stackDir, "swarm.key"), []byte(stack.SwarmKey), 0755)
 
 	bytes := []byte(`{"mounts":[{"mountpoint":"/blocks","path":"blocks","shardFunc":"/repo/flatfs/shard/v1/next-to-last/2","type":"flatfs"},{"mountpoint":"/","path":"datastore","type":"levelds"}],"type":"mount"}`)
 	ioutil.WriteFile(path.Join(stackDir, "datastore_spec"), bytes, 0755)
+
+	stackConfigBytes, _ := json.MarshalIndent(stack, "", " ")
+	ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
-func createMember(id string, index int) *member {
+func createMember(id string, index int) *Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -118,16 +125,117 @@ func createMember(id string, index int) *member {
 
 	ipfsPrivateKey, ipfsPeerId := GenerateKeyAndPeerId()
 
-	return &member{
-		id:             id,
-		index:          index,
-		address:        encodedAddress,
-		privateKey:     encodedPrivateKey,
-		exposedApiPort: 5000 + index,
-		exposedUiPort:  3000 + index,
-		ipfsIdentity: &IdentityConfig{
+	return &Member{
+		ID:                    id,
+		Index:                 &index,
+		Address:               encodedAddress,
+		PrivateKey:            encodedPrivateKey,
+		ExposedFireflyPort:    5000 + index,
+		ExposedEthconnectPort: 8080 + index,
+		ExosedUIPort:          3000 + index,
+		IPFSIdentity: &IdentityConfig{
 			PrivKey: ipfsPrivateKey,
 			PeerID:  ipfsPeerId,
 		},
 	}
+}
+
+func StartStack(stackName string) (*Stack, error) {
+	stack, err := readStack(stackName)
+	fmt.Printf("Starting FireFly stack '%s'... ", stackName)
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Start()
+	if !stackHasRunBefore(stackName) {
+		fmt.Println("\nThis will take a few seconds longer since this is the first time you're running this stack...")
+		RunDockerComposeCommand(stackName, "up", "-d")
+
+		containerName := fmt.Sprintf("%s_firefly_core_%s_1", stackName, stack.Members[0].ID)
+		extractContracts(containerName, stackName)
+
+		DeployContracts(stackName)
+	} else {
+		RunDockerComposeCommand(stackName, "up", "-d")
+	}
+	s.Stop()
+	return stack, err
+}
+
+func DeployContracts(stackName string) error {
+	stack, _ := readStack(stackName)
+	contractDeployed := false
+	paymentContract := contracts.ReadCompiledContract(path.Join(StacksDir, stackName, "contracts", "Payment.json"))
+	fireflyContract := contracts.ReadCompiledContract(path.Join(StacksDir, stackName, "contracts", "Firefly.json"))
+	var paymentContractAddress string
+	var fireflyContractAddress string
+	for _, member := range stack.Members {
+		var fireflyAbiId string
+		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+		if !contractDeployed {
+			publishPaymentResponse, err := contracts.PublishABI(ethconnectUrl, paymentContract)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			paymentAbiId := publishPaymentResponse.ID
+			fmt.Println("paymentAbiId " + paymentAbiId)
+			// TODO: version the registered name
+			deployPaymentResponse, _ := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
+			paymentContractAddress = deployPaymentResponse.ContractAddress
+
+			publishFireflyResponse, _ := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			fireflyAbiId := publishFireflyResponse.ID
+			fmt.Println("fireflyAbiId " + fireflyAbiId)
+
+			// TODO: version the registered name
+			deployFireflyResponse, _ := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
+			fireflyContractAddress = deployFireflyResponse.ContractAddress
+
+			contractDeployed = true
+		} else {
+			// TODO: Just load the ABI
+			publishFireflyResponse, _ := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			fireflyAbiId = publishFireflyResponse.ID
+			fmt.Println("fireflyAbiId " + fireflyAbiId)
+		}
+		// Register as "firefly"
+		contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
+	}
+
+	restartFireflyNodes(stack)
+	return nil
+}
+
+func restartFireflyNodes(stack *Stack) {
+	fmt.Printf("Restarting FireFly nodes...")
+	for _, member := range stack.Members {
+		containerName := fmt.Sprintf("%s_firefly_core_%s_1", stack.Name, member.ID)
+		RunDockerCommand(stack.Name, "start", containerName+":/firefly/contracts")
+	}
+	fmt.Printf("Done!\n")
+}
+
+func extractContracts(containerName string, stackName string) {
+	fmt.Printf("Extracting contracts from FireFly...")
+	stackDir := path.Join(StacksDir, stackName)
+	RunDockerCommand(stackName, "cp", containerName+":/firefly/contracts", stackDir)
+	fmt.Printf("Done!\n")
+}
+
+func stackHasRunBefore(stackName string) bool {
+	files, _ := ioutil.ReadDir(path.Join(StacksDir, stackName, "data", "ganache"))
+	if len(files) == 0 {
+		return false
+	} else {
+		return true
+	}
+}
+
+func readStack(stackName string) (*Stack, error) {
+	fmt.Printf("Reading stack config...")
+	d, _ := ioutil.ReadFile(path.Join(StacksDir, stackName, "stack.json"))
+	var stack *Stack
+	err := json.Unmarshal(d, &stack)
+	if err != nil {
+		fmt.Printf("Done!\n")
+	}
+	return stack, err
 }

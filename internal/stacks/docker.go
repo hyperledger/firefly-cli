@@ -2,6 +2,7 @@ package stacks
 
 import (
 	"fmt"
+	"os/exec"
 	"path"
 )
 
@@ -36,7 +37,7 @@ type DockerCompose struct {
 }
 
 func CreateDockerCompose(stack *Stack) *DockerCompose {
-	stackDir := path.Join(StacksDir, stack.name)
+	stackDir := path.Join(StacksDir, stack.Name)
 	dataDir := path.Join(stackDir, "data")
 	compose := &DockerCompose{
 		Version:  "2.1",
@@ -45,8 +46,8 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 
 	ganacheCommand := ""
 
-	for _, member := range stack.members {
-		ganacheCommand += "--account " + member.privateKey + ",100000000000000000000 "
+	for _, member := range stack.Members {
+		ganacheCommand += "--account " + member.PrivateKey + ",100000000000000000000 "
 	}
 	ganacheCommand += "--db /data/ganache"
 
@@ -65,19 +66,19 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 		Logging: standardLogOptions,
 	}
 
-	for _, member := range stack.members {
-		compose.Services["firefly_core_"+member.id] = &Service{
+	for _, member := range stack.Members {
+		compose.Services["firefly_core_"+member.ID] = &Service{
 			Image:     "kaleidoinc/firefly",
-			Ports:     []string{fmt.Sprint(member.exposedApiPort) + ":5000"},
-			Volumes:   []string{path.Join(stackDir, "firefly_"+member.id+".core") + ":/etc/firefly/firefly.core"},
-			DependsOn: map[string]map[string]string{"postgres_" + member.id: {"condition": "service_healthy"}},
+			Ports:     []string{fmt.Sprint(member.ExposedFireflyPort) + ":5000"},
+			Volumes:   []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
+			DependsOn: map[string]map[string]string{"postgres_" + member.ID: {"condition": "service_healthy"}},
 			Logging:   standardLogOptions,
 		}
 
-		compose.Services["postgres_"+member.id] = &Service{
+		compose.Services["postgres_"+member.ID] = &Service{
 			Image:       "postgres",
 			Environment: map[string]string{"POSTGRES_PASSWORD": "f1refly"},
-			Volumes:     []string{path.Join(dataDir, "postgres_"+member.id) + ":/var/lib/postgresql/data"},
+			Volumes:     []string{path.Join(dataDir, "postgres_"+member.ID) + ":/var/lib/postgresql/data"},
 			HealthCheck: &HealthCheck{
 				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
 				Interval: "5s",
@@ -87,25 +88,26 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 			Logging: standardLogOptions,
 		}
 
-		compose.Services["ethconnect_"+member.id] = &Service{
+		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "kaleidoinc/ethconnect",
-			Command:   "rest -U http://127.0.0.1:8080 -I / -r http://ganache_" + member.id + ":8545",
+			Command:   "rest -U http://127.0.0.1:8080 -I / -r http://ganache:8545 -d 3",
 			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_started"}},
+			Ports:     []string{fmt.Sprint(member.ExposedEthconnectPort) + ":8080"},
 			Logging:   standardLogOptions,
 		}
 
-		compose.Services["ipfs_"+member.id] = &Service{
+		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
 			Volumes: []string{
-				path.Join(dataDir, "ipfs_"+member.id, "staging") + ":/export",
-				path.Join(dataDir, "ipfs_"+member.id, "data") + ":/data/ipfs",
-				path.Join(stackDir, "ipfs_config_"+member.id) + ":/data/ipfs/config",
+				path.Join(dataDir, "ipfs_"+member.ID, "staging") + ":/export",
+				path.Join(dataDir, "ipfs_"+member.ID, "data") + ":/data/ipfs",
+				path.Join(stackDir, "ipfs_config_"+member.ID) + ":/data/ipfs/config",
 				path.Join(stackDir, "swarm.key") + ":/data/ipfs/swarm.key",
 				path.Join(stackDir, "version") + ":/data/ipfs/version",
 				path.Join(stackDir, "datastore_spec") + ":/data/ipfs/datastore_spec",
 			},
 			Environment: map[string]string{
-				"IPFS_SWARM_KEY":    stack.swarmKey,
+				// "IPFS_SWARM_KEY":    stack.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
 			Logging: standardLogOptions,
@@ -113,4 +115,18 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 	}
 
 	return compose
+}
+
+func RunDockerComposeCommand(stackName string, command ...string) error {
+	stackDir := path.Join(StacksDir, stackName)
+	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
+	dockerCmd.Dir = stackDir
+	return dockerCmd.Run()
+}
+
+func RunDockerCommand(stackName string, command ...string) error {
+	stackDir := path.Join(StacksDir, stackName)
+	dockerCmd := exec.Command("docker", command...)
+	dockerCmd.Dir = stackDir
+	return dockerCmd.Run()
 }
