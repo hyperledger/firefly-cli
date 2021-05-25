@@ -36,13 +36,10 @@ This command will start a stack and run it in the background.
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
-
 		if !stacks.CheckExists(stackName) {
-
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
-		stack, err := stacks.StartStack(stackName)
-		if err != nil {
+		if stack, err := stacks.StartStack(stackName); err != nil {
 			fmt.Printf("command finished with error: %v", err)
 		} else {
 			fmt.Printf("done!\n\n")

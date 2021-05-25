@@ -17,9 +17,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
@@ -38,35 +36,29 @@ This command will completely delete a stack, including all of its data
 and configuration. The stack must be stopped to run this command.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			log.Fatal("No stack specified!")
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
 		if !stacks.CheckExists(stackName) {
-			log.Fatalf("Stack '%s' does not exist!", stackName)
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		prompt := promptui.Prompt{
-			Label:     fmt.Sprintf("Completely delete FireFly stack '%s'", stackName),
+			Label:     fmt.Sprintf("completely delete FireFly stack '%s'", stackName),
 			IsConfirm: true,
 		}
 
 		fmt.Println("WARNING: This will completely remove your stack and all of its data. Are you sure this is what you want to do?")
-		result, err := prompt.Run()
 
-		if err != nil || strings.ToLower(result) != "y" {
+		if result, err := prompt.Run(); err != nil || strings.ToLower(result) != "y" {
 			fmt.Printf("canceled")
 			return nil
 		} else {
 			fmt.Printf("deleting FireFly stack '%s'... ", stackName)
-
-			dockerCmd := exec.Command("docker", "compose", "rm", "-f")
-			dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-			err := dockerCmd.Run()
-			if err != nil {
+			if err := stacks.RunDockerComposeCommand(stackName, "rm", "-f"); err != nil {
 				return fmt.Errorf("command finished with error: %v", err)
 			}
-
 			os.RemoveAll(path.Join(stacks.StacksDir, stackName))
 			fmt.Println("done")
 			return nil

@@ -17,8 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"os/exec"
-	"path"
 
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
@@ -34,19 +32,12 @@ var stopCmd = &cobra.Command{
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
-
 		if !stacks.CheckExists(stackName) {
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
-
-		dockerCmd := exec.Command("docker", "compose", "stop")
-		dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-		fmt.Printf("stopping FireFly stack '%s'... ", stackName)
-		err := dockerCmd.Run()
-		if err != nil {
-			fmt.Printf("command finished with error: %v", err)
+		if err := stacks.RunDockerComposeCommand(stackName, "stop"); err != nil {
+			return fmt.Errorf("command finished with error: %v", err)
 		} else {
-			// TODO: Print some useful information about URL and ports to use the stack
 			fmt.Println("done!")
 		}
 		return nil
