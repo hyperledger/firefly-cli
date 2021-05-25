@@ -26,24 +26,22 @@ import (
 
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
-	Use:   "stop",
+	Use:   "stop <stack_name>",
 	Short: "Stop a stack",
 	Long:  `Stop a stack`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
 		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		dockerCmd := exec.Command("docker", "compose", "stop")
 		dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-		fmt.Printf("Stopping FireFly stack '%s'... ", stackName)
+		fmt.Printf("stopping FireFly stack '%s'... ", stackName)
 		err := dockerCmd.Run()
 		if err != nil {
 			fmt.Printf("command finished with error: %v", err)
@@ -51,6 +49,7 @@ var stopCmd = &cobra.Command{
 			// TODO: Print some useful information about URL and ports to use the stack
 			fmt.Println("done!")
 		}
+		return nil
 	},
 }
 

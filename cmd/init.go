@@ -28,10 +28,10 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [stack_name]",
 	Short: "Create a new FireFly local dev stack",
 	Long:  `Create a new FireFly local dev stack`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Initializing new FireFly stack...")
 
 		var stackName string
@@ -52,8 +52,7 @@ var initCmd = &cobra.Command{
 		} else {
 			stackName = args[0]
 			if stacks.CheckExists(stackName) {
-				fmt.Printf("Error: stack '%s' already exists!", stackName)
-				return
+				return fmt.Errorf("stack '%s' already exists", stackName)
 			}
 		}
 
@@ -79,6 +78,7 @@ var initCmd = &cobra.Command{
 		stacks.InitStack(stackName, memberCount)
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nfirefly-cli start %s\n\n", stackName, stackName)
+		return nil
 	},
 }
 
