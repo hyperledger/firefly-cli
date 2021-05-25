@@ -13,6 +13,7 @@ import (
 	"github.com/briandowns/spinner"
 	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/kaleido-io/firefly-cli/internal/contracts"
+	"github.com/kaleido-io/firefly-cli/internal/docker"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
@@ -46,21 +47,42 @@ func InitStack(stackName string, memberCount int) {
 	for i := 0; i < memberCount; i++ {
 		stack.Members[i] = createMember(fmt.Sprint(i), i)
 	}
-
 	compose := CreateDockerCompose(stack)
-
 	ensureDirectories(stack)
 	writeDockerCompose(stack.Name, compose)
 	writeConfigs(stack)
 }
 
-func CheckExists(stackName string) bool {
+func CheckExists(stackName string) (bool, error) {
 	_, err := os.Stat(path.Join(StacksDir, stackName))
 	if os.IsNotExist(err) {
-		return false
+		return false, nil
+	} else if err != nil {
+		return false, err
 	} else {
-		return true
+		return true, nil
 	}
+}
+
+func LoadStack(stackName string) (*Stack, error) {
+	exists, err := CheckExists(stackName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("stack '%s' does not exist", stackName)
+	}
+	fmt.Printf("reading stack config...")
+	if d, err := ioutil.ReadFile(path.Join(StacksDir, stackName, "stack.json")); err != nil {
+		return nil, err
+	} else {
+		var stack *Stack
+		if err := json.Unmarshal(d, &stack); err == nil {
+			fmt.Printf("done\n")
+		}
+		return stack, err
+	}
+
 }
 
 func ensureDirectories(stack *Stack) {
@@ -75,7 +97,7 @@ func ensureDirectories(stack *Stack) {
 	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
 
-func writeDockerCompose(stackName string, compose *DockerCompose) {
+func writeDockerCompose(stackName string, compose *DockerComposeConfig) {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
 		log.Fatal(err)
@@ -104,7 +126,7 @@ func createMember(id string, index int) *Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
-	// Remove the "04" prefix byte when computing the address. This byte indicates that it is an uncompressed public key.
+	// Remove the "04" Suffix byte when computing the address. This byte indicates that it is an uncompressed public key.
 	publicKeyBytes := privateKey.PubKey().SerializeUncompressed()[1:]
 	// Take the hash of the public key to generate the address
 	hash := sha3.NewLegacyKeccak256()
@@ -123,102 +145,145 @@ func createMember(id string, index int) *Member {
 	}
 }
 
-func StartStack(stackName string) (*Stack, error) {
-	stack, err := readStack(stackName)
-	fmt.Printf("Starting FireFly stack '%s'... ", stackName)
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Start()
-	if !stackHasRunBefore(stackName) {
-		fmt.Println("\nThis will take a few seconds longer since this is the first time you're running this stack...")
-		RunDockerComposeCommand(stackName, "up", "-d")
-
-		containerName := fmt.Sprintf("%s_firefly_core_%s_1", stackName, stack.Members[0].ID)
-		extractContracts(containerName, stackName)
-
-		DeployContracts(stackName)
+func (s *Stack) StartStack() error {
+	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
+	workingDir := path.Join(StacksDir, s.Name)
+	spinner := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+	spinner.FinalMSG = "done"
+	if hasBeenRun, err := s.stackHasRunBefore(); !hasBeenRun && err == nil {
+		fmt.Println("\nthis will take a few seconds longer since this is the first time you're running this stack...")
+		spinner.Start()
+		if err := s.runFirstTimeSetup(spinner); err != nil {
+			spinner.Stop()
+			return err
+		}
+		spinner.Stop()
+		return nil
+	} else if err == nil {
+		spinner.Start()
+		spinner.Suffix = " starting FireFly dependencies..."
+		err := docker.RunDockerComposeCommand(workingDir, "up", "-d")
+		spinner.Stop()
+		return err
 	} else {
-		RunDockerComposeCommand(stackName, "up", "-d")
+		spinner.Stop()
+		return err
 	}
-	s.Stop()
-	return stack, err
 }
 
-func DeployContracts(stackName string) error {
-	stack, _ := readStack(stackName)
+func (s *Stack) runFirstTimeSetup(spinner *spinner.Spinner) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	spinner.Suffix = " starting FireFly dependencies..."
+	if err := docker.RunDockerComposeCommand(workingDir, "up", "-d"); err != nil {
+		return err
+	}
+	containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, s.Members[0].ID)
+	spinner.Suffix = " extracting smart contracts..."
+	if err := s.extractContracts(containerName); err != nil {
+		return err
+	}
+	spinner.Suffix = " deploying smart contracts..."
+	if err := s.deployContracts(spinner); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 	contractDeployed := false
-	paymentContract := contracts.ReadCompiledContract(path.Join(StacksDir, stackName, "contracts", "Payment.json"))
-	fireflyContract := contracts.ReadCompiledContract(path.Join(StacksDir, stackName, "contracts", "Firefly.json"))
+	paymentContract, err := contracts.ReadCompiledContract(path.Join(StacksDir, s.Name, "contracts", "Payment.json"))
+	if err != nil {
+		return err
+	}
+	fireflyContract, err := contracts.ReadCompiledContract(path.Join(StacksDir, s.Name, "contracts", "Firefly.json"))
+	if err != nil {
+		return err
+	}
 	var paymentContractAddress string
 	var fireflyContractAddress string
-	for _, member := range stack.Members {
+	for _, member := range s.Members {
 		var fireflyAbiId string
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
+			spinner.Suffix = fmt.Sprintf("publishing payment ABI to '%s'...", member.ID)
 			publishPaymentResponse, err := contracts.PublishABI(ethconnectUrl, paymentContract)
 			if err != nil {
-				fmt.Println(err.Error())
+				return err
 			}
 			paymentAbiId := publishPaymentResponse.ID
-			fmt.Println("paymentAbiId " + paymentAbiId)
 			// TODO: version the registered name
-			deployPaymentResponse, _ := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
+			spinner.Suffix = fmt.Sprintf("deploying payment contract to '%s'...", member.ID)
+			deployPaymentResponse, err := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
+			if err != nil {
+				return err
+			}
 			paymentContractAddress = deployPaymentResponse.ContractAddress
 
-			publishFireflyResponse, _ := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			spinner.Suffix = fmt.Sprintf("publishing FireFly ABI to '%s'...", member.ID)
+			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			if err != nil {
+				return err
+			}
 			fireflyAbiId := publishFireflyResponse.ID
-			fmt.Println("fireflyAbiId " + fireflyAbiId)
 
 			// TODO: version the registered name
-			deployFireflyResponse, _ := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
+			spinner.Suffix = fmt.Sprintf("deploying FireFly contract to '%s'...", member.ID)
+			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
+			if err != nil {
+				return err
+			}
 			fireflyContractAddress = deployFireflyResponse.ContractAddress
 
 			contractDeployed = true
 		} else {
 			// TODO: Just load the ABI
-			publishFireflyResponse, _ := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			spinner.Suffix = fmt.Sprintf("publishing FireFly ABI to '%s'...", member.ID)
+			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
+			if err != nil {
+				return err
+			}
 			fireflyAbiId = publishFireflyResponse.ID
-			fmt.Println("fireflyAbiId " + fireflyAbiId)
 		}
 		// Register as "firefly"
-		contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
+		spinner.Suffix = fmt.Sprintf("registering FireFly contract on '%s'...", member.ID)
+		_, err := contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
+		if err != nil {
+			return err
+		}
 	}
 
-	restartFireflyNodes(stack)
+	spinner.Suffix = " restarting FireFly nodes..."
+	s.restartFireflyNodes()
 	return nil
 }
 
-func restartFireflyNodes(stack *Stack) {
-	fmt.Printf("Restarting FireFly nodes...")
-	for _, member := range stack.Members {
-		containerName := fmt.Sprintf("%s_firefly_core_%s_1", stack.Name, member.ID)
-		RunDockerCommand(stack.Name, "start", containerName+":/firefly/contracts")
+func (s *Stack) restartFireflyNodes() error {
+	workingDir := path.Join(StacksDir, s.Name)
+	for _, member := range s.Members {
+		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+		if err := docker.RunDockerCommand(workingDir, "start", containerName); err != nil {
+			return err
+		}
 	}
-	fmt.Printf("Done!\n")
+	return nil
 }
 
-func extractContracts(containerName string, stackName string) {
-	fmt.Printf("Extracting contracts from FireFly...")
-	stackDir := path.Join(StacksDir, stackName)
-	RunDockerCommand(stackName, "cp", containerName+":/firefly/contracts", stackDir)
-	fmt.Printf("Done!\n")
-}
-
-func stackHasRunBefore(stackName string) bool {
-	files, _ := ioutil.ReadDir(path.Join(StacksDir, stackName, "data", "ganache"))
-	if len(files) == 0 {
-		return false
-	} else {
-		return true
+func (s *Stack) extractContracts(containerName string) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	if err := docker.RunDockerCommand(workingDir, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
+		return err
 	}
+	return nil
 }
 
-func readStack(stackName string) (*Stack, error) {
-	fmt.Printf("Reading stack config...")
-	d, _ := ioutil.ReadFile(path.Join(StacksDir, stackName, "stack.json"))
-	var stack *Stack
-	err := json.Unmarshal(d, &stack)
+func (s *Stack) stackHasRunBefore() (bool, error) {
+	files, err := ioutil.ReadDir(path.Join(StacksDir, s.Name, "data", "ganache"))
 	if err != nil {
-		fmt.Printf("Done!\n")
+		return false, err
 	}
-	return stack, err
+	if len(files) == 0 {
+		return false, nil
+	} else {
+		return true, nil
+	}
 }

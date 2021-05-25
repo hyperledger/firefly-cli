@@ -2,7 +2,6 @@ package stacks
 
 import (
 	"fmt"
-	"os/exec"
 	"path"
 )
 
@@ -31,15 +30,15 @@ type Service struct {
 	Logging     *LoggingConfig               `yaml:"logging,omitempty"`
 }
 
-type DockerCompose struct {
+type DockerComposeConfig struct {
 	Version  string              `yaml:"version,omitempty"`
 	Services map[string]*Service `yaml:"services,omitempty"`
 }
 
-func CreateDockerCompose(stack *Stack) *DockerCompose {
+func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 	stackDir := path.Join(StacksDir, stack.Name)
 	dataDir := path.Join(stackDir, "data")
-	compose := &DockerCompose{
+	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),
 	}
@@ -111,18 +110,4 @@ func CreateDockerCompose(stack *Stack) *DockerCompose {
 	}
 
 	return compose
-}
-
-func RunDockerComposeCommand(stackName string, command ...string) error {
-	stackDir := path.Join(StacksDir, stackName)
-	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
-	dockerCmd.Dir = stackDir
-	return dockerCmd.Run()
-}
-
-func RunDockerCommand(stackName string, command ...string) error {
-	stackDir := path.Join(StacksDir, stackName)
-	dockerCmd := exec.Command("docker", command...)
-	dockerCmd.Dir = stackDir
-	return dockerCmd.Run()
 }

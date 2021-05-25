@@ -34,18 +34,30 @@ var logsCmd = &cobra.Command{
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var err error
+		var follow bool
+		var ansi string
+
+		if follow, err = cmd.Flags().GetBool("follow"); err != nil {
+			return err
+		}
+		if ansi, err = cmd.Flags().GetString("ansi"); err != nil {
+			return err
+		}
+
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
+		if exists, err := stacks.CheckExists(stackName); !exists {
 			return fmt.Errorf("stack '%s' does not exist", stackName)
+		} else if err != nil {
+			return err
 		}
 
 		fmt.Println("Getting logs...")
-		follow, _ := cmd.Flags().GetBool("follow")
-		ansi, _ := cmd.Flags().GetString("ansi")
+
 		stdoutChan := make(chan string)
 		go runScript(stackName, follow, ansi, stdoutChan)
 		for s := range stdoutChan {

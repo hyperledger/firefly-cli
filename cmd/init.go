@@ -42,8 +42,10 @@ var initCmd = &cobra.Command{
 				Label:   "Stack name",
 				Default: defaultStackName,
 				Validate: func(stackName string) error {
-					if stacks.CheckExists(stackName) {
-						return errors.New("stack '" + stackName + "' already exists!")
+					if exists, err := stacks.CheckExists(stackName); exists {
+						return fmt.Errorf("stack '%s' already exists", stackName)
+					} else if err != nil {
+						return err
 					}
 					return nil
 				},
@@ -51,8 +53,10 @@ var initCmd = &cobra.Command{
 			stackName, _ = prompt.Run()
 		} else {
 			stackName = args[0]
-			if stacks.CheckExists(stackName) {
+			if exists, err := stacks.CheckExists(stackName); exists {
 				return fmt.Errorf("stack '%s' already exists", stackName)
+			} else if err != nil {
+				return err
 			}
 		}
 

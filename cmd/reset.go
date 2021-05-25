@@ -43,8 +43,10 @@ The stack must be stopped to run this command.
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
+		if exists, err := stacks.CheckExists(stackName); exists {
 			return fmt.Errorf("stack '%s' does not exist", stackName)
+		} else if err != nil {
+			return err
 		}
 
 		prompt := promptui.Prompt{
