@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -40,7 +39,7 @@ The stack must be stopped to run this command.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			log.Fatal("No stack specified!")
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 

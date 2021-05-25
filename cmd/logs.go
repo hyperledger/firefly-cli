@@ -45,8 +45,9 @@ output with the -f flag.`,
 
 		fmt.Println("Getting logs...")
 		follow, _ := cmd.Flags().GetBool("follow")
+		ansi, _ := cmd.Flags().GetString("ansi")
 		stdoutChan := make(chan string)
-		go runScript(stackName, follow, stdoutChan)
+		go runScript(stackName, follow, ansi, stdoutChan)
 		for s := range stdoutChan {
 			fmt.Print(s)
 		}
@@ -68,11 +69,12 @@ func init() {
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	logsCmd.Flags().BoolP("follow", "f", false, "follow log output")
+	logsCmd.Flags().StringP("ansi", "a", "auto", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"auto\")")
 }
 
-func runScript(stackName string, follow bool, stdoutChan chan string) {
+func runScript(stackName string, follow bool, ansi string, stdoutChan chan string) {
 	stackDir := path.Join(stacks.StacksDir, stackName)
-	cmd := exec.Command("docker", "compose", "--ansi", "always", "logs")
+	cmd := exec.Command("docker", "compose", "--ansi", ansi, "logs")
 	if follow {
 		cmd.Args = append(cmd.Args, "-f")
 	}
