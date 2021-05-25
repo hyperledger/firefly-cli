@@ -21,6 +21,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kaleido-io/firefly-cli/internal/docker"
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/nguyer/promptui"
 	"github.com/spf13/cobra"
@@ -40,7 +41,9 @@ and configuration. The stack must be stopped to run this command.`,
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
+		if exists, err := stacks.CheckExists(stackName); err != nil {
+			return err
+		} else if !exists {
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
@@ -56,7 +59,8 @@ and configuration. The stack must be stopped to run this command.`,
 			return nil
 		} else {
 			fmt.Printf("deleting FireFly stack '%s'... ", stackName)
-			if err := stacks.RunDockerComposeCommand(stackName, "rm", "-f"); err != nil {
+			workingDir := path.Join(stacks.StacksDir, stackName)
+			if err := docker.RunDockerComposeCommand(workingDir, "rm", "-f"); err != nil {
 				return fmt.Errorf("command finished with error: %v", err)
 			}
 			os.RemoveAll(path.Join(stacks.StacksDir, stackName))

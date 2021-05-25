@@ -36,13 +36,17 @@ This command will start a stack and run it in the background.
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
-		if !stacks.CheckExists(stackName) {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
+
+		stack, err := stacks.LoadStack(stackName)
+
+		if err != nil {
+			return err
 		}
-		if stack, err := stacks.StartStack(stackName); err != nil {
+
+		if err = stack.StartStack(); err != nil {
 			fmt.Printf("command finished with error: %v", err)
 		} else {
-			fmt.Printf("done!\n\n")
+			fmt.Print("\n\n")
 			for _, member := range stack.Members {
 				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
 			}
