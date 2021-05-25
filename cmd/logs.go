@@ -27,22 +27,20 @@ import (
 
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
-	Use:   "logs",
+	Use:   "logs <stack_name>",
 	Short: "View log output from a stack",
 	Long: `View log output from a stack.
 
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
 		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		fmt.Println("Getting logs...")
@@ -52,6 +50,7 @@ output with the -f flag.`,
 		for s := range stdoutChan {
 			fmt.Print(s)
 		}
+		return nil
 	},
 }
 
@@ -68,7 +67,7 @@ func init() {
 	// is called directly, e.g.:
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	logsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
+	logsCmd.Flags().BoolP("follow", "f", false, "follow log output")
 }
 
 func runScript(stackName string, follow bool, stdoutChan chan string) {

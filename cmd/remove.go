@@ -30,13 +30,13 @@ import (
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
-	Use:   "remove",
+	Use:   "remove <stack_name>",
 	Short: "Completely remove a stack",
 	Long: `Completely remove a stack
 
 This command will completely delete a stack, including all of its data
 and configuration. The stack must be stopped to run this command.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			log.Fatal("No stack specified!")
 		}
@@ -55,21 +55,21 @@ and configuration. The stack must be stopped to run this command.`,
 		result, err := prompt.Run()
 
 		if err != nil || strings.ToLower(result) != "y" {
-			fmt.Printf("Canceled.")
-			return
+			fmt.Printf("canceled")
+			return nil
 		} else {
-			fmt.Printf("Deleting FireFly stack '%s'... ", stackName)
+			fmt.Printf("deleting FireFly stack '%s'... ", stackName)
 
 			dockerCmd := exec.Command("docker", "compose", "rm", "-f")
 			dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
 			err := dockerCmd.Run()
 			if err != nil {
-				fmt.Printf("command finished with error: %v", err)
-				return
+				return fmt.Errorf("command finished with error: %v", err)
 			}
 
 			os.RemoveAll(path.Join(stacks.StacksDir, stackName))
-			fmt.Println("done!")
+			fmt.Println("done")
+			return nil
 		}
 	},
 }

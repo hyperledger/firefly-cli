@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
@@ -24,34 +25,33 @@ import (
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
-	Use:   "start",
+	Use:   "start <stack_name>",
 	Short: "Start a stack",
 	Long: `Start a stack
 
 This command will start a stack and run it in the background.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
 		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
+
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 		stack, err := stacks.StartStack(stackName)
 		if err != nil {
 			fmt.Printf("command finished with error: %v", err)
 		} else {
-			// TODO: Print some useful information about URL and ports to use the stack
 			fmt.Printf("done!\n\n")
 			for _, member := range stack.Members {
 				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
 			}
 			fmt.Printf("\nTo see logs for your stack run:\n\nfirefly-cli logs %s\n\n", stackName)
 		}
+		return nil
 	},
 }
 
