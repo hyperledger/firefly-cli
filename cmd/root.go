@@ -38,7 +38,7 @@ func GetFireflyAsciiArt() string {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "firefly-cli",
+	Use:   "ff",
 	Short: "FireFly CLI is a developer tool used to manage local development stacks",
 	Long: GetFireflyAsciiArt() + `
 FireFly CLI is a developer tool used to manage local development stacks
@@ -47,7 +47,7 @@ This tool automates creation of stacks with many infrastructure components which
 would otherwise be a time consuming manual task. It also wraps docker compose
 commands to manage the lifecycle of stacks.
 
-To get started run: firefly-cli init
+To get started run: ff init
 	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
