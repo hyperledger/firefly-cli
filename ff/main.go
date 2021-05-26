@@ -21,7 +21,4 @@ import (
 
 func main() {
 	cmd.Execute()
-
-	// contract := contracts.ReadCompiledContract("/Users/nguyer/.firefly/stacks/dev/contracts/Payment.json")
-	// contracts.PublishABI("http://localhost:5555", contract)
 }
