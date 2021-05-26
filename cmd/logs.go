@@ -81,7 +81,7 @@ func init() {
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	logsCmd.Flags().BoolP("follow", "f", false, "follow log output")
-	logsCmd.Flags().StringP("ansi", "a", "auto", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"auto\")")
+	logsCmd.Flags().StringP("ansi", "a", "always", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"always\")")
 }
 
 func runScript(stackName string, follow bool, ansi string, stdoutChan chan string) {
