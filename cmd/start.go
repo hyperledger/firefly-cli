@@ -44,7 +44,7 @@ This command will start a stack and run it in the background.
 		}
 
 		if err = stack.StartStack(); err != nil {
-			fmt.Printf("command finished with error: %v", err)
+			return err
 		} else {
 			fmt.Print("\n\n")
 			for _, member := range stack.Members {
