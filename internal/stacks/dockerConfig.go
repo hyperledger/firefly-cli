@@ -89,7 +89,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "kaleidoinc/ethconnect",
-			Command:   "rest -U http://127.0.0.1:8080 -I / -r http://ganache:8545 -d 3",
+			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://ganache:8545 -E ./events -d 3",
 			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_started"}},
 			Ports:     []string{fmt.Sprint(member.ExposedEthconnectPort) + ":8080"},
 			Logging:   standardLogOptions,
