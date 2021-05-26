@@ -205,21 +205,21 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 		var fireflyAbiId string
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
-			spinner.Suffix = fmt.Sprintf("publishing payment ABI to '%s'...", member.ID)
+			spinner.Suffix = fmt.Sprintf(" publishing payment ABI to '%s'...", member.ID)
 			publishPaymentResponse, err := contracts.PublishABI(ethconnectUrl, paymentContract)
 			if err != nil {
 				return err
 			}
 			paymentAbiId := publishPaymentResponse.ID
 			// TODO: version the registered name
-			spinner.Suffix = fmt.Sprintf("deploying payment contract to '%s'...", member.ID)
+			spinner.Suffix = fmt.Sprintf(" deploying payment contract to '%s'...", member.ID)
 			deployPaymentResponse, err := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
 			if err != nil {
 				return err
 			}
 			paymentContractAddress = deployPaymentResponse.ContractAddress
 
-			spinner.Suffix = fmt.Sprintf("publishing FireFly ABI to '%s'...", member.ID)
+			spinner.Suffix = fmt.Sprintf(" publishing FireFly ABI to '%s'...", member.ID)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
@@ -227,7 +227,7 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			fireflyAbiId := publishFireflyResponse.ID
 
 			// TODO: version the registered name
-			spinner.Suffix = fmt.Sprintf("deploying FireFly contract to '%s'...", member.ID)
+			spinner.Suffix = fmt.Sprintf(" deploying FireFly contract to '%s'...", member.ID)
 			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
 			if err != nil {
 				return err
@@ -237,7 +237,7 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			contractDeployed = true
 		} else {
 			// TODO: Just load the ABI
-			spinner.Suffix = fmt.Sprintf("publishing FireFly ABI to '%s'...", member.ID)
+			spinner.Suffix = fmt.Sprintf(" publishing FireFly ABI to '%s'...", member.ID)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
@@ -245,7 +245,7 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			fireflyAbiId = publishFireflyResponse.ID
 		}
 		// Register as "firefly"
-		spinner.Suffix = fmt.Sprintf("registering FireFly contract on '%s'...", member.ID)
+		spinner.Suffix = fmt.Sprintf(" registering FireFly contract on '%s'...", member.ID)
 		_, err := contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
 		if err != nil {
 			return err
