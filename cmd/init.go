@@ -28,7 +28,7 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [stack_name] [member_count]",
 	Short: "Create a new FireFly local dev stack",
 	Long:  `Create a new FireFly local dev stack`,
 	Args:  cobra.MaximumNArgs(2),
@@ -36,10 +36,11 @@ var initCmd = &cobra.Command{
 		fmt.Println("Initializing new FireFly stack...")
 
 		validateName := func(stackName string) error {
-			if stacks.CheckExists(stackName) {
-				return errors.New("stack '" + stackName + "' already exists!")
+			if exists, err := stacks.CheckExists(stackName); exists {
+				return fmt.Errorf("stack '%s' already exists", stackName)
+			} else {
+				return err
 			}
-			return nil
 		}
 
 		var stackName string
@@ -60,11 +61,9 @@ var initCmd = &cobra.Command{
 		}
 
 		validateCount := func(input string) error {
-			i, err := strconv.Atoi(input)
-			if err != nil {
+			if i, err := strconv.Atoi(input); err != nil {
 				return errors.New("invalid number")
-			}
-			if i <= 0 {
+			} else if i <= 0 {
 				return errors.New("number of members must be greater than zero")
 			}
 			return nil
@@ -73,8 +72,7 @@ var initCmd = &cobra.Command{
 		var memberCountInput string
 		if len(args) > 1 {
 			memberCountInput = args[1]
-			err := validateCount(memberCountInput)
-			if err != nil {
+			if err := validateCount(memberCountInput); err != nil {
 				return err
 			}
 		} else {
@@ -89,7 +87,7 @@ var initCmd = &cobra.Command{
 
 		stacks.InitStack(stackName, memberCount)
 
-		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nfirefly-cli start %s\n\n", stackName, stackName)
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n\n", stackName, rootCmd.Use, stackName)
 		return nil
 	},
 }

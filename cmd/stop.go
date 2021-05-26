@@ -17,40 +17,36 @@ package cmd
 
 import (
 	"fmt"
-	"os/exec"
 	"path"
 
+	"github.com/kaleido-io/firefly-cli/internal/docker"
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
-	Use:   "stop",
+	Use:   "stop <stack_name>",
 	Short: "Stop a stack",
 	Long:  `Stop a stack`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
-
-		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
+		if exists, err := stacks.CheckExists(stackName); err != nil {
+			return err
+		} else if !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
-
-		dockerCmd := exec.Command("docker", "compose", "stop")
-		dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-		fmt.Printf("Stopping FireFly stack '%s'... ", stackName)
-		err := dockerCmd.Run()
-		if err != nil {
-			fmt.Printf("command finished with error: %v", err)
+		workingDir := path.Join(stacks.StacksDir, stackName)
+		fmt.Printf("stopping stack '%s'...", stackName)
+		if err := docker.RunDockerComposeCommand(workingDir, "stop"); err != nil {
+			return fmt.Errorf("command finished with error: %v", err)
 		} else {
-			// TODO: Print some useful information about URL and ports to use the stack
-			fmt.Println("done!")
+			fmt.Print("done\n")
 		}
+		return nil
 	},
 }
 

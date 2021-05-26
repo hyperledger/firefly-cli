@@ -25,33 +25,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var follow bool
+var ansi string
+
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
-	Use:   "logs",
+	Use:   "logs <stack_name>",
 	Short: "View log output from a stack",
 	Long: `View log output from a stack.
 
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
+		if exists, err := stacks.CheckExists(stackName); !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
+		} else if err != nil {
+			return err
 		}
 
 		fmt.Println("Getting logs...")
-		follow, _ := cmd.Flags().GetBool("follow")
+
 		stdoutChan := make(chan string)
-		go runScript(stackName, follow, stdoutChan)
+		go runScript(stackName, follow, ansi, stdoutChan)
 		for s := range stdoutChan {
 			fmt.Print(s)
 		}
+		return nil
 	},
 }
 
@@ -68,12 +72,13 @@ func init() {
 	// is called directly, e.g.:
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	logsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
+	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
+	logsCmd.Flags().StringVarP(&ansi, "ansi", "a", "always", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"always\")")
 }
 
-func runScript(stackName string, follow bool, stdoutChan chan string) {
+func runScript(stackName string, follow bool, ansi string, stdoutChan chan string) {
 	stackDir := path.Join(stacks.StacksDir, stackName)
-	cmd := exec.Command("docker", "compose", "--ansi", "always", "logs")
+	cmd := exec.Command("docker", "compose", "--ansi", ansi, "logs")
 	if follow {
 		cmd.Args = append(cmd.Args, "-f")
 	}

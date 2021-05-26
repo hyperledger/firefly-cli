@@ -17,12 +17,11 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
+	"github.com/kaleido-io/firefly-cli/internal/docker"
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/nguyer/promptui"
 	"github.com/spf13/cobra"
@@ -32,7 +31,7 @@ var force bool
 
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
-	Use:   "remove",
+	Use:   "remove <stack_name>",
 	Short: "Completely remove a stack",
 	Long: `Completely remove a stack
 
@@ -40,12 +39,14 @@ This command will completely delete a stack, including all of its data
 and configuration. The stack must be stopped to run this command.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			log.Fatal("No stack specified!")
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
-			log.Fatalf("Stack '%s' does not exist!", stackName)
+		if exists, err := stacks.CheckExists(stackName); err != nil {
+			return err
+		} else if !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		if !force {
@@ -63,9 +64,8 @@ and configuration. The stack must be stopped to run this command.`,
 		}
 
 		fmt.Printf("deleting FireFly stack '%s'... ", stackName)
-		dockerCmd := exec.Command("docker", "compose", "rm", "-f")
-		dockerCmd.Dir = path.Join(stacks.StacksDir, stackName)
-		if err := dockerCmd.Run(); err != nil {
+		workingDir := path.Join(stacks.StacksDir, stackName)
+		if err := docker.RunDockerComposeCommand(workingDir, "rm", "-f"); err != nil {
 			return fmt.Errorf("command finished with error: %v", err)
 		}
 		os.RemoveAll(path.Join(stacks.StacksDir, stackName))

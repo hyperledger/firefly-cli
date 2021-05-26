@@ -16,58 +16,43 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"os/exec"
-	"path"
-	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
-	Use:   "start",
+	Use:   "start <stack_name>",
 	Short: "Start a stack",
 	Long: `Start a stack
 
 This command will start a stack and run it in the background.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			fmt.Println("No stack specified!")
-			return
+			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
-			fmt.Printf("Stack '%s' does not exist!", stackName)
-			return
-		}
+		stack, err := stacks.LoadStack(stackName)
 
-		stackDir := path.Join(stacks.StacksDir, stackName)
-		dockerCmd := exec.Command("docker", "compose", "up", "-d")
-		dockerCmd.Dir = stackDir
-		fmt.Printf("Starting FireFly stack '%s'... ", stackName)
-
-		files, _ := ioutil.ReadDir(path.Join(stackDir, "postgres"))
-		if len(files) == 0 {
-			fmt.Println("\nThis will take a few seconds longer since this is the first time you're running this stack...")
-		}
-
-		s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-		s.Start()
-		err := dockerCmd.Run()
-		s.Stop()
 		if err != nil {
+			return err
+		}
+
+		if err = stack.StartStack(); err != nil {
 			fmt.Printf("command finished with error: %v", err)
 		} else {
-			// TODO: Print some useful information about URL and ports to use the stack
-			fmt.Println("done!")
-			fmt.Printf("To see logs for your stack run:\n\nfirefly-cli logs %s\n\n", stackName)
+			fmt.Print("\n\n")
+			for _, member := range stack.Members {
+				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
+			}
+			fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		}
+		return nil
 	},
 }
 

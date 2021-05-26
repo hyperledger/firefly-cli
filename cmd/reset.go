@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -29,7 +28,7 @@ import (
 
 // resetCmd represents the reset command
 var resetCmd = &cobra.Command{
-	Use:   "reset",
+	Use:   "reset <stack_name>",
 	Short: "Clear all data in a stack",
 	Long: `Clear all data in a stack
 
@@ -38,18 +37,20 @@ This is useful for testing when you want to start with a clean slate
 but don't want to actually recreate the resources in the stack itself.
 The stack must be stopped to run this command.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			log.Fatal("No stack specified!")
+			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if !stacks.CheckExists(stackName) {
-			log.Fatalf("Stack '%s' does not exist!", stackName)
+		if exists, err := stacks.CheckExists(stackName); exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
+		} else if err != nil {
+			return err
 		}
 
 		prompt := promptui.Prompt{
-			Label:     fmt.Sprintf("Reset all data in FireFly stack '%s'", stackName),
+			Label:     fmt.Sprintf("reset all data in FireFly stack '%s'", stackName),
 			IsConfirm: true,
 		}
 
@@ -57,13 +58,13 @@ The stack must be stopped to run this command.
 		result, err := prompt.Run()
 
 		if err != nil || strings.ToLower(result) != "y" {
-			fmt.Printf("Canceled.")
-			return
+			fmt.Printf("canceled")
 		} else {
-			fmt.Printf("Reseting FireFly stack '%s'... ", stackName)
+			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
 			os.RemoveAll(path.Join(stacks.StacksDir, stackName, "data"))
-			fmt.Println("done!")
+			fmt.Println("done")
 		}
+		return nil
 	},
 }
 
