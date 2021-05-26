@@ -60,7 +60,7 @@ The stack must be stopped to run this command.
 		if err != nil || strings.ToLower(result) != "y" {
 			fmt.Printf("canceled")
 		} else {
-			fmt.Printf("reseting FireFly stack '%s'... ", stackName)
+			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
 			os.RemoveAll(path.Join(stacks.StacksDir, stackName, "data"))
 			fmt.Println("done")
 		}

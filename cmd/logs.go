@@ -25,6 +25,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var follow bool
+var ansi string
+
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
 	Use:   "logs <stack_name>",
@@ -34,17 +37,6 @@ var logsCmd = &cobra.Command{
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		var follow bool
-		var ansi string
-
-		if follow, err = cmd.Flags().GetBool("follow"); err != nil {
-			return err
-		}
-		if ansi, err = cmd.Flags().GetString("ansi"); err != nil {
-			return err
-		}
-
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
@@ -80,8 +72,8 @@ func init() {
 	// is called directly, e.g.:
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	logsCmd.Flags().BoolP("follow", "f", false, "follow log output")
-	logsCmd.Flags().StringP("ansi", "a", "always", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"always\")")
+	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
+	logsCmd.Flags().StringVarP(&ansi, "ansi", "a", "always", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"always\")")
 }
 
 func runScript(stackName string, follow bool, ansi string, stdoutChan chan string) {
