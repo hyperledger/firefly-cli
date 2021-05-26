@@ -31,33 +31,35 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Create a new FireFly local dev stack",
 	Long:  `Create a new FireFly local dev stack`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.MaximumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Initializing new FireFly stack...")
 
-		var stackName string
-		defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
-
-		if len(args) == 0 {
-			prompt := promptui.Prompt{
-				Label:   "Stack name",
-				Default: defaultStackName,
-				Validate: func(stackName string) error {
-					if stacks.CheckExists(stackName) {
-						return errors.New("stack '" + stackName + "' already exists!")
-					}
-					return nil
-				},
-			}
-			stackName, _ = prompt.Run()
-		} else {
-			stackName = args[0]
+		validateName := func(stackName string) error {
 			if stacks.CheckExists(stackName) {
-				fmt.Printf("Error: stack '%s' already exists!", stackName)
-				return
+				return errors.New("stack '" + stackName + "' already exists!")
 			}
+			return nil
 		}
 
-		validate := func(input string) error {
+		var stackName string
+		if len(args) > 0 {
+			stackName = args[0]
+			err := validateName(stackName)
+			if err != nil {
+				return err
+			}
+		} else {
+			defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
+			prompt := promptui.Prompt{
+				Label:    "Stack name",
+				Default:  defaultStackName,
+				Validate: validateName,
+			}
+			stackName, _ = prompt.Run()
+		}
+
+		validateCount := func(input string) error {
 			i, err := strconv.Atoi(input)
 			if err != nil {
 				return errors.New("invalid number")
@@ -68,17 +70,27 @@ var initCmd = &cobra.Command{
 			return nil
 		}
 
-		prompt := promptui.Prompt{
-			Label:    "Number of members",
-			Default:  "2",
-			Validate: validate,
+		var memberCountInput string
+		if len(args) > 1 {
+			memberCountInput = args[1]
+			err := validateCount(memberCountInput)
+			if err != nil {
+				return err
+			}
+		} else {
+			prompt := promptui.Prompt{
+				Label:    "Number of members",
+				Default:  "2",
+				Validate: validateCount,
+			}
+			memberCountInput, _ = prompt.Run()
 		}
-		memberCountInput, _ := prompt.Run()
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
 		stacks.InitStack(stackName, memberCount)
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\nfirefly-cli start %s\n\n", stackName, stackName)
+		return nil
 	},
 }
 
