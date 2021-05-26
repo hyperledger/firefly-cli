@@ -27,6 +27,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var force bool
+
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove <stack_name>",
@@ -47,29 +49,32 @@ and configuration. The stack must be stopped to run this command.`,
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		prompt := promptui.Prompt{
-			Label:     fmt.Sprintf("completely delete FireFly stack '%s'", stackName),
-			IsConfirm: true,
-		}
-
-		fmt.Println("WARNING: This will completely remove your stack and all of its data. Are you sure this is what you want to do?")
-
-		if result, err := prompt.Run(); err != nil || strings.ToLower(result) != "y" {
-			fmt.Printf("canceled")
-			return nil
-		} else {
-			fmt.Printf("deleting FireFly stack '%s'... ", stackName)
-			workingDir := path.Join(stacks.StacksDir, stackName)
-			if err := docker.RunDockerComposeCommand(workingDir, "rm", "-f"); err != nil {
-				return fmt.Errorf("command finished with error: %v", err)
+		if !force {
+			prompt := promptui.Prompt{
+				Label:     fmt.Sprintf("completely delete FireFly stack '%s'", stackName),
+				IsConfirm: true,
 			}
-			os.RemoveAll(path.Join(stacks.StacksDir, stackName))
-			fmt.Println("done")
-			return nil
+
+			fmt.Println("WARNING: This will completely remove your stack and all of its data. Are you sure this is what you want to do?")
+
+			if result, err := prompt.Run(); err != nil || strings.ToLower(result) != "y" {
+				fmt.Printf("canceled")
+				return nil
+			}
 		}
+
+		fmt.Printf("deleting FireFly stack '%s'... ", stackName)
+		workingDir := path.Join(stacks.StacksDir, stackName)
+		if err := docker.RunDockerComposeCommand(workingDir, "rm", "-f"); err != nil {
+			return fmt.Errorf("command finished with error: %v", err)
+		}
+		os.RemoveAll(path.Join(stacks.StacksDir, stackName))
+		fmt.Println("done")
+		return nil
 	},
 }
 
 func init() {
+	removeCmd.Flags().BoolVarP(&force, "force", "f", false, "Remove the stack without prompting for confirmation")
 	rootCmd.AddCommand(removeCmd)
 }

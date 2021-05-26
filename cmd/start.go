@@ -50,7 +50,7 @@ This command will start a stack and run it in the background.
 			for _, member := range stack.Members {
 				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
 			}
-			fmt.Printf("\nTo see logs for your stack run:\n\nfirefly-cli logs %s\n\n", stackName)
+			fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		}
 		return nil
 	},
