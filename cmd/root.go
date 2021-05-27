@@ -16,6 +16,9 @@ limitations under the License.
 package cmd
 
 import (
+	"os"
+
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -23,6 +26,9 @@ import (
 )
 
 var cfgFile string
+var ansi string
+var fancyFeatures bool
+var verbose bool
 
 func GetFireflyAsciiArt() string {
 	s := ""
@@ -49,6 +55,15 @@ commands to manage the lifecycle of stacks.
 
 To get started run: ff init
 	`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if ansi == "always" {
+			fancyFeatures = true
+		} else if ansi == "auto" && (isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())) {
+			fancyFeatures = true
+		} else {
+			fancyFeatures = false
+		}
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -57,6 +72,8 @@ To get started run: ff init
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	rootCmd.PersistentFlags().StringVarP(&ansi, "ansi", "", "auto", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"auto\")")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose log output")
 	cobra.CheckErr(rootCmd.Execute())
 }
 
