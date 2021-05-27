@@ -1,17 +1,57 @@
 package docker
 
 import (
+	"bufio"
+	"fmt"
+	"io"
 	"os/exec"
 )
 
-func RunDockerComposeCommand(workingDir string, command ...string) error {
-	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
-	dockerCmd.Dir = workingDir
-	return dockerCmd.Run()
-}
-
-func RunDockerCommand(workingDir string, command ...string) error {
+func RunDockerCommand(workingDir string, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	return dockerCmd.Run()
+	stdoutChan := make(chan string)
+	errChan := make(chan error)
+	go runScript(dockerCmd, stdoutChan, errChan)
+
+	for {
+		select {
+		case s := <-stdoutChan:
+			if pipeStdout {
+				fmt.Print(s)
+			}
+		case err := <-errChan:
+			return err
+		}
+	}
+}
+
+func RunDockerComposeCommand(workingDir string, pipeStdout bool, command ...string) error {
+	return RunDockerCommand(workingDir, pipeStdout, append([]string{"compose"}, command...)...)
+}
+
+func runScript(cmd *exec.Cmd, stdoutChan chan string, errChan chan error) {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		errChan <- err
+		close(stdoutChan)
+		return
+	}
+	cmd.Start()
+	buf := bufio.NewReader(stdout)
+	for {
+		line, err := buf.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				close(stdoutChan)
+				close(errChan)
+				return
+			}
+			errChan <- err
+			close(stdoutChan)
+			break
+		} else {
+			stdoutChan <- line
+		}
+	}
 }

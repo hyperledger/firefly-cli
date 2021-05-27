@@ -35,7 +35,7 @@ type Member struct {
 	PrivateKey            string `json:"privateKey,omitempty"`
 	ExposedFireflyPort    int    `json:"exposedFireflyPort,omitempty"`
 	ExposedEthconnectPort int    `json:"exposedEthconnectPort,omitempty"`
-	ExosedUIPort          int    `json:"exposedUiPort ,omitempty"`
+	ExposedUIPort         int    `json:"exposedUiPort ,omitempty"`
 }
 
 func InitStack(stackName string, memberCount int) {
@@ -141,55 +141,78 @@ func createMember(id string, index int) *Member {
 		PrivateKey:            encodedPrivateKey,
 		ExposedFireflyPort:    5000 + index,
 		ExposedEthconnectPort: 8080 + index,
-		ExosedUIPort:          3000 + index,
+		ExposedUIPort:         3000 + index,
 	}
 }
 
-func (s *Stack) StartStack() error {
+func updateStatus(message string, spin *spinner.Spinner) {
+	if spin != nil {
+		spin.Suffix = fmt.Sprintf(" %s...", message)
+	} else {
+		fmt.Println(message)
+	}
+}
+
+func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
 	workingDir := path.Join(StacksDir, s.Name)
-	spinner := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-	spinner.FinalMSG = "done"
+	var spin *spinner.Spinner
+	if fancyFeatures {
+		spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+		spin.FinalMSG = "done"
+	}
 	if hasBeenRun, err := s.stackHasRunBefore(); !hasBeenRun && err == nil {
 		fmt.Println("\nthis will take a few seconds longer since this is the first time you're running this stack...")
-		spinner.Start()
-		if err := s.runFirstTimeSetup(spinner); err != nil {
-			spinner.Stop()
+		if spin != nil {
+			spin.Start()
+		}
+		if err := s.runFirstTimeSetup(spin, verbose); err != nil {
+			if spin != nil {
+				spin.Stop()
+			}
 			return err
 		}
-		spinner.Stop()
+		if spin != nil {
+			spin.Stop()
+		}
 		return nil
 	} else if err == nil {
-		spinner.Start()
-		spinner.Suffix = " starting FireFly dependencies..."
-		err := docker.RunDockerComposeCommand(workingDir, "up", "-d")
-		spinner.Stop()
+		if spin != nil {
+			spin.Start()
+		}
+		updateStatus("starting FireFly dependencies", spin)
+		err := docker.RunDockerComposeCommand(workingDir, verbose, "up", "-d")
+		if spin != nil {
+			spin.Stop()
+		}
 		return err
 	} else {
-		spinner.Stop()
+		if spin != nil {
+			spin.Stop()
+		}
 		return err
 	}
 }
 
-func (s *Stack) runFirstTimeSetup(spinner *spinner.Spinner) error {
+func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	spinner.Suffix = " starting FireFly dependencies..."
-	if err := docker.RunDockerComposeCommand(workingDir, "up", "-d"); err != nil {
+	updateStatus("starting FireFly dependencies", spin)
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, "up", "-d"); err != nil {
 		return err
 	}
 	containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, s.Members[0].ID)
-	spinner.Suffix = " extracting smart contracts..."
-	if err := s.extractContracts(containerName); err != nil {
+	updateStatus("extracting smart contracts...", spin)
+	if err := s.extractContracts(containerName, verbose); err != nil {
 		return err
 	}
-	spinner.Suffix = " deploying smart contracts..."
-	if err := s.deployContracts(spinner); err != nil {
+	updateStatus("deploying smart contracts", spin)
+	if err := s.deployContracts(spin, verbose); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
+func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	contractDeployed := false
 	paymentContract, err := contracts.ReadCompiledContract(path.Join(StacksDir, s.Name, "contracts", "Payment.json"))
 	if err != nil {
@@ -205,21 +228,21 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 		var fireflyAbiId string
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
-			spinner.Suffix = fmt.Sprintf(" publishing payment ABI to '%s'...", member.ID)
+			updateStatus(fmt.Sprintf("publishing payment ABI to '%s'", member.ID), spin)
 			publishPaymentResponse, err := contracts.PublishABI(ethconnectUrl, paymentContract)
 			if err != nil {
 				return err
 			}
 			paymentAbiId := publishPaymentResponse.ID
 			// TODO: version the registered name
-			spinner.Suffix = fmt.Sprintf(" deploying payment contract to '%s'...", member.ID)
+			updateStatus(fmt.Sprintf("deploying payment contract to '%s'", member.ID), spin)
 			deployPaymentResponse, err := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
 			if err != nil {
 				return err
 			}
 			paymentContractAddress = deployPaymentResponse.ContractAddress
 
-			spinner.Suffix = fmt.Sprintf(" publishing FireFly ABI to '%s'...", member.ID)
+			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
@@ -227,7 +250,7 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			fireflyAbiId := publishFireflyResponse.ID
 
 			// TODO: version the registered name
-			spinner.Suffix = fmt.Sprintf(" deploying FireFly contract to '%s'...", member.ID)
+			updateStatus(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID), spin)
 			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
 			if err != nil {
 				return err
@@ -237,7 +260,7 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			contractDeployed = true
 		} else {
 			// TODO: Just load the ABI
-			spinner.Suffix = fmt.Sprintf(" publishing FireFly ABI to '%s'...", member.ID)
+			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
@@ -245,32 +268,32 @@ func (s *Stack) deployContracts(spinner *spinner.Spinner) error {
 			fireflyAbiId = publishFireflyResponse.ID
 		}
 		// Register as "firefly"
-		spinner.Suffix = fmt.Sprintf(" registering FireFly contract on '%s'...", member.ID)
+		updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
 		_, err := contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
 		if err != nil {
 			return err
 		}
 	}
 
-	spinner.Suffix = " restarting FireFly nodes..."
-	s.restartFireflyNodes()
+	updateStatus("restarting FireFly nodes", spin)
+	s.restartFireflyNodes(verbose)
 	return nil
 }
 
-func (s *Stack) restartFireflyNodes() error {
+func (s *Stack) restartFireflyNodes(verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
 	for _, member := range s.Members {
 		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
-		if err := docker.RunDockerCommand(workingDir, "start", containerName); err != nil {
+		if err := docker.RunDockerCommand(workingDir, verbose, "start", containerName); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Stack) extractContracts(containerName string) error {
+func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	if err := docker.RunDockerCommand(workingDir, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
+	if err := docker.RunDockerCommand(workingDir, verbose, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
 		return err
 	}
 	return nil
