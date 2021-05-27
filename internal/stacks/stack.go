@@ -72,7 +72,7 @@ func LoadStack(stackName string) (*Stack, error) {
 	if !exists {
 		return nil, fmt.Errorf("stack '%s' does not exist", stackName)
 	}
-	fmt.Printf("reading stack config...")
+	fmt.Printf("reading stack config... ")
 	if d, err := ioutil.ReadFile(path.Join(StacksDir, stackName, "stack.json")); err != nil {
 		return nil, err
 	} else {
@@ -112,8 +112,7 @@ func writeConfigs(stack *Stack) {
 
 	fireflyConfigs := NewFireflyConfigs(stack)
 	for memberId, config := range fireflyConfigs {
-		bytes, _ := yaml.Marshal(config)
-		ioutil.WriteFile(path.Join(stackDir, "firefly_"+memberId+".core"), bytes, 0755)
+		WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core"))
 	}
 	bytes := []byte(`{"mounts":[{"mountpoint":"/blocks","path":"blocks","shardFunc":"/repo/flatfs/shard/v1/next-to-last/2","type":"flatfs"},{"mountpoint":"/","path":"datastore","type":"levelds"}],"type":"mount"}`)
 	ioutil.WriteFile(path.Join(stackDir, "datastore_spec"), bytes, 0755)
@@ -276,19 +275,55 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	}
 
 	updateStatus("restarting FireFly nodes", spin)
-	s.restartFireflyNodes(verbose)
+	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (s *Stack) restartFireflyNodes(verbose bool) error {
-	workingDir := path.Join(StacksDir, s.Name)
+func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Members {
 		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
-		if err := docker.RunDockerCommand(workingDir, verbose, "start", containerName); err != nil {
+		if err := s.stopFirelyNode(containerName, verbose); err != nil {
+			return err
+		}
+		configFilePath := path.Join(StacksDir, s.Name, "firefly_"+member.ID+".core")
+		config, err := ReadFireflyConfig(configFilePath)
+		if err != nil {
+			return err
+		}
+		config.Blockchain.Ethereum.Ethconnect.SkipEventStreamInit = false
+		WriteFireflyConfig(config, configFilePath)
+		if err := s.startFireflyNode(containerName, verbose); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *Stack) restartFireflyNodes(verbose bool) error {
+	for _, member := range s.Members {
+		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+		if err := s.restartFireflyNode(containerName, verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Stack) stopFirelyNode(containerName string, verbose bool) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	return docker.RunDockerCommand(workingDir, verbose, "stop", containerName)
+}
+
+func (s *Stack) startFireflyNode(containerName string, verbose bool) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	return docker.RunDockerCommand(workingDir, verbose, "start", containerName)
+}
+
+func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	return docker.RunDockerCommand(workingDir, verbose, "restart", containerName)
 }
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {

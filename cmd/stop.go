@@ -40,7 +40,7 @@ var stopCmd = &cobra.Command{
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 		workingDir := path.Join(stacks.StacksDir, stackName)
-		fmt.Printf("stopping stack '%s'...", stackName)
+		fmt.Printf("stopping stack '%s'... ", stackName)
 		if err := docker.RunDockerComposeCommand(workingDir, verbose, "stop"); err != nil {
 			return fmt.Errorf("command finished with error: %v", err)
 		} else {
