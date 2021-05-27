@@ -43,7 +43,7 @@ This command will start a stack and run it in the background.
 			return err
 		}
 
-		if err = stack.StartStack(); err != nil {
+		if err = stack.StartStack(fancyFeatures, verbose); err != nil {
 			return err
 		} else {
 			fmt.Print("\n\n")

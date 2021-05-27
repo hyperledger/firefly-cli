@@ -16,17 +16,15 @@ limitations under the License.
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os/exec"
 	"path"
 
+	"github.com/kaleido-io/firefly-cli/internal/docker"
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
 var follow bool
-var ansi string
 
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
@@ -50,11 +48,12 @@ output with the -f flag.`,
 
 		fmt.Println("Getting logs...")
 
-		stdoutChan := make(chan string)
-		go runScript(stackName, follow, ansi, stdoutChan)
-		for s := range stdoutChan {
-			fmt.Print(s)
+		stackDir := path.Join(stacks.StacksDir, stackName)
+		commandLine := []string{"logs"}
+		if follow {
+			commandLine = append(commandLine, "-f")
 		}
+		docker.RunDockerComposeCommand(stackDir, true, commandLine...)
 		return nil
 	},
 }
@@ -73,28 +72,4 @@ func init() {
 	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
-	logsCmd.Flags().StringVarP(&ansi, "ansi", "a", "always", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"always\")")
-}
-
-func runScript(stackName string, follow bool, ansi string, stdoutChan chan string) {
-	stackDir := path.Join(stacks.StacksDir, stackName)
-	cmd := exec.Command("docker", "compose", "--ansi", ansi, "logs")
-	if follow {
-		cmd.Args = append(cmd.Args, "-f")
-	}
-	cmd.Dir = stackDir
-	// stdin := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
-	buf := bufio.NewReader(stdout)
-	for {
-		line, err := buf.ReadString('\n')
-		if err != nil {
-			close(stdoutChan)
-			break
-		} else {
-			stdoutChan <- line
-		}
-
-	}
 }
