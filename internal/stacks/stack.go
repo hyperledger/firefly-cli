@@ -200,7 +200,7 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 		return err
 	}
 	containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, s.Members[0].ID)
-	updateStatus("extracting smart contracts...", spin)
+	updateStatus("extracting smart contracts", spin)
 	if err := s.extractContracts(containerName, verbose); err != nil {
 		return err
 	}
@@ -328,7 +328,8 @@ func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	if err := docker.RunDockerCommand(workingDir, verbose, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
+	destinationDir := path.Join(workingDir, "contracts")
+	if err := docker.RunDockerCommand(workingDir, verbose, "cp", containerName+":/firefly/contracts", destinationDir); err != nil {
 		return err
 	}
 	return nil
