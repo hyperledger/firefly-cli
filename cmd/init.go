@@ -33,7 +33,7 @@ var initCmd = &cobra.Command{
 	Long:  `Create a new FireFly local dev stack`,
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("Initializing new FireFly stack...")
+		fmt.Println("initializing new FireFly stack...")
 
 		validateName := func(stackName string) error {
 			if exists, err := stacks.CheckExists(stackName); exists {
@@ -53,7 +53,7 @@ var initCmd = &cobra.Command{
 		} else {
 			defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
 			prompt := promptui.Prompt{
-				Label:    "Stack name",
+				Label:    "stack name",
 				Default:  defaultStackName,
 				Validate: validateName,
 			}
@@ -77,7 +77,7 @@ var initCmd = &cobra.Command{
 			}
 		} else {
 			prompt := promptui.Prompt{
-				Label:    "Number of members",
+				Label:    "number of members",
 				Default:  "2",
 				Validate: validateCount,
 			}

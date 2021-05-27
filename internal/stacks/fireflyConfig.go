@@ -1,5 +1,11 @@
 package stacks
 
+import (
+	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
+)
+
 type LogConfig struct {
 	Level string `yaml:"level,omitempty"`
 }
@@ -105,9 +111,10 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Type: "ethereum",
 				Ethereum: &EthereumConfig{
 					Ethconnect: &EthconnectConfig{
-						URL:      "http://ethconnect_" + member.ID + ":8080",
-						Instance: "/contracts/firefly",
-						Topic:    member.ID,
+						URL:                 "http://ethconnect_" + member.ID + ":8080",
+						Instance:            "/contracts/firefly",
+						Topic:               member.ID,
+						SkipEventStreamInit: true,
 					},
 				},
 			},
@@ -134,4 +141,23 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 		}
 	}
 	return configs
+}
+
+func ReadFireflyConfig(filePath string) (*FireflyConfig, error) {
+	if bytes, err := ioutil.ReadFile(filePath); err != nil {
+		return nil, err
+	} else {
+		var config *FireflyConfig
+		err := yaml.Unmarshal(bytes, &config)
+		return config, err
+	}
+}
+
+func WriteFireflyConfig(config *FireflyConfig, filePath string) error {
+	if bytes, err := yaml.Marshal(config); err != nil {
+		return err
+	} else {
+		ioutil.WriteFile(filePath, bytes, 0755)
+		return nil
+	}
 }
