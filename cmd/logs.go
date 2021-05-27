@@ -46,7 +46,7 @@ output with the -f flag.`,
 			return err
 		}
 
-		fmt.Println("Getting logs...")
+		fmt.Println("getting logs... ")
 
 		stackDir := path.Join(stacks.StacksDir, stackName)
 		commandLine := []string{"logs"}
