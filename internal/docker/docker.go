@@ -10,13 +10,23 @@ import (
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
+	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+}
+
+func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
+	dockerCmd := exec.Command("docker-compose", command...)
+	dockerCmd.Dir = workingDir
+	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+}
+
+func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) error {
 	if showCommand {
-		fmt.Println(dockerCmd.String())
+		fmt.Println(cmd.String())
 	}
 	stdoutChan := make(chan string)
 	stderrChan := make(chan string)
 	errChan := make(chan error)
-	go runCommand(dockerCmd, stdoutChan, stderrChan, errChan)
+	go pipeCommand(cmd, stdoutChan, stderrChan, errChan)
 
 	for {
 		select {
@@ -40,11 +50,7 @@ func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, comm
 	}
 }
 
-func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
-	return RunDockerCommand(workingDir, showCommand, pipeStdout, append([]string{"compose"}, command...)...)
-}
-
-func runCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, errChan chan error) {
+func pipeCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, errChan chan error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		errChan <- err
