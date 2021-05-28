@@ -53,7 +53,7 @@ output with the -f flag.`,
 		if follow {
 			commandLine = append(commandLine, "-f")
 		}
-		docker.RunDockerComposeCommand(stackDir, true, commandLine...)
+		docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
 		return nil
 	},
 }
