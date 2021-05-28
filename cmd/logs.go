@@ -49,11 +49,15 @@ output with the -f flag.`,
 		fmt.Println("getting logs... ")
 
 		stackDir := path.Join(stacks.StacksDir, stackName)
-		commandLine := []string{"logs"}
+		commandLine := []string{}
+		if fancyFeatures {
+			commandLine = append(commandLine, "--ansi", "always")
+		}
+		commandLine = append(commandLine, "logs")
 		if follow {
 			commandLine = append(commandLine, "-f")
 		}
-		docker.RunDockerComposeCommand(stackDir, true, commandLine...)
+		docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
 		return nil
 	},
 }
