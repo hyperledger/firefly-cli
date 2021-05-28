@@ -65,7 +65,7 @@ and configuration. The stack must be stopped to run this command.`,
 
 		fmt.Printf("deleting FireFly stack '%s'... ", stackName)
 		workingDir := path.Join(stacks.StacksDir, stackName)
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, "rm", "-f"); err != nil {
+		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "rm", "-f"); err != nil {
 			return fmt.Errorf("command finished with error: %v", err)
 		}
 		os.RemoveAll(path.Join(stacks.StacksDir, stackName))

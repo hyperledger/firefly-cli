@@ -180,7 +180,7 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 			spin.Start()
 		}
 		updateStatus("starting FireFly dependencies", spin)
-		err := docker.RunDockerComposeCommand(workingDir, verbose, "up", "-d")
+		err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d")
 		if spin != nil {
 			spin.Stop()
 		}
@@ -196,7 +196,7 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
 	updateStatus("starting FireFly dependencies", spin)
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, "up", "-d"); err != nil {
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
 	containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, s.Members[0].ID)
@@ -313,22 +313,22 @@ func (s *Stack) restartFireflyNodes(verbose bool) error {
 
 func (s *Stack) stopFirelyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	return docker.RunDockerCommand(workingDir, verbose, "stop", containerName)
+	return docker.RunDockerCommand(workingDir, verbose, verbose, "stop", containerName)
 }
 
 func (s *Stack) startFireflyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	return docker.RunDockerCommand(workingDir, verbose, "start", containerName)
+	return docker.RunDockerCommand(workingDir, verbose, verbose, "start", containerName)
 }
 
 func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	return docker.RunDockerCommand(workingDir, verbose, "restart", containerName)
+	return docker.RunDockerCommand(workingDir, verbose, verbose, "restart", containerName)
 }
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-	if err := docker.RunDockerCommand(workingDir, verbose, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
+	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
 		return err
 	}
 	return nil

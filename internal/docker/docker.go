@@ -7,7 +7,10 @@ import (
 	"os/exec"
 )
 
-func RunDockerCommand(workingDir string, pipeStdout bool, command ...string) error {
+func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
+	if showCommand {
+		fmt.Println(append([]string{"docker"}, command...))
+	}
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
 	stdoutChan := make(chan string)
@@ -26,8 +29,8 @@ func RunDockerCommand(workingDir string, pipeStdout bool, command ...string) err
 	}
 }
 
-func RunDockerComposeCommand(workingDir string, pipeStdout bool, command ...string) error {
-	return RunDockerCommand(workingDir, pipeStdout, append([]string{"compose"}, command...)...)
+func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
+	return RunDockerCommand(workingDir, showCommand, pipeStdout, append([]string{"compose"}, command...)...)
 }
 
 func runScript(cmd *exec.Cmd, stdoutChan chan string, errChan chan error) {
