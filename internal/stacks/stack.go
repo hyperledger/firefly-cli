@@ -328,12 +328,8 @@ func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
-<<<<<<< HEAD
-	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":/firefly/contracts", workingDir); err != nil {
-=======
 	destinationDir := path.Join(workingDir, "contracts")
 	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":/firefly/contracts", destinationDir); err != nil {
->>>>>>> 98d4b833b2b5a3595bb5561aacbbb4c789f541bf
 		return err
 	}
 	return nil
