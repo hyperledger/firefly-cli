@@ -17,8 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"strings"
 
 	"github.com/kaleido-io/firefly-cli/internal/stacks"
@@ -43,41 +41,40 @@ The stack must be stopped to run this command.
 		}
 		stackName := args[0]
 
-		if exists, err := stacks.CheckExists(stackName); exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
-		} else if err != nil {
+		if exists, err := stacks.CheckExists(stackName); err != nil {
 			return err
+		} else if !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		prompt := promptui.Prompt{
-			Label:     fmt.Sprintf("reset all data in FireFly stack '%s'", stackName),
-			IsConfirm: true,
+		if !force {
+			prompt := promptui.Prompt{
+				Label:     fmt.Sprintf("reset all data in FireFly stack '%s'", stackName),
+				IsConfirm: true,
+			}
+
+			fmt.Println("WARNING: This will completely remove your all transactions and data from your FireFly stack. Are you sure you want to do that?")
+			result, err := prompt.Run()
+
+			if err != nil || strings.ToLower(result) != "y" {
+				fmt.Printf("canceled")
+				return nil
+			}
 		}
 
-		fmt.Println("WARNING: This will completely remove your all transactions and data from your FireFly stack. Are you sure you want to do that?")
-		result, err := prompt.Run()
-
-		if err != nil || strings.ToLower(result) != "y" {
-			fmt.Printf("canceled")
+		if stack, err := stacks.LoadStack(stackName); err != nil {
+			return err
 		} else {
 			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
-			os.RemoveAll(path.Join(stacks.StacksDir, stackName, "data"))
+			stack.ResetStack(verbose)
 			fmt.Println("done")
 		}
+
 		return nil
 	},
 }
 
 func init() {
+	resetCmd.Flags().BoolVarP(&force, "force", "f", false, "Reset the stack without prompting for confirmation")
 	rootCmd.AddCommand(resetCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// resetCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// resetCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

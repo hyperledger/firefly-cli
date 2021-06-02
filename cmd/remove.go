@@ -27,8 +27,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var force bool
-
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove <stack_name>",

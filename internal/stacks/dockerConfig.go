@@ -77,7 +77,6 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		compose.Services["postgres_"+member.ID] = &Service{
 			Image:       "postgres",
 			Environment: map[string]string{"POSTGRES_PASSWORD": "f1refly"},
-			Volumes:     []string{path.Join(dataDir, "postgres_"+member.ID) + ":/var/lib/postgresql/data"},
 			HealthCheck: &HealthCheck{
 				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
 				Interval: "5s",
@@ -97,10 +96,6 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
-			Volumes: []string{
-				path.Join(dataDir, "ipfs_"+member.ID, "staging") + ":/export",
-				path.Join(dataDir, "ipfs_"+member.ID, "data") + ":/data/ipfs",
-			},
 			Environment: map[string]string{
 				"IPFS_SWARM_KEY":    stack.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",

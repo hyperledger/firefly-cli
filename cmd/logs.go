@@ -40,10 +40,10 @@ output with the -f flag.`,
 		}
 		stackName := args[0]
 
-		if exists, err := stacks.CheckExists(stackName); !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
-		} else if err != nil {
+		if exists, err := stacks.CheckExists(stackName); err != nil {
 			return err
+		} else if !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		fmt.Println("getting logs... ")
