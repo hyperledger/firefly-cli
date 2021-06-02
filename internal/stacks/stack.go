@@ -48,9 +48,9 @@ func InitStack(stackName string, memberCount int) {
 		stack.Members[i] = createMember(fmt.Sprint(i), i)
 	}
 	compose := CreateDockerCompose(stack)
-	ensureDirectories(stack)
-	writeDockerCompose(stack.Name, compose)
-	writeConfigs(stack)
+	stack.ensureDirectories()
+	stack.writeDockerCompose(compose)
+	stack.writeConfigs()
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -85,11 +85,11 @@ func LoadStack(stackName string) (*Stack, error) {
 
 }
 
-func ensureDirectories(stack *Stack) {
+func (s *Stack) ensureDirectories() {
 
-	dataDir := path.Join(StacksDir, stack.Name, "data")
+	dataDir := path.Join(StacksDir, s.Name, "data")
 
-	for _, member := range stack.Members {
+	for _, member := range s.Members {
 		os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755)
 		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755)
 		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755)
@@ -97,27 +97,25 @@ func ensureDirectories(stack *Stack) {
 	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
 
-func writeDockerCompose(stackName string, compose *DockerComposeConfig) {
+func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	stackDir := path.Join(StacksDir, stackName)
+	stackDir := path.Join(StacksDir, s.Name)
 	ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func writeConfigs(stack *Stack) {
-	stackDir := path.Join(StacksDir, stack.Name)
+func (s *Stack) writeConfigs() {
+	stackDir := path.Join(StacksDir, s.Name)
 
-	fireflyConfigs := NewFireflyConfigs(stack)
+	fireflyConfigs := NewFireflyConfigs(s)
 	for memberId, config := range fireflyConfigs {
 		WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core"))
 	}
-	bytes := []byte(`{"mounts":[{"mountpoint":"/blocks","path":"blocks","shardFunc":"/repo/flatfs/shard/v1/next-to-last/2","type":"flatfs"},{"mountpoint":"/","path":"datastore","type":"levelds"}],"type":"mount"}`)
-	ioutil.WriteFile(path.Join(stackDir, "datastore_spec"), bytes, 0755)
 
-	stackConfigBytes, _ := json.MarshalIndent(stack, "", " ")
+	stackConfigBytes, _ := json.MarshalIndent(s, "", " ")
 	ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
@@ -191,6 +189,12 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 		}
 		return err
 	}
+}
+
+func (s *Stack) ResetStack(verbose bool) {
+	docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all")
+	os.RemoveAll(path.Join(StacksDir, s.Name, "data"))
+	s.ensureDirectories()
 }
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
