@@ -33,6 +33,10 @@ type NodeConfig struct {
 	Identity string `yaml:"identity,omitempty"`
 }
 
+type OrgConfig struct {
+	Identity string `yaml:"identity,omitempty"`
+}
+
 type EthconnectConfig struct {
 	URL                 string     `yaml:"url,omitempty"`
 	Instance            string     `yaml:"instance,omitempty"`
@@ -81,6 +85,7 @@ type FireflyConfig struct {
 	HTTP       *HttpServerConfig    `yaml:"http,omitempty"`
 	UI         *UIConfig            `yaml:"ui,omitempty"`
 	Node       *NodeConfig          `yaml:"node,omitempty"`
+	Org        *OrgConfig           `yaml:"org,omitempty"`
 	Blockchain *BlockchainConfig    `yaml:"blockchain,omitempty"`
 	Database   *DatabaseConfig      `yaml:"database,omitempty"`
 	P2PFS      *PublicStorageConfig `yaml:"publicstorage,omitempty"`
@@ -105,6 +110,9 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Path: "./frontend",
 			},
 			Node: &NodeConfig{
+				Identity: member.Address,
+			},
+			Org: &OrgConfig{
 				Identity: member.Address,
 			},
 			Blockchain: &BlockchainConfig{
