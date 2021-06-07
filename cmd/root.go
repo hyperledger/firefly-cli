@@ -29,6 +29,7 @@ var cfgFile string
 var ansi string
 var fancyFeatures bool
 var verbose bool
+var force bool
 
 func GetFireflyAsciiArt() string {
 	s := ""

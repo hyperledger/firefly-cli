@@ -67,17 +67,19 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 	for _, member := range stack.Members {
 		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image:     "kaleidoinc/firefly",
-			Ports:     []string{fmt.Sprint(member.ExposedFireflyPort) + ":5000"},
-			Volumes:   []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
-			DependsOn: map[string]map[string]string{"postgres_" + member.ID: {"condition": "service_healthy"}},
-			Logging:   standardLogOptions,
+			Image:   "kaleidoinc/firefly",
+			Ports:   []string{fmt.Sprint(member.ExposedFireflyPort) + ":5000"},
+			Volumes: []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
+			DependsOn: map[string]map[string]string{
+				"postgres_" + member.ID:   {"condition": "service_healthy"},
+				"ethconnect_" + member.ID: {"condition": "service_started"},
+			},
+			Logging: standardLogOptions,
 		}
 
 		compose.Services["postgres_"+member.ID] = &Service{
 			Image:       "postgres",
 			Environment: map[string]string{"POSTGRES_PASSWORD": "f1refly"},
-			Volumes:     []string{path.Join(dataDir, "postgres_"+member.ID) + ":/var/lib/postgresql/data"},
 			HealthCheck: &HealthCheck{
 				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
 				Interval: "5s",
@@ -97,10 +99,6 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
-			Volumes: []string{
-				path.Join(dataDir, "ipfs_"+member.ID, "staging") + ":/export",
-				path.Join(dataDir, "ipfs_"+member.ID, "data") + ":/data/ipfs",
-			},
 			Environment: map[string]string{
 				"IPFS_SWARM_KEY":    stack.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
