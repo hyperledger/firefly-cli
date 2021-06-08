@@ -80,15 +80,16 @@ type FireflyIPFSConfig struct {
 }
 
 type FireflyConfig struct {
-	Log        *LogConfig           `yaml:"log,omitempty"`
-	Debug      *HttpServerConfig    `yaml:"debug,omitempty"`
-	HTTP       *HttpServerConfig    `yaml:"http,omitempty"`
-	UI         *UIConfig            `yaml:"ui,omitempty"`
-	Node       *NodeConfig          `yaml:"node,omitempty"`
-	Org        *OrgConfig           `yaml:"org,omitempty"`
-	Blockchain *BlockchainConfig    `yaml:"blockchain,omitempty"`
-	Database   *DatabaseConfig      `yaml:"database,omitempty"`
-	P2PFS      *PublicStorageConfig `yaml:"publicstorage,omitempty"`
+	Log          *LogConfig           `yaml:"log,omitempty"`
+	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
+	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
+	UI           *UIConfig            `yaml:"ui,omitempty"`
+	Node         *NodeConfig          `yaml:"node,omitempty"`
+	Org          *OrgConfig           `yaml:"org,omitempty"`
+	Blockchain   *BlockchainConfig    `yaml:"blockchain,omitempty"`
+	Database     *DatabaseConfig      `yaml:"database,omitempty"`
+	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
+	DataExchange *HttpEndpointConfig  `yaml:"dataexchange,omitempty"`
 }
 
 func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
@@ -146,6 +147,9 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 					},
 				},
 			},
+			DataExchange: &HttpEndpointConfig{
+				URL: "http://dataexchange_" + member.ID + ":3000",
+			},
 		}
 	}
 	return configs
@@ -165,7 +169,6 @@ func WriteFireflyConfig(config *FireflyConfig, filePath string) error {
 	if bytes, err := yaml.Marshal(config); err != nil {
 		return err
 	} else {
-		ioutil.WriteFile(filePath, bytes, 0755)
-		return nil
+		return ioutil.WriteFile(filePath, bytes, 0755)
 	}
 }

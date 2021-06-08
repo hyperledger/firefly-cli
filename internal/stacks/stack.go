@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"time"
 
@@ -38,7 +39,7 @@ type Member struct {
 	ExposedUIPort         int    `json:"exposedUiPort ,omitempty"`
 }
 
-func InitStack(stackName string, memberCount int) {
+func InitStack(stackName string, memberCount int) error {
 	stack := &Stack{
 		Name:     stackName,
 		Members:  make([]*Member, memberCount),
@@ -50,7 +51,10 @@ func InitStack(stackName string, memberCount int) {
 	compose := CreateDockerCompose(stack)
 	stack.ensureDirectories()
 	stack.writeDockerCompose(compose)
-	stack.writeConfigs()
+	if err := stack.writeConfigs(); err != nil {
+		return err
+	}
+	return stack.writeDataExchangeCerts()
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -93,6 +97,7 @@ func (s *Stack) ensureDirectories() {
 		os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755)
 		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755)
 		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755)
+		os.MkdirAll(path.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755)
 	}
 	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
@@ -107,16 +112,42 @@ func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) {
 	ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *Stack) writeConfigs() {
+func (s *Stack) writeConfigs() error {
 	stackDir := path.Join(StacksDir, s.Name)
 
 	fireflyConfigs := NewFireflyConfigs(s)
 	for memberId, config := range fireflyConfigs {
-		WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core"))
+		if err := WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core")); err != nil {
+			return err
+		}
 	}
 
 	stackConfigBytes, _ := json.MarshalIndent(s, "", " ")
-	ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755)
+	if err := ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Stack) writeDataExchangeCerts() error {
+	stackDir := path.Join(StacksDir, s.Name)
+	for _, member := range s.Members {
+
+		// TODO: remove dependency on openssl here
+		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=localhost/O=member_%s", member.ID), "-keyout", "key.pem", "-out", "cert.pem")
+		opensslCmd.Dir = path.Join(stackDir, "data", "dataexchange_"+member.ID)
+		if err := opensslCmd.Run(); err != nil {
+			return err
+		}
+
+		dataExchangeConfig := s.GenerateDataExchangeConfig(member.ID)
+		configBytes, err := json.Marshal(dataExchangeConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		ioutil.WriteFile(path.Join(stackDir, "data", "dataexchange_"+member.ID, "config.json"), configBytes, 0755)
+	}
+	return nil
 }
 
 func createMember(id string, index int) *Member {

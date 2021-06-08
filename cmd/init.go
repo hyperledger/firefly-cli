@@ -85,7 +85,9 @@ var initCmd = &cobra.Command{
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
-		stacks.InitStack(stackName, memberCount)
+		if err := stacks.InitStack(stackName, memberCount); err != nil {
+			return err
+		}
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n\n", stackName, rootCmd.Use, stackName)
 		return nil

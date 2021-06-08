@@ -105,6 +105,12 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 			},
 			Logging: standardLogOptions,
 		}
+
+		compose.Services["dataexchange_"+member.ID] = &Service{
+			Image:   "kaleidoinc/firefly-dataexchange-https",
+			Volumes: []string{path.Join(dataDir, "dataexchange_"+member.ID) + ":/data"},
+			Logging: standardLogOptions,
+		}
 	}
 
 	return compose
