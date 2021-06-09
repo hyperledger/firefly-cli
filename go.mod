@@ -1,4 +1,4 @@
-module github.com/kaleido-io/firefly-cli
+module github.com/hyperledger-labs/firefly-cli
 
 go 1.16
 

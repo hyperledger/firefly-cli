@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kaleido-io/firefly-cli/internal/stacks"
+	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 

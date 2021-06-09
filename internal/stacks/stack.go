@@ -13,8 +13,8 @@ import (
 
 	"github.com/briandowns/spinner"
 	secp256k1 "github.com/btcsuite/btcd/btcec"
-	"github.com/kaleido-io/firefly-cli/internal/contracts"
-	"github.com/kaleido-io/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/contracts"
+	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
