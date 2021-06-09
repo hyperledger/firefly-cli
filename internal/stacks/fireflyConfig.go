@@ -1,6 +1,7 @@
 package stacks
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
@@ -30,10 +31,11 @@ type UIConfig struct {
 }
 
 type NodeConfig struct {
-	Identity string `yaml:"identity,omitempty"`
+	Name string `yaml:"name,omitempty"`
 }
 
 type OrgConfig struct {
+	Name     string `yaml:"name,omitempty"`
 	Identity string `yaml:"identity,omitempty"`
 }
 
@@ -52,6 +54,11 @@ type EthereumConfig struct {
 type BlockchainConfig struct {
 	Type     string          `yaml:"type,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
+}
+
+type DataExchangeConfig struct {
+	Type  string              `yaml:"type,omitempty"`
+	HTTPS *HttpEndpointConfig `yaml:"https,omitempty"`
 }
 
 type PostgresConfig struct {
@@ -89,7 +96,7 @@ type FireflyConfig struct {
 	Blockchain   *BlockchainConfig    `yaml:"blockchain,omitempty"`
 	Database     *DatabaseConfig      `yaml:"database,omitempty"`
 	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
-	DataExchange *HttpEndpointConfig  `yaml:"dataexchange,omitempty"`
+	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 }
 
 func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
@@ -111,9 +118,10 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Path: "./frontend",
 			},
 			Node: &NodeConfig{
-				Identity: member.Address,
+				Name: fmt.Sprintf("node_%s", member.ID),
 			},
 			Org: &OrgConfig{
+				Name:     fmt.Sprintf("org_%s", member.ID),
 				Identity: member.Address,
 			},
 			Blockchain: &BlockchainConfig{
@@ -147,8 +155,10 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 					},
 				},
 			},
-			DataExchange: &HttpEndpointConfig{
-				URL: "http://dataexchange_" + member.ID + ":3000",
+			DataExchange: &DataExchangeConfig{
+				HTTPS: &HttpEndpointConfig{
+					URL: "http://dataexchange_" + member.ID + ":3000",
+				},
 			},
 		}
 	}

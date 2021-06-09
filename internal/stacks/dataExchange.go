@@ -24,13 +24,13 @@ type PeerConfig struct {
 	Endpoint string `json:"endpoint,omitempty"`
 }
 
-type DataExchangeConfig struct {
+type DataExchangePeerConfig struct {
 	API   *DataExchangeListenerConfig `json:"api,omitempty"`
 	P2P   *DataExchangeListenerConfig `json:"p2p,omitempty"`
 	Peers []*PeerConfig               `json:"peers"`
 }
 
-func (s *Stack) GenerateDataExchangeConfig(memberId string) *DataExchangeConfig {
+func (s *Stack) GenerateDataExchangeHTTPSConfig(memberId string) *DataExchangePeerConfig {
 
 	peers := make([]*PeerConfig, len(s.Members)-1)
 	i := 0
@@ -45,7 +45,7 @@ func (s *Stack) GenerateDataExchangeConfig(memberId string) *DataExchangeConfig 
 		}
 	}
 
-	return &DataExchangeConfig{
+	return &DataExchangePeerConfig{
 		API: &DataExchangeListenerConfig{
 			Hostname: "0.0.0.0",
 			Port:     3000,

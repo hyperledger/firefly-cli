@@ -140,7 +140,7 @@ func (s *Stack) writeDataExchangeCerts() error {
 			return err
 		}
 
-		dataExchangeConfig := s.GenerateDataExchangeConfig(member.ID)
+		dataExchangeConfig := s.GenerateDataExchangeHTTPSConfig(member.ID)
 		configBytes, err := json.Marshal(dataExchangeConfig)
 		if err != nil {
 			log.Fatal(err)
@@ -243,6 +243,10 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	if err := s.deployContracts(spin, verbose); err != nil {
 		return err
 	}
+	updateStatus("registering FireFly identities", spin)
+	if err := s.registerFireflyIdentities(spin, verbose); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -313,6 +317,7 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
 		return err
 	}
+
 	return nil
 }
 
