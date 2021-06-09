@@ -115,10 +115,10 @@ func DeployContract(ethconnectUrl string, abiId string, fromAddress string, para
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-kaleido-from", fromAddress)
-	req.Header.Set("x-kaleido-sync", "true")
+	req.Header.Set("x-firefly-from", fromAddress)
+	req.Header.Set("x-firefly-sync", "true")
 	if registeredName != "" {
-		req.Header.Set("x-kaleido-register", registeredName)
+		req.Header.Set("x-firefly-register", registeredName)
 	}
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -150,8 +150,8 @@ func RegisterContract(ethconnectUrl string, abiId string, contractAddress string
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-kaleido-sync", "true")
-	req.Header.Set("x-kaleido-register", registeredName)
+	req.Header.Set("x-firefly-sync", "true")
+	req.Header.Set("x-firefly-register", registeredName)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

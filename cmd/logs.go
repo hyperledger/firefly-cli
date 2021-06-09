@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/kaleido-io/firefly-cli/internal/docker"
-	"github.com/kaleido-io/firefly-cli/internal/stacks"
+	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
