@@ -59,11 +59,11 @@ func (s *Stack) GenerateDataExchangeHTTPSConfig(memberId string) *DataExchangePe
 	}
 }
 
-func CreateCert(memberId string) (*bytes.Buffer, *bytes.Buffer, error) {
+func CreateCert(hostname, memberId string) (*bytes.Buffer, *bytes.Buffer, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
-			CommonName:   "localhost",
+			CommonName:   hostname,
 			Organization: []string{memberId},
 		},
 		NotBefore:             time.Now(),

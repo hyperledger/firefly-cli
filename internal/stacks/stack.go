@@ -138,7 +138,7 @@ func (s *Stack) writeDataExchangeCerts() error {
 	for _, member := range s.Members {
 
 		// TODO: remove dependency on openssl here
-		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=localhost/O=member_%s", member.ID), "-keyout", "key.pem", "-out", "cert.pem")
+		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=dataexchange_%s/O=member_%s", member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
 		opensslCmd.Dir = path.Join(stackDir, "data", "dataexchange_"+member.ID)
 		if err := opensslCmd.Run(); err != nil {
 			return err
