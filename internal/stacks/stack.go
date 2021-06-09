@@ -53,8 +53,12 @@ func InitStack(stackName string, memberCount int) error {
 		stack.Members[i] = createMember(fmt.Sprint(i), i)
 	}
 	compose := CreateDockerCompose(stack)
-	stack.ensureDirectories()
-	stack.writeDockerCompose(compose)
+	if err := stack.ensureDirectories(); err != nil {
+		return err
+	}
+	if err := stack.writeDockerCompose(compose); err != nil {
+		return &json.UnmarshalFieldError{}
+	}
 	if err := stack.writeConfigs(); err != nil {
 		return err
 	}
@@ -93,27 +97,35 @@ func LoadStack(stackName string) (*Stack, error) {
 
 }
 
-func (s *Stack) ensureDirectories() {
+func (s *Stack) ensureDirectories() error {
 
 	dataDir := path.Join(StacksDir, s.Name, "data")
 
 	for _, member := range s.Members {
-		os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755)
-		os.MkdirAll(path.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755)
+		if err := os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
+			return err
+		}
 	}
-	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
+	return os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
 
-func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) {
+func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) error {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	stackDir := path.Join(StacksDir, s.Name)
-	ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
+	return ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
 func (s *Stack) writeConfigs() error {
@@ -230,10 +242,25 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 	}
 }
 
-func (s *Stack) ResetStack(verbose bool) {
-	docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all")
-	os.RemoveAll(path.Join(StacksDir, s.Name, "data"))
-	s.ensureDirectories()
+func (s *Stack) StopStack(verbose bool) error {
+	return docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "stop")
+}
+
+func (s *Stack) ResetStack(verbose bool) error {
+	if err := docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all"); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(path.Join(StacksDir, s.Name, "data")); err != nil {
+		return err
+	}
+	return s.ensureDirectories()
+}
+
+func (s *Stack) RemoveStack(verbose bool) error {
+	if err := docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "rm", "-f"); err != nil {
+		return err
+	}
+	return os.RemoveAll(path.Join(StacksDir, s.Name))
 }
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
