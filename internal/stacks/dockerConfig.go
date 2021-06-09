@@ -67,7 +67,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 	for _, member := range stack.Members {
 		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image:   "kaleidoinc/firefly",
+			Image:   "ghcr.io/hyperledger-labs/firefly:latest",
 			Ports:   []string{fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort)},
 			Volumes: []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
 			DependsOn: map[string]map[string]string{
@@ -91,7 +91,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		}
 
 		compose.Services["ethconnect_"+member.ID] = &Service{
-			Image:     "kaleidoinc/ethconnect",
+			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
 			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://ganache:8545 -E ./events -d 3",
 			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_started"}},
 			Ports:     []string{fmt.Sprint(member.ExposedEthconnectPort) + ":8080"},
@@ -112,7 +112,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		}
 
 		compose.Services["dataexchange_"+member.ID] = &Service{
-			Image:   "kaleidoinc/firefly-dataexchange-https",
+			Image:   "ghcr.io/hyperledger-labs/firefly-dataexchange-https:latest",
 			Ports:   []string{fmt.Sprint(member.ExposedDataexchangePort) + ":3000"},
 			Volumes: []string{path.Join(dataDir, "dataexchange_"+member.ID) + ":/data"},
 			Logging: standardLogOptions,
