@@ -15,6 +15,7 @@ import (
 
 type DataExchangeListenerConfig struct {
 	Hostname string `json:"hostname,omitempty"`
+	Endpoint string `json:"endpoint,omitempty"`
 	Port     int    `json:"port,omitempty"`
 }
 
@@ -52,6 +53,7 @@ func (s *Stack) GenerateDataExchangeConfig(memberId string) *DataExchangeConfig 
 		P2P: &DataExchangeListenerConfig{
 			Hostname: "0.0.0.0",
 			Port:     3001,
+			Endpoint: fmt.Sprintf("https://dataexchange_%s:3001", memberId),
 		},
 		Peers: []*PeerConfig{},
 	}
