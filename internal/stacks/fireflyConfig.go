@@ -111,7 +111,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Port: 6060,
 			},
 			HTTP: &HttpServerConfig{
-				Port:    5000,
+				Port:    member.ExposedFireflyPort,
 				Address: "0.0.0.0",
 			},
 			UI: &UIConfig{
