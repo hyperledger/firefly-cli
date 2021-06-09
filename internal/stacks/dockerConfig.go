@@ -68,7 +68,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 	for _, member := range stack.Members {
 		compose.Services["firefly_core_"+member.ID] = &Service{
 			Image:   "kaleidoinc/firefly",
-			Ports:   []string{fmt.Sprint(member.ExposedFireflyPort) + ":5000"},
+			Ports:   []string{fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort)},
 			Volumes: []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
 			DependsOn: map[string]map[string]string{
 				"postgres_" + member.ID:   {"condition": "service_healthy"},
@@ -79,6 +79,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["postgres_"+member.ID] = &Service{
 			Image:       "postgres",
+			Ports:       []string{fmt.Sprint(member.ExposedPostgresPort) + ":5432"},
 			Environment: map[string]string{"POSTGRES_PASSWORD": "f1refly"},
 			HealthCheck: &HealthCheck{
 				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
@@ -99,10 +100,21 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
+			Ports: []string{
+				fmt.Sprint(member.ExposedIPFSApiPort) + ":5000",
+				fmt.Sprint(member.ExposedIPFSGWPort) + ":8080",
+			},
 			Environment: map[string]string{
 				"IPFS_SWARM_KEY":    stack.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
+			Logging: standardLogOptions,
+		}
+
+		compose.Services["dataexchange_"+member.ID] = &Service{
+			Image:   "kaleidoinc/firefly-dataexchange-https",
+			Ports:   []string{fmt.Sprint(member.ExposedDataexchangePort) + ":3000"},
+			Volumes: []string{path.Join(dataDir, "dataexchange_"+member.ID) + ":/data"},
 			Logging: standardLogOptions,
 		}
 	}

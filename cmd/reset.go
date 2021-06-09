@@ -30,10 +30,10 @@ var resetCmd = &cobra.Command{
 	Short: "Clear all data in a stack",
 	Long: `Clear all data in a stack
 
-This command clears all data in a stack, but leaves the stack itself.
+This command clears all data in a stack, but leaves the stack configuration.
 This is useful for testing when you want to start with a clean slate
 but don't want to actually recreate the resources in the stack itself.
-The stack must be stopped to run this command.
+Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
@@ -66,7 +66,12 @@ The stack must be stopped to run this command.
 			return err
 		} else {
 			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
-			stack.ResetStack(verbose)
+			if err := stack.StopStack(verbose); err != nil {
+				return err
+			}
+			if err := stack.ResetStack(verbose); err != nil {
+				return err
+			}
 			fmt.Println("done")
 		}
 

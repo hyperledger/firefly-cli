@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"time"
 
@@ -29,16 +30,20 @@ type Stack struct {
 }
 
 type Member struct {
-	ID                    string `json:"id,omitempty"`
-	Index                 *int   `json:"index,omitempty"`
-	Address               string `json:"address,omitempty"`
-	PrivateKey            string `json:"privateKey,omitempty"`
-	ExposedFireflyPort    int    `json:"exposedFireflyPort,omitempty"`
-	ExposedEthconnectPort int    `json:"exposedEthconnectPort,omitempty"`
-	ExposedUIPort         int    `json:"exposedUiPort ,omitempty"`
+	ID                      string `json:"id,omitempty"`
+	Index                   *int   `json:"index,omitempty"`
+	Address                 string `json:"address,omitempty"`
+	PrivateKey              string `json:"privateKey,omitempty"`
+	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
+	ExposedEthconnectPort   int    `json:"exposedEthconnectPort,omitempty"`
+	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
+	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
+	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty`
+	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty`
+	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
 }
 
-func InitStack(stackName string, memberCount int) {
+func InitStack(stackName string, memberCount int) error {
 	stack := &Stack{
 		Name:     stackName,
 		Members:  make([]*Member, memberCount),
@@ -48,9 +53,16 @@ func InitStack(stackName string, memberCount int) {
 		stack.Members[i] = createMember(fmt.Sprint(i), i)
 	}
 	compose := CreateDockerCompose(stack)
-	stack.ensureDirectories()
-	stack.writeDockerCompose(compose)
-	stack.writeConfigs()
+	if err := stack.ensureDirectories(); err != nil {
+		return err
+	}
+	if err := stack.writeDockerCompose(compose); err != nil {
+		return &json.UnmarshalFieldError{}
+	}
+	if err := stack.writeConfigs(); err != nil {
+		return err
+	}
+	return stack.writeDataExchangeCerts()
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -85,38 +97,73 @@ func LoadStack(stackName string) (*Stack, error) {
 
 }
 
-func (s *Stack) ensureDirectories() {
+func (s *Stack) ensureDirectories() error {
 
 	dataDir := path.Join(StacksDir, s.Name, "data")
 
 	for _, member := range s.Members {
-		os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755)
-		os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755)
+		if err := os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "staging"), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "ipfs_"+member.ID, "data"), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(path.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
+			return err
+		}
 	}
-	os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
+	return os.MkdirAll(path.Join(dataDir, "ganache"), 0755)
 }
 
-func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) {
+func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) error {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	stackDir := path.Join(StacksDir, s.Name)
-	ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
+	return ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *Stack) writeConfigs() {
+func (s *Stack) writeConfigs() error {
 	stackDir := path.Join(StacksDir, s.Name)
 
 	fireflyConfigs := NewFireflyConfigs(s)
 	for memberId, config := range fireflyConfigs {
-		WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core"))
+		if err := WriteFireflyConfig(config, path.Join(stackDir, "firefly_"+memberId+".core")); err != nil {
+			return err
+		}
 	}
 
 	stackConfigBytes, _ := json.MarshalIndent(s, "", " ")
-	ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755)
+	if err := ioutil.WriteFile(path.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Stack) writeDataExchangeCerts() error {
+	stackDir := path.Join(StacksDir, s.Name)
+	for _, member := range s.Members {
+
+		// TODO: remove dependency on openssl here
+		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=dataexchange_%s/O=member_%s", member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
+		opensslCmd.Dir = path.Join(stackDir, "data", "dataexchange_"+member.ID)
+		if err := opensslCmd.Run(); err != nil {
+			return err
+		}
+
+		dataExchangeConfig := s.GenerateDataExchangeHTTPSConfig(member.ID)
+		configBytes, err := json.Marshal(dataExchangeConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		ioutil.WriteFile(path.Join(stackDir, "data", "dataexchange_"+member.ID, "config.json"), configBytes, 0755)
+	}
+	return nil
 }
 
 func createMember(id string, index int) *Member {
@@ -132,13 +179,17 @@ func createMember(id string, index int) *Member {
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	return &Member{
-		ID:                    id,
-		Index:                 &index,
-		Address:               encodedAddress,
-		PrivateKey:            encodedPrivateKey,
-		ExposedFireflyPort:    5000 + index,
-		ExposedEthconnectPort: 8080 + index,
-		ExposedUIPort:         3000 + index,
+		ID:                      id,
+		Index:                   &index,
+		Address:                 encodedAddress,
+		PrivateKey:              encodedPrivateKey,
+		ExposedFireflyPort:      5000 + index,
+		ExposedEthconnectPort:   8080 + index,
+		ExposedUIPort:           3000 + index,
+		ExposedPostgresPort:     5434 + index,
+		ExposedDataexchangePort: 3020 + index,
+		ExposedIPFSApiPort:      6000 + index,
+		ExposedIPFSGWPort:       6100 + index,
 	}
 }
 
@@ -191,10 +242,25 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 	}
 }
 
-func (s *Stack) ResetStack(verbose bool) {
-	docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all")
-	os.RemoveAll(path.Join(StacksDir, s.Name, "data"))
-	s.ensureDirectories()
+func (s *Stack) StopStack(verbose bool) error {
+	return docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "stop")
+}
+
+func (s *Stack) ResetStack(verbose bool) error {
+	if err := docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all"); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(path.Join(StacksDir, s.Name, "data")); err != nil {
+		return err
+	}
+	return s.ensureDirectories()
+}
+
+func (s *Stack) RemoveStack(verbose bool) error {
+	if err := docker.RunDockerComposeCommand(path.Join(StacksDir, s.Name), verbose, verbose, "rm", "-f"); err != nil {
+		return err
+	}
+	return os.RemoveAll(path.Join(StacksDir, s.Name))
 }
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
@@ -210,6 +276,10 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	}
 	updateStatus("deploying smart contracts", spin)
 	if err := s.deployContracts(spin, verbose); err != nil {
+		return err
+	}
+	updateStatus("registering FireFly identities", spin)
+	if err := s.registerFireflyIdentities(spin, verbose); err != nil {
 		return err
 	}
 	return nil
@@ -282,6 +352,7 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
 		return err
 	}
+
 	return nil
 }
 

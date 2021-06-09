@@ -1,6 +1,7 @@
 package stacks
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
@@ -30,10 +31,11 @@ type UIConfig struct {
 }
 
 type NodeConfig struct {
-	Identity string `yaml:"identity,omitempty"`
+	Name string `yaml:"name,omitempty"`
 }
 
 type OrgConfig struct {
+	Name     string `yaml:"name,omitempty"`
 	Identity string `yaml:"identity,omitempty"`
 }
 
@@ -52,6 +54,11 @@ type EthereumConfig struct {
 type BlockchainConfig struct {
 	Type     string          `yaml:"type,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
+}
+
+type DataExchangeConfig struct {
+	Type  string              `yaml:"type,omitempty"`
+	HTTPS *HttpEndpointConfig `yaml:"https,omitempty"`
 }
 
 type PostgresConfig struct {
@@ -80,15 +87,16 @@ type FireflyIPFSConfig struct {
 }
 
 type FireflyConfig struct {
-	Log        *LogConfig           `yaml:"log,omitempty"`
-	Debug      *HttpServerConfig    `yaml:"debug,omitempty"`
-	HTTP       *HttpServerConfig    `yaml:"http,omitempty"`
-	UI         *UIConfig            `yaml:"ui,omitempty"`
-	Node       *NodeConfig          `yaml:"node,omitempty"`
-	Org        *OrgConfig           `yaml:"org,omitempty"`
-	Blockchain *BlockchainConfig    `yaml:"blockchain,omitempty"`
-	Database   *DatabaseConfig      `yaml:"database,omitempty"`
-	P2PFS      *PublicStorageConfig `yaml:"publicstorage,omitempty"`
+	Log          *LogConfig           `yaml:"log,omitempty"`
+	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
+	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
+	UI           *UIConfig            `yaml:"ui,omitempty"`
+	Node         *NodeConfig          `yaml:"node,omitempty"`
+	Org          *OrgConfig           `yaml:"org,omitempty"`
+	Blockchain   *BlockchainConfig    `yaml:"blockchain,omitempty"`
+	Database     *DatabaseConfig      `yaml:"database,omitempty"`
+	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
+	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 }
 
 func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
@@ -103,16 +111,17 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Port: 6060,
 			},
 			HTTP: &HttpServerConfig{
-				Port:    5000,
+				Port:    member.ExposedFireflyPort,
 				Address: "0.0.0.0",
 			},
 			UI: &UIConfig{
 				Path: "./frontend",
 			},
 			Node: &NodeConfig{
-				Identity: member.Address,
+				Name: fmt.Sprintf("node_%s", member.ID),
 			},
 			Org: &OrgConfig{
+				Name:     fmt.Sprintf("org_%s", member.ID),
 				Identity: member.Address,
 			},
 			Blockchain: &BlockchainConfig{
@@ -146,6 +155,11 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 					},
 				},
 			},
+			DataExchange: &DataExchangeConfig{
+				HTTPS: &HttpEndpointConfig{
+					URL: "http://dataexchange_" + member.ID + ":3000",
+				},
+			},
 		}
 	}
 	return configs
@@ -165,7 +179,6 @@ func WriteFireflyConfig(config *FireflyConfig, filePath string) error {
 	if bytes, err := yaml.Marshal(config); err != nil {
 		return err
 	} else {
-		ioutil.WriteFile(filePath, bytes, 0755)
-		return nil
+		return ioutil.WriteFile(filePath, bytes, 0755)
 	}
 }
