@@ -44,6 +44,9 @@ func (s *Stack) httpJSON(method, url string, body, result interface{}) (err erro
 	}
 
 	req, err := http.NewRequest(method, url, bytes.NewReader(requestBody))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return err
