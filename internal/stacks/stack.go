@@ -30,13 +30,17 @@ type Stack struct {
 }
 
 type Member struct {
-	ID                    string `json:"id,omitempty"`
-	Index                 *int   `json:"index,omitempty"`
-	Address               string `json:"address,omitempty"`
-	PrivateKey            string `json:"privateKey,omitempty"`
-	ExposedFireflyPort    int    `json:"exposedFireflyPort,omitempty"`
-	ExposedEthconnectPort int    `json:"exposedEthconnectPort,omitempty"`
-	ExposedUIPort         int    `json:"exposedUiPort ,omitempty"`
+	ID                      string `json:"id,omitempty"`
+	Index                   *int   `json:"index,omitempty"`
+	Address                 string `json:"address,omitempty"`
+	PrivateKey              string `json:"privateKey,omitempty"`
+	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
+	ExposedEthconnectPort   int    `json:"exposedEthconnectPort,omitempty"`
+	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
+	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
+	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty`
+	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty`
+	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
 }
 
 func InitStack(stackName string, memberCount int) error {
@@ -163,13 +167,17 @@ func createMember(id string, index int) *Member {
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	return &Member{
-		ID:                    id,
-		Index:                 &index,
-		Address:               encodedAddress,
-		PrivateKey:            encodedPrivateKey,
-		ExposedFireflyPort:    5000 + index,
-		ExposedEthconnectPort: 8080 + index,
-		ExposedUIPort:         3000 + index,
+		ID:                      id,
+		Index:                   &index,
+		Address:                 encodedAddress,
+		PrivateKey:              encodedPrivateKey,
+		ExposedFireflyPort:      5000 + index,
+		ExposedEthconnectPort:   8080 + index,
+		ExposedUIPort:           3000 + index,
+		ExposedPostgresPort:     5434 + index,
+		ExposedDataexchangePort: 3020 + index,
+		ExposedIPFSApiPort:      6000 + index,
+		ExposedIPFSGWPort:       6100 + index,
 	}
 }
 
