@@ -1,0 +1,65 @@
+/*
+Copyright © 2021 Kaleido, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
+	"github.com/spf13/cobra"
+)
+
+// infoCmd represents the stop command
+var infoCmd = &cobra.Command{
+	Use:   "info <stack_name>",
+	Short: "Get info about a stack",
+	Long: `Get info about a stack such as each container name
+	and image version.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("no stack specified")
+		}
+		stackName := args[0]
+		if exists, err := stacks.CheckExists(stackName); err != nil {
+			return err
+		} else if !exists {
+			return fmt.Errorf("stack '%s' does not exist", stackName)
+		}
+
+		if stack, err := stacks.LoadStack(stackName); err != nil {
+			return err
+		} else {
+			if err := stack.PrintStackInfo(verbose); err != nil {
+				return err
+			}
+			return nil
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(infoCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// infoCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// infoCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}

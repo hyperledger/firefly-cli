@@ -72,7 +72,7 @@ Note: this will also stop the stack if it is running.
 			if err := stack.ResetStack(verbose); err != nil {
 				return err
 			}
-			fmt.Println("done")
+			fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 		}
 
 		return nil
