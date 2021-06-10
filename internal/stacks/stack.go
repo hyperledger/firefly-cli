@@ -43,6 +43,25 @@ type Member struct {
 	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
 }
 
+func ListStacks() ([]string, error) {
+	files, err := ioutil.ReadDir(StacksDir)
+	if err != nil {
+		return nil, err
+	}
+
+	stacks := make([]string, 0)
+	i := 0
+	for _, f := range files {
+		if f.IsDir() {
+			if exists, err := CheckExists(f.Name()); err == nil && exists {
+				stacks = append(stacks, f.Name())
+				i++
+			}
+		}
+	}
+	return stacks, nil
+}
+
 func InitStack(stackName string, memberCount int) error {
 	stack := &Stack{
 		Name:     stackName,
@@ -63,7 +82,7 @@ func InitStack(stackName string, memberCount int) error {
 }
 
 func CheckExists(stackName string) (bool, error) {
-	_, err := os.Stat(path.Join(StacksDir, stackName))
+	_, err := os.Stat(path.Join(StacksDir, stackName, "stack.json"))
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -300,10 +319,16 @@ func (s *Stack) UpgradeStack(verbose bool) error {
 
 func (s *Stack) PrintStackInfo(verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
+	fmt.Print("\n")
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "images"); err != nil {
 		return err
 	}
-	return docker.RunDockerComposeCommand(workingDir, verbose, true, "ps")
+	fmt.Print("\n")
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "ps"); err != nil {
+		return err
+	}
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", path.Join(StacksDir, s.Name, "docker-compose.yml"))
+	return nil
 }
 
 func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
