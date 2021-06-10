@@ -11,7 +11,6 @@ import (
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	dockerCmd.StderrPipe()
 	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
 }
 
