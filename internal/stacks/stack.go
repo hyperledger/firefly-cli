@@ -43,6 +43,25 @@ type Member struct {
 	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
 }
 
+func ListStacks() ([]string, error) {
+	files, err := ioutil.ReadDir(StacksDir)
+	if err != nil {
+		return nil, err
+	}
+
+	stacks := make([]string, 0)
+	i := 0
+	for _, f := range files {
+		if f.IsDir() {
+			if exists, err := CheckExists(f.Name()); err == nil && exists {
+				stacks = append(stacks, f.Name())
+				i++
+			}
+		}
+	}
+	return stacks, nil
+}
+
 func InitStack(stackName string, memberCount int) error {
 	stack := &Stack{
 		Name:     stackName,
@@ -59,14 +78,11 @@ func InitStack(stackName string, memberCount int) error {
 	if err := stack.writeDockerCompose(compose); err != nil {
 		return &json.UnmarshalFieldError{}
 	}
-	if err := stack.writeConfigs(); err != nil {
-		return err
-	}
-	return stack.writeDataExchangeCerts()
+	return stack.writeConfigs()
 }
 
 func CheckExists(stackName string) (bool, error) {
-	_, err := os.Stat(path.Join(StacksDir, stackName))
+	_, err := os.Stat(path.Join(StacksDir, stackName, "stack.json"))
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -205,7 +221,7 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
 	workingDir := path.Join(StacksDir, s.Name)
 	var spin *spinner.Spinner
-	if fancyFeatures {
+	if fancyFeatures && !verbose {
 		spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
 		spin.FinalMSG = "done"
 	}
@@ -265,6 +281,14 @@ func (s *Stack) RemoveStack(verbose bool) error {
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
+	updateStatus("writing data exchange certs", spin)
+	if err := s.writeDataExchangeCerts(); err != nil {
+		return err
+	}
+	updateStatus("pulling latest versions", spin)
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
+		return err
+	}
 	updateStatus("starting FireFly dependencies", spin)
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
@@ -282,6 +306,28 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
 	if err := s.registerFireflyIdentities(spin, verbose); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *Stack) UpgradeStack(verbose bool) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "down"); err != nil {
+		return err
+	}
+	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
+}
+
+func (s *Stack) PrintStackInfo(verbose bool) error {
+	workingDir := path.Join(StacksDir, s.Name)
+	fmt.Print("\n")
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "images"); err != nil {
+		return err
+	}
+	fmt.Print("\n")
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "ps"); err != nil {
+		return err
+	}
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", path.Join(StacksDir, s.Name, "docker-compose.yml"))
 	return nil
 }
 

@@ -17,52 +17,38 @@ package cmd
 
 import (
 	"fmt"
-	"path"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
-var follow bool
-
-// logsCmd represents the logs command
-var logsCmd = &cobra.Command{
-	Use:   "logs <stack_name>",
-	Short: "View log output from a stack",
-	Long: `View log output from a stack.
-
-The most recent logs can be viewed, or you can follow the
-output with the -f flag.`,
+var infoCmd = &cobra.Command{
+	Use:   "info <stack_name>",
+	Short: "Get info about a stack",
+	Long: `Get info about a stack such as each container name
+	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
-
 		if exists, err := stacks.CheckExists(stackName); err != nil {
 			return err
 		} else if !exists {
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		fmt.Println("getting logs... ")
-
-		stackDir := path.Join(stacks.StacksDir, stackName)
-		commandLine := []string{}
-		if fancyFeatures {
-			commandLine = append(commandLine, "--ansi", "always")
+		if stack, err := stacks.LoadStack(stackName); err != nil {
+			return err
+		} else {
+			if err := stack.PrintStackInfo(verbose); err != nil {
+				return err
+			}
+			return nil
 		}
-		commandLine = append(commandLine, "logs")
-		if follow {
-			commandLine = append(commandLine, "-f")
-		}
-		docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
-		return nil
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(logsCmd)
-	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
+	rootCmd.AddCommand(infoCmd)
 }
