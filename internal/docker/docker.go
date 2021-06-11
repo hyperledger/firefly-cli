@@ -15,7 +15,7 @@ func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, comm
 }
 
 func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
-	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
+	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir
 	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
 }
