@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove <stack_name>",
 	Short: "Completely remove a stack",

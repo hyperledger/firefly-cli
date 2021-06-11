@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// resetCmd represents the reset command
 var resetCmd = &cobra.Command{
 	Use:   "reset <stack_name>",
 	Short: "Clear all data in a stack",
