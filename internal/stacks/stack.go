@@ -1,6 +1,7 @@
 package stacks
 
 import (
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,12 @@ import (
 
 var homeDir, _ = os.UserHomeDir()
 var StacksDir = path.Join(homeDir, ".firefly", "stacks")
+
+//go:embed ganache/Dockerfile
+var dockerfile []byte
+
+//go:embed ganache/healthcheck.sh
+var healthcheck []byte
 
 type Stack struct {
 	Name               string    `json:"name,omitempty"`
@@ -126,7 +133,12 @@ func LoadStack(stackName string) (*Stack, error) {
 
 func (s *Stack) ensureDirectories() error {
 
-	dataDir := path.Join(StacksDir, s.Name, "data")
+	stackDir := path.Join(StacksDir, s.Name)
+	dataDir := path.Join(stackDir, "data")
+
+	if err := os.MkdirAll(path.Join(stackDir, "ganache"), 0755); err != nil {
+		return err
+	}
 
 	for _, member := range s.Members {
 		if err := os.MkdirAll(path.Join(dataDir, "postgres_"+member.ID), 0755); err != nil {
@@ -152,6 +164,15 @@ func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) error {
 	}
 
 	stackDir := path.Join(StacksDir, s.Name)
+
+	if err := ioutil.WriteFile(path.Join(stackDir, "ganache", "Dockerfile"), dockerfile, 0755); err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(path.Join(stackDir, "ganache", "healthcheck.sh"), healthcheck, 0755); err != nil {
+		return err
+	}
+
 	return ioutil.WriteFile(path.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
