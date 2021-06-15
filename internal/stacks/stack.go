@@ -436,16 +436,6 @@ func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	return nil
 }
 
-// func (s *Stack) restartFireflyNodes(verbose bool) error {
-// 	for _, member := range s.Members {
-// 		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
-// 		if err := s.restartFireflyNode(containerName, verbose); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (s *Stack) stopFirelyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
 	return docker.RunDockerCommand(workingDir, verbose, verbose, "stop", containerName)
@@ -455,11 +445,6 @@ func (s *Stack) startFireflyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
 	return docker.RunDockerCommand(workingDir, verbose, verbose, "start", containerName)
 }
-
-// func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
-// 	workingDir := path.Join(StacksDir, s.Name)
-// 	return docker.RunDockerCommand(workingDir, verbose, verbose, "restart", containerName)
-// }
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
