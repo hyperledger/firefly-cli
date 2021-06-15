@@ -63,6 +63,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		Command: ganacheCommand,
 		Volumes: []string{dataDir + ":/data"},
 		Logging: standardLogOptions,
+		Ports:   []string{fmt.Sprint(stack.ExposedGanachePort) + ":8545"},
 	}
 
 	for _, member := range stack.Members {
@@ -110,7 +111,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
 			Ports: []string{
-				fmt.Sprint(member.ExposedIPFSApiPort) + ":5000",
+				fmt.Sprint(member.ExposedIPFSApiPort) + ":5001",
 				fmt.Sprint(member.ExposedIPFSGWPort) + ":8080",
 			},
 			Environment: map[string]string{

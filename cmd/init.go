@@ -28,6 +28,8 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
 
+var initOptions stacks.InitOptions
+
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
 	Short: "Create a new FireFly local dev stack",
@@ -86,7 +88,7 @@ var initCmd = &cobra.Command{
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
-		if err := stacks.InitStack(stackName, memberCount); err != nil {
+		if err := stacks.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
 
@@ -97,5 +99,8 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
+	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
+	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+
 	rootCmd.AddCommand(initCmd)
 }
