@@ -21,6 +21,7 @@ type LoggingConfig struct {
 
 type Service struct {
 	Image       string                       `yaml:"image,omitempty"`
+	Build       string                       `yaml:"build,omitempty"`
 	Command     string                       `yaml:"command,omitempty"`
 	Environment map[string]string            `yaml:"environment,omitempty"`
 	Volumes     []string                     `yaml:"volumes,omitempty"`
@@ -59,9 +60,15 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 	}
 
 	compose.Services["ganache"] = &Service{
-		Image:   "trufflesuite/ganache-cli",
+		Build:   "ganache",
 		Command: ganacheCommand,
 		Volumes: []string{dataDir + ":/data"},
+		HealthCheck: &HealthCheck{
+			Test:     []string{"CMD-SHELL", "./healthcheck.sh"},
+			Interval: "10s",
+			Timeout:  "8s",
+			Retries:  6,
+		},
 		Logging: standardLogOptions,
 		Ports:   []string{fmt.Sprint(stack.ExposedGanachePort) + ":8545"},
 	}
@@ -99,7 +106,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
 			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://ganache:8545 -E ./events -d 3",
-			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_started"}},
+			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_healthy"}},
 			Ports:     []string{fmt.Sprint(member.ExposedEthconnectPort) + ":8080"},
 			Volumes: []string{
 				path.Join(dataDir, "ethconnect_"+member.ID, "abis") + ":/ethconnect/abis",
