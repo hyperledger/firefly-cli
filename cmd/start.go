@@ -23,6 +23,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var startOptions stacks.StartOptions
+
 var startCmd = &cobra.Command{
 	Use:   "start <stack_name>",
 	Short: "Start a stack",
@@ -42,7 +44,7 @@ This command will start a stack and run it in the background.
 			return err
 		}
 
-		if err = stack.StartStack(fancyFeatures, verbose); err != nil {
+		if err = stack.StartStack(fancyFeatures, verbose, &startOptions); err != nil {
 			return err
 		} else {
 			fmt.Print("\n\n")
@@ -56,5 +58,7 @@ This command will start a stack and run it in the background.
 }
 
 func init() {
+	startCmd.Flags().BoolVarP(&startOptions.NoPull, "no-pull", "n", false, "Do not pull latest images when starting")
+
 	rootCmd.AddCommand(startCmd)
 }

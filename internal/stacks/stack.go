@@ -24,9 +24,10 @@ var homeDir, _ = os.UserHomeDir()
 var StacksDir = path.Join(homeDir, ".firefly", "stacks")
 
 type Stack struct {
-	Name     string    `json:"name,omitempty"`
-	Members  []*Member `json:"members,omitempty"`
-	SwarmKey string    `json:"swarmKey,omitempty"`
+	Name               string    `json:"name,omitempty"`
+	Members            []*Member `json:"members,omitempty"`
+	SwarmKey           string    `json:"swarmKey,omitempty"`
+	ExposedGanachePort int       `json:"exposedGanachePort,omitempty"`
 }
 
 type Member struct {
@@ -38,9 +39,18 @@ type Member struct {
 	ExposedEthconnectPort   int    `json:"exposedEthconnectPort,omitempty"`
 	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
 	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
-	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty`
-	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty`
+	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
+	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
 	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
+}
+
+type StartOptions struct {
+	NoPull bool
+}
+
+type InitOptions struct {
+	FireFlyBasePort  int
+	ServicesBasePort int
 }
 
 func ListStacks() ([]string, error) {
@@ -62,21 +72,22 @@ func ListStacks() ([]string, error) {
 	return stacks, nil
 }
 
-func InitStack(stackName string, memberCount int) error {
+func InitStack(stackName string, memberCount int, options *InitOptions) error {
 	stack := &Stack{
-		Name:     stackName,
-		Members:  make([]*Member, memberCount),
-		SwarmKey: GenerateSwarmKey(),
+		Name:               stackName,
+		Members:            make([]*Member, memberCount),
+		SwarmKey:           GenerateSwarmKey(),
+		ExposedGanachePort: options.ServicesBasePort,
 	}
 	for i := 0; i < memberCount; i++ {
-		stack.Members[i] = createMember(fmt.Sprint(i), i)
+		stack.Members[i] = createMember(fmt.Sprint(i), i, options)
 	}
 	compose := CreateDockerCompose(stack)
 	if err := stack.ensureDirectories(); err != nil {
 		return err
 	}
 	if err := stack.writeDockerCompose(compose); err != nil {
-		return &json.UnmarshalFieldError{}
+		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
 	}
 	return stack.writeConfigs()
 }
@@ -182,7 +193,7 @@ func (s *Stack) writeDataExchangeCerts() error {
 	return nil
 }
 
-func createMember(id string, index int) *Member {
+func createMember(id string, index int, options *InitOptions) *Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -194,18 +205,19 @@ func createMember(id string, index int) *Member {
 	// Ethereum addresses only use the lower 20 bytes, so toss the rest away
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
+	serviceBase := options.ServicesBasePort + (index * 100)
 	return &Member{
 		ID:                      id,
 		Index:                   &index,
 		Address:                 encodedAddress,
 		PrivateKey:              encodedPrivateKey,
-		ExposedFireflyPort:      5000 + index,
-		ExposedEthconnectPort:   8080 + index,
-		ExposedUIPort:           3000 + index,
-		ExposedPostgresPort:     5434 + index,
-		ExposedDataexchangePort: 3020 + index,
-		ExposedIPFSApiPort:      6000 + index,
-		ExposedIPFSGWPort:       6100 + index,
+		ExposedFireflyPort:      options.FireFlyBasePort + index,
+		ExposedEthconnectPort:   serviceBase + 1, // note shared ganache is on zero
+		ExposedUIPort:           serviceBase + 2,
+		ExposedPostgresPort:     serviceBase + 3,
+		ExposedDataexchangePort: serviceBase + 4,
+		ExposedIPFSApiPort:      serviceBase + 5,
+		ExposedIPFSGWPort:       serviceBase + 6,
 	}
 }
 
@@ -217,7 +229,7 @@ func updateStatus(message string, spin *spinner.Spinner) {
 	}
 }
 
-func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
+func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
 	workingDir := path.Join(StacksDir, s.Name)
 	var spin *spinner.Spinner
@@ -230,7 +242,7 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool) error {
 		if spin != nil {
 			spin.Start()
 		}
-		if err := s.runFirstTimeSetup(spin, verbose); err != nil {
+		if err := s.runFirstTimeSetup(spin, verbose, options); err != nil {
 			if spin != nil {
 				spin.Stop()
 			}
@@ -279,15 +291,17 @@ func (s *Stack) RemoveStack(verbose bool) error {
 	return os.RemoveAll(path.Join(StacksDir, s.Name))
 }
 
-func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool) error {
+func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
 	workingDir := path.Join(StacksDir, s.Name)
 	updateStatus("writing data exchange certs", spin)
 	if err := s.writeDataExchangeCerts(); err != nil {
 		return err
 	}
-	updateStatus("pulling latest versions", spin)
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
-		return err
+	if !options.NoPull {
+		updateStatus("pulling latest versions", spin)
+		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
+			return err
+		}
 	}
 	updateStatus("starting FireFly dependencies", spin)
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
@@ -422,15 +436,15 @@ func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	return nil
 }
 
-func (s *Stack) restartFireflyNodes(verbose bool) error {
-	for _, member := range s.Members {
-		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
-		if err := s.restartFireflyNode(containerName, verbose); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (s *Stack) restartFireflyNodes(verbose bool) error {
+// 	for _, member := range s.Members {
+// 		containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+// 		if err := s.restartFireflyNode(containerName, verbose); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (s *Stack) stopFirelyNode(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
@@ -442,10 +456,10 @@ func (s *Stack) startFireflyNode(containerName string, verbose bool) error {
 	return docker.RunDockerCommand(workingDir, verbose, verbose, "start", containerName)
 }
 
-func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
-	workingDir := path.Join(StacksDir, s.Name)
-	return docker.RunDockerCommand(workingDir, verbose, verbose, "restart", containerName)
-}
+// func (s *Stack) restartFireflyNode(containerName string, verbose bool) error {
+// 	workingDir := path.Join(StacksDir, s.Name)
+// 	return docker.RunDockerCommand(workingDir, verbose, verbose, "restart", containerName)
+// }
 
 func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	workingDir := path.Join(StacksDir, s.Name)
