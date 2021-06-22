@@ -18,39 +18,30 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
+
+	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
 
-// stopCmd represents the stop command
-var stopCmd = &cobra.Command{
-	Use:   "stop <stack_name>",
-	Short: "Stop a stack",
-	Long:  `Stop a stack`,
+var lsCmd = &cobra.Command{
+	Use:   "ls",
+	Short: "list stacks",
+	Long:  `List stacks`,
+	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return fmt.Errorf("no stack specified")
-		}
-		stackName := args[0]
-		if exists, err := stacks.CheckExists(stackName); err != nil {
-			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
-		}
-
-		if stack, err := stacks.LoadStack(stackName); err != nil {
+		if stacks, err := stacks.ListStacks(); err != nil {
 			return err
 		} else {
-			fmt.Printf("stopping stack '%s'... ", stackName)
-			if err := stack.StopStack(verbose); err != nil {
-				return err
+			fmt.Print("FireFly Stacks:\n\n")
+			for _, s := range stacks {
+				fmt.Println(s)
 			}
-			fmt.Print("done\n")
-			return nil
+			fmt.Print("\n")
 		}
+		return nil
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(stopCmd)
+	rootCmd.AddCommand(lsCmd)
 }

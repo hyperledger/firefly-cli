@@ -18,6 +18,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"path"
 	"strconv"
 
 	"github.com/nguyer/promptui"
@@ -26,6 +27,8 @@ import (
 	"github.com/castillobgr/sententia"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
+
+var initOptions stacks.InitOptions
 
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
@@ -85,15 +88,19 @@ var initCmd = &cobra.Command{
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
-		if err := stacks.InitStack(stackName, memberCount); err != nil {
+		if err := stacks.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
 
-		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n\n", stackName, rootCmd.Use, stackName)
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
+		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", path.Join(stacks.StacksDir, stackName, "docker-compose.yml"))
 		return nil
 	},
 }
 
 func init() {
+	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
+	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+
 	rootCmd.AddCommand(initCmd)
 }

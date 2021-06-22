@@ -27,6 +27,22 @@ import (
 	"github.com/briandowns/spinner"
 )
 
+func (s *Stack) httpJSONWithRetry(method, url string, body, result interface{}) (err error) {
+	retries := 30
+	for {
+		if err := s.httpJSON(method, url, body, result); err != nil {
+			if retries > 0 {
+				retries--
+				time.Sleep(1 * time.Second)
+			} else {
+				return err
+			}
+		} else {
+			return nil
+		}
+	}
+}
+
 func (s *Stack) httpJSON(method, url string, body, result interface{}) (err error) {
 	if body == nil {
 		body = make(map[string]interface{})
@@ -73,7 +89,7 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 		updateStatus(fmt.Sprintf("registering %s and %s", orgName, nodeName), spin)
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
-		err := s.httpJSON(http.MethodPost, registerOrgURL, nil, nil)
+		err := s.httpJSONWithRetry(http.MethodPost, registerOrgURL, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -86,7 +102,7 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 			}
 			orgURL := fmt.Sprintf("%s/network/organizations", ffURL)
 			var orgs []establishedOrg
-			err := s.httpJSON(http.MethodGet, orgURL, nil, &orgs)
+			err := s.httpJSONWithRetry(http.MethodGet, orgURL, nil, &orgs)
 			if err != nil {
 				return nil
 			}
@@ -99,7 +115,7 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 		}
 
 		registerNodeURL := fmt.Sprintf("%s/network/register/node", ffURL)
-		err = s.httpJSON(http.MethodPost, registerNodeURL, nil, nil)
+		err = s.httpJSONWithRetry(http.MethodPost, registerNodeURL, nil, nil)
 		if err != nil {
 			return nil
 		}

@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// resetCmd represents the reset command
 var resetCmd = &cobra.Command{
 	Use:   "reset <stack_name>",
 	Short: "Clear all data in a stack",
@@ -72,7 +71,7 @@ Note: this will also stop the stack if it is running.
 			if err := stack.ResetStack(verbose); err != nil {
 				return err
 			}
-			fmt.Println("done")
+			fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 		}
 
 		return nil

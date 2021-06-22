@@ -13,6 +13,14 @@ In order to run the FireFly CLI, you will need a few things installed on your de
 
 ## Install the CLI
 
+On Go 1.16 and newer:
+
+```
+$ go install github.com/hyperledger-labs/firefly-cli/ff@latest
+```
+
+On earlier versions of Go:
+
 ```
 $ go get github.com/hyperledger-labs/firefly-cli/ff
 ```
