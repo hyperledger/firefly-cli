@@ -17,7 +17,7 @@ package cmd
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
@@ -48,7 +48,7 @@ output with the -f flag.`,
 
 		fmt.Println("getting logs... ")
 
-		stackDir := path.Join(stacks.StacksDir, stackName)
+		stackDir := filepath.Join(stacks.StacksDir, stackName)
 		commandLine := []string{}
 		if fancyFeatures {
 			commandLine = append(commandLine, "--ansi", "always")

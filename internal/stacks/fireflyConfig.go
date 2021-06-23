@@ -16,6 +16,13 @@ type HttpServerConfig struct {
 	Address string `yaml:"address,omitempty"`
 }
 
+type AdminServerConfig struct {
+	Port    int    `yaml:"port,omitempty"`
+	Address string `yaml:"address,omitempty"`
+	Enabled bool   `yaml:"enabled,omitempty"`
+	PreInit bool   `yaml:"preinit,omitempty"`
+}
+
 type BasicAuth struct {
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
@@ -90,6 +97,7 @@ type FireflyConfig struct {
 	Log          *LogConfig           `yaml:"log,omitempty"`
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
 	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
+	Admin        *AdminServerConfig   `yaml:"admin,omitempty"`
 	UI           *UIConfig            `yaml:"ui,omitempty"`
 	Node         *NodeConfig          `yaml:"node,omitempty"`
 	Org          *OrgConfig           `yaml:"org,omitempty"`
@@ -114,6 +122,12 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Port:    member.ExposedFireflyPort,
 				Address: "0.0.0.0",
 			},
+			Admin: &AdminServerConfig{
+				Enabled: true,
+				Port:    member.ExposedFireflyAdminPort,
+				Address: "0.0.0.0",
+				PreInit: true,
+			},
 			UI: &UIConfig{
 				Path: "./frontend",
 			},
@@ -128,10 +142,9 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Type: "ethereum",
 				Ethereum: &EthereumConfig{
 					Ethconnect: &EthconnectConfig{
-						URL:                 "http://ethconnect_" + member.ID + ":8080",
-						Instance:            "/contracts/firefly",
-						Topic:               member.ID,
-						SkipEventStreamInit: true,
+						URL:      "http://ethconnect_" + member.ID + ":8080",
+						Instance: "/contracts/firefly",
+						Topic:    member.ID,
 					},
 				},
 			},

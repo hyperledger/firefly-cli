@@ -5,8 +5,26 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"path"
 	"strings"
 )
+
+func CreateVolume(volumeName string, verbose bool) error {
+	return RunDockerCommand(".", verbose, verbose, "volume", "create", volumeName)
+}
+
+func CopyFileToVolume(volumeName string, sourcePath string, destPath string, verbose bool) error {
+	fileName := path.Base(sourcePath)
+	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
+}
+
+func MkdirInVolume(volumeName string, directory string, verbose bool) error {
+	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "mkdir", "-p", path.Join("/", "dest", directory))
+}
+
+func RemoveVolume(volumeName string, verbose bool) error {
+	return RunDockerCommand(".", verbose, verbose, "volume", "remove", volumeName)
+}
 
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)

@@ -2,7 +2,6 @@ package stacks
 
 import (
 	"fmt"
-	"path"
 )
 
 type DependsOn map[string]map[string]string
@@ -34,14 +33,14 @@ type Service struct {
 type DockerComposeConfig struct {
 	Version  string              `yaml:"version,omitempty"`
 	Services map[string]*Service `yaml:"services,omitempty"`
+	Volumes  map[string]struct{} `yaml:"volumes,omitempty"`
 }
 
 func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
-	stackDir := path.Join(StacksDir, stack.Name)
-	dataDir := path.Join(stackDir, "data")
 	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),
+		Volumes:  make(map[string]struct{}),
 	}
 
 	ganacheCommand := ""
@@ -62,7 +61,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 	compose.Services["ganache"] = &Service{
 		Build:   "ganache",
 		Command: ganacheCommand,
-		Volumes: []string{dataDir + ":/data"},
+		Volumes: []string{"ganache:/data"},
 		HealthCheck: &HealthCheck{
 			Test:     []string{"CMD-SHELL", "./healthcheck.sh"},
 			Interval: "4s",
@@ -70,14 +69,19 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 			Retries:  15,   // 15 * 4 second intervals = one minute
 		},
 		Logging: standardLogOptions,
-		Ports:   []string{fmt.Sprint(stack.ExposedGanachePort) + ":8545"},
+		Ports:   []string{fmt.Sprintf("%d:8545", stack.ExposedGanachePort)},
 	}
+
+	compose.Volumes["ganache"] = struct{}{}
 
 	for _, member := range stack.Members {
 		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image:   "ghcr.io/hyperledger-labs/firefly:latest",
-			Ports:   []string{fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort)},
-			Volumes: []string{path.Join(stackDir, "firefly_"+member.ID+".core") + ":/etc/firefly/firefly.core"},
+			Image: "ghcr.io/hyperledger-labs/firefly:latest",
+			Ports: []string{
+				fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+				fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+			},
+			Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
 			DependsOn: map[string]map[string]string{
 				"postgres_" + member.ID:     {"condition": "service_healthy"},
 				"ethconnect_" + member.ID:   {"condition": "service_started"},
@@ -86,58 +90,71 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 			Logging: standardLogOptions,
 		}
 
+		compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+
 		compose.Services["postgres_"+member.ID] = &Service{
 			Image: "postgres",
-			Ports: []string{fmt.Sprint(member.ExposedPostgresPort) + ":5432"},
+			Ports: []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 			Environment: map[string]string{
 				"POSTGRES_PASSWORD": "f1refly",
 				"PGDATA":            "/var/lib/postgresql/data/pgdata",
 			},
-			Volumes: []string{path.Join(dataDir, "postgres_"+member.ID) + ":/var/lib/postgresql/data"},
+			Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
 			HealthCheck: &HealthCheck{
 				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
-				Interval: "2s",
-				Timeout:  "5s",
-				Retries:  60,
+				Interval: "5s",
+				Timeout:  "3s",
+				Retries:  12,
 			},
 			Logging: standardLogOptions,
 		}
+
+		compose.Volumes["postgres_"+member.ID] = struct{}{}
 
 		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
 			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://ganache:8545 -E ./events -d 3",
 			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_healthy"}},
-			Ports:     []string{fmt.Sprint(member.ExposedEthconnectPort) + ":8080"},
+			Ports:     []string{fmt.Sprintf("%d:8080", member.ExposedEthconnectPort)},
 			Volumes: []string{
-				path.Join(dataDir, "ethconnect_"+member.ID, "abis") + ":/ethconnect/abis",
-				path.Join(dataDir, "ethconnect_"+member.ID, "events") + ":/ethconnect/events",
+				fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
+				fmt.Sprintf("ethconnect_events_%s:/ethconnect/events", member.ID),
 			},
 			Logging: standardLogOptions,
 		}
 
+		compose.Volumes["ethconnect_abis_"+member.ID] = struct{}{}
+		compose.Volumes["ethconnect_events_"+member.ID] = struct{}{}
+
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
 			Ports: []string{
-				fmt.Sprint(member.ExposedIPFSApiPort) + ":5001",
-				fmt.Sprint(member.ExposedIPFSGWPort) + ":8080",
+				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
+				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
 			},
 			Environment: map[string]string{
 				"IPFS_SWARM_KEY":    stack.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
 			Volumes: []string{
-				path.Join(dataDir, "ipfs_"+member.ID, "staging") + "/export",
-				path.Join(dataDir, "ipfs_"+member.ID, "data") + "/data/ipfs",
+				fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
+				fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
 			},
 			Logging: standardLogOptions,
 		}
 
+		compose.Volumes["ipfs_staging_"+member.ID] = struct{}{}
+		compose.Volumes["ipfs_data_"+member.ID] = struct{}{}
+
 		compose.Services["dataexchange_"+member.ID] = &Service{
 			Image:   "ghcr.io/hyperledger-labs/firefly-dataexchange-https:latest",
-			Ports:   []string{fmt.Sprint(member.ExposedDataexchangePort) + ":3000"},
-			Volumes: []string{path.Join(dataDir, "dataexchange_"+member.ID) + ":/data"},
+			Ports:   []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
+			Volumes: []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging: standardLogOptions,
 		}
+
+		compose.Volumes["dataexchange_"+member.ID] = struct{}{}
+
 	}
 
 	return compose

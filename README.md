@@ -9,7 +9,9 @@ The FireFly CLI can be used to create a local FireFly stacks for offline develop
 In order to run the FireFly CLI, you will need a few things installed on your dev machine:
 
 - [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
 - [Go](https://golang.org/)
+- openssl
 
 ## Install the CLI
 
