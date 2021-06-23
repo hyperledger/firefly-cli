@@ -18,7 +18,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
@@ -69,7 +69,7 @@ and configuration.`,
 			if err := stack.RemoveStack(verbose); err != nil {
 				return err
 			}
-			os.RemoveAll(path.Join(stacks.StacksDir, stackName))
+			os.RemoveAll(filepath.Join(stacks.StacksDir, stackName))
 			fmt.Println("done")
 			return nil
 		}

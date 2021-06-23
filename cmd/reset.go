@@ -52,7 +52,7 @@ Note: this will also stop the stack if it is running.
 				IsConfirm: true,
 			}
 
-			fmt.Println("WARNING: This will completely remove your all transactions and data from your FireFly stack. Are you sure you want to do that?")
+			fmt.Println("WARNING: This will completely remove all transactions and data from your FireFly stack. Are you sure you want to do that?")
 			result, err := prompt.Run()
 
 			if err != nil || strings.ToLower(result) != "y" {

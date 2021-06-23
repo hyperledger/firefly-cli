@@ -18,7 +18,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"strconv"
 
 	"github.com/nguyer/promptui"
@@ -93,7 +93,7 @@ var initCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
-		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", path.Join(stacks.StacksDir, stackName, "docker-compose.yml"))
+		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stacks.StacksDir, stackName, "docker-compose.yml"))
 		return nil
 	},
 }

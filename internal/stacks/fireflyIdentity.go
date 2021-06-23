@@ -78,6 +78,10 @@ func (s *Stack) httpJSON(method, url string, body, result interface{}) (err erro
 		return fmt.Errorf("%s returned %d: %s", url, resp.StatusCode, b)
 	}
 
+	if resp.StatusCode == 204 {
+		return nil
+	}
+
 	return json.NewDecoder(resp.Body).Decode(&result)
 }
 
