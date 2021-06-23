@@ -65,9 +65,9 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		Volumes: []string{dataDir + ":/data"},
 		HealthCheck: &HealthCheck{
 			Test:     []string{"CMD-SHELL", "./healthcheck.sh"},
-			Interval: "10s",
-			Timeout:  "8s",
-			Retries:  6,
+			Interval: "4s",
+			Timeout:  "3s", // 1 second longer than the timeout in the script itself
+			Retries:  15,   // 15 * 4 second intervals = one minute
 		},
 		Logging: standardLogOptions,
 		Ports:   []string{fmt.Sprint(stack.ExposedGanachePort) + ":8545"},

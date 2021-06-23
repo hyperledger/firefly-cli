@@ -25,6 +25,24 @@ On earlier versions of Go:
 $ go get github.com/hyperledger-labs/firefly-cli/ff
 ```
 
+## Running on Linux
+
+There are a couple of things to be aware of if you're running the FireFly CLI on Linux:
+
+1. Because the FireFly CLI uses Docker, you may encounter some permission issues, depending on how your dev machine is set up. Unless you have set up your user to run Docker without root, it is recommended that you run FireFly CLI commands with `sudo`. For example, to create a new stack run:
+
+```
+$ sudo ff init <stack_name>
+```
+
+For more information about Docker permissions on Linux, please see [Docker's documentation on the topic](https://docs.docker.com/engine/install/linux-postinstall/).
+
+2. By default, `go install` will install the `ff` binary at `~/go/bin/ff`. If you are running `ff` with `sudo`, the root user will not be able to find the `ff` binary on the path. It is recommended to create a symlink so that the root user can find the `ff` binary on the path.
+
+```
+$ sudo ln -s ~/go/bin/ff /usr/bin/ff
+```
+
 ## Create a new stack
 
 ```
@@ -65,4 +83,20 @@ This command will completely delete a stack, including all of its data and confi
 
 ```
 $ ff remove <stack_name>
+```
+
+## Get stack info
+
+This command will print out information about a particular stack, including whether it is running or not.
+
+```
+$ ff info <stack_name>
+```
+
+## List all stacks
+
+This command will list all stacks that have been created on your machine.
+
+```
+$ ff ls
 ```
