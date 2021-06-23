@@ -89,7 +89,7 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 	for _, member := range s.Members {
 		orgName := fmt.Sprintf("org_%s", member.ID)
 		nodeName := fmt.Sprintf("node_%s", member.ID)
-		ffURL := fmt.Sprintf("http://localhost:%d/api/v1", member.ExposedFireflyPort)
+		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)
 		updateStatus(fmt.Sprintf("registering %s and %s", orgName, nodeName), spin)
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
