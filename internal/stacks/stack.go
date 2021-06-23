@@ -432,7 +432,7 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 
 			contractDeployed = true
 		} else {
-			// TODO: Just load the ABI
+			// Just load the ABI
 			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
@@ -463,7 +463,6 @@ func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool) error {
 		if err := s.httpJSONWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
 			return err
 		}
-		// TODO: reset the config
 		fmt.Println("resetting config")
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
 		if err := s.httpJSONWithRetry("POST", resetUrl, "{}", nil); err != nil {
