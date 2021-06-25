@@ -19,16 +19,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
-	"github.com/nguyer/promptui"
 	"github.com/spf13/cobra"
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <stack_name>",
-	Short: "Completely remove a stack",
+	Use:     "remove <stack_name>",
+	Aliases: []string{"rm"},
+	Short:   "Completely remove a stack",
 	Long: `Completely remove a stack
 
 This command will completely delete a stack, including all of its data
@@ -46,16 +45,9 @@ and configuration.`,
 		}
 
 		if !force {
-			prompt := promptui.Prompt{
-				Label:     fmt.Sprintf("completely delete FireFly stack '%s'", stackName),
-				IsConfirm: true,
-			}
-
 			fmt.Println("WARNING: This will completely remove your stack and all of its data. Are you sure this is what you want to do?")
-
-			if result, err := prompt.Run(); err != nil || strings.ToLower(result) != "y" {
-				fmt.Printf("canceled")
-				return nil
+			if err := confirm(fmt.Sprintf("completely delete FireFly stack '%s'", stackName)); err != nil {
+				cancel()
 			}
 		}
 
