@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/mattn/go-isatty"
@@ -80,6 +81,11 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+}
+
+func cancel() {
+	fmt.Println("canceled")
+	os.Exit(1)
 }
 
 // initConfig reads in config file and ENV variables if set.

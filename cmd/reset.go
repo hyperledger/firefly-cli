@@ -17,10 +17,8 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
-	"github.com/nguyer/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -47,17 +45,9 @@ Note: this will also stop the stack if it is running.
 		}
 
 		if !force {
-			prompt := promptui.Prompt{
-				Label:     fmt.Sprintf("reset all data in FireFly stack '%s'", stackName),
-				IsConfirm: true,
-			}
-
 			fmt.Println("WARNING: This will completely remove all transactions and data from your FireFly stack. Are you sure you want to do that?")
-			result, err := prompt.Run()
-
-			if err != nil || strings.ToLower(result) != "y" {
-				fmt.Printf("canceled")
-				return nil
+			if err := confirm(fmt.Sprintf("reset all data in FireFly stack '%s'", stackName)); err != nil {
+				cancel()
 			}
 		}
 

@@ -12,15 +12,17 @@ type LogConfig struct {
 }
 
 type HttpServerConfig struct {
-	Port    int    `yaml:"port,omitempty"`
-	Address string `yaml:"address,omitempty"`
+	Port      int    `yaml:"port,omitempty"`
+	Address   string `yaml:"address,omitempty"`
+	PublicURL string `yaml:"publicURL,omitempty"`
 }
 
 type AdminServerConfig struct {
-	Port    int    `yaml:"port,omitempty"`
-	Address string `yaml:"address,omitempty"`
-	Enabled bool   `yaml:"enabled,omitempty"`
-	PreInit bool   `yaml:"preinit,omitempty"`
+	Port      int    `yaml:"port,omitempty"`
+	Address   string `yaml:"address,omitempty"`
+	Enabled   bool   `yaml:"enabled,omitempty"`
+	PreInit   bool   `yaml:"preinit,omitempty"`
+	PublicURL string `yaml:"publicURL,omitempty"`
 }
 
 type BasicAuth struct {
@@ -119,14 +121,16 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Port: 6060,
 			},
 			HTTP: &HttpServerConfig{
-				Port:    member.ExposedFireflyPort,
-				Address: "0.0.0.0",
+				Port:      member.ExposedFireflyPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
 			},
 			Admin: &AdminServerConfig{
-				Enabled: true,
-				Port:    member.ExposedFireflyAdminPort,
-				Address: "0.0.0.0",
-				PreInit: true,
+				Enabled:   true,
+				Port:      member.ExposedFireflyAdminPort,
+				Address:   "0.0.0.0",
+				PreInit:   true,
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
 			},
 			UI: &UIConfig{
 				Path: "./frontend",
