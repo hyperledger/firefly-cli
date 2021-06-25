@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
-	"github.com/nguyer/promptui"
 	"github.com/spf13/cobra"
 
-	"github.com/castillobgr/sententia"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
 
@@ -36,17 +35,10 @@ var initCmd = &cobra.Command{
 	Long:  `Create a new FireFly local dev stack`,
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var stackName string
+
 		fmt.Println("initializing new FireFly stack...")
 
-		validateName := func(stackName string) error {
-			if exists, err := stacks.CheckExists(stackName); exists {
-				return fmt.Errorf("stack '%s' already exists", stackName)
-			} else {
-				return err
-			}
-		}
-
-		var stackName string
 		if len(args) > 0 {
 			stackName = args[0]
 			err := validateName(stackName)
@@ -54,22 +46,8 @@ var initCmd = &cobra.Command{
 				return err
 			}
 		} else {
-			defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
-			prompt := promptui.Prompt{
-				Label:    "stack name",
-				Default:  defaultStackName,
-				Validate: validateName,
-			}
-			stackName, _ = prompt.Run()
-		}
-
-		validateCount := func(input string) error {
-			if i, err := strconv.Atoi(input); err != nil {
-				return errors.New("invalid number")
-			} else if i <= 0 {
-				return errors.New("number of members must be greater than zero")
-			}
-			return nil
+			stackName, _ = prompt("stack name: ", validateName)
+			fmt.Println("You selected " + stackName)
 		}
 
 		var memberCountInput string
@@ -79,12 +57,7 @@ var initCmd = &cobra.Command{
 				return err
 			}
 		} else {
-			prompt := promptui.Prompt{
-				Label:    "number of members",
-				Default:  "2",
-				Validate: validateCount,
-			}
-			memberCountInput, _ = prompt.Run()
+			memberCountInput, _ = prompt("number of members: ", validateCount)
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
@@ -96,6 +69,26 @@ var initCmd = &cobra.Command{
 		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stacks.StacksDir, stackName, "docker-compose.yml"))
 		return nil
 	},
+}
+
+func validateName(stackName string) error {
+	if strings.TrimSpace(stackName) == "" {
+		return errors.New("stack name must not be empty")
+	}
+	if exists, err := stacks.CheckExists(stackName); exists {
+		return fmt.Errorf("stack '%s' already exists", stackName)
+	} else {
+		return err
+	}
+}
+
+func validateCount(input string) error {
+	if i, err := strconv.Atoi(input); err != nil {
+		return errors.New("invalid number")
+	} else if i <= 0 {
+		return errors.New("number of members must be greater than zero")
+	}
+	return nil
 }
 
 func init() {
