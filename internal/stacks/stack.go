@@ -8,10 +8,12 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -260,6 +262,10 @@ func updateStatus(message string, spin *spinner.Spinner) {
 
 func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
+	// Check to make sure all of our ports are available
+	if err := s.checkPortsAvailable(); err != nil {
+		return err
+	}
 	workingDir := filepath.Join(StacksDir, s.Name)
 	var spin *spinner.Spinner
 	if fancyFeatures && !verbose {
@@ -318,6 +324,68 @@ func (s *Stack) RemoveStack(verbose bool) error {
 		return err
 	}
 	return os.RemoveAll(filepath.Join(StacksDir, s.Name))
+}
+
+func (s *Stack) checkPortsAvailable() error {
+	ports := make([]int, 1)
+	ports[0] = s.ExposedGanachePort
+	for _, member := range s.Members {
+		ports = append(ports, member.ExposedDataexchangePort)
+		ports = append(ports, member.ExposedEthconnectPort)
+		ports = append(ports, member.ExposedFireflyAdminPort)
+		ports = append(ports, member.ExposedFireflyPort)
+		ports = append(ports, member.ExposedIPFSApiPort)
+		ports = append(ports, member.ExposedIPFSGWPort)
+		ports = append(ports, member.ExposedPostgresPort)
+		ports = append(ports, member.ExposedUIPort)
+	}
+	for _, port := range ports {
+		if err := checkPortAvailable(port); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/* This function checks if a TCP port is available by trying to connect to it
+* This means the code actually expects an error to be returned when trying to connect
+* If an error (of the expected type) is returned, the func will return nil. If it is
+* able to connect to something, or an unexpected error occurs, an error will be returned.
+ */
+func checkPortAvailable(port int) error {
+	timeout := time.Millisecond * 500
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", fmt.Sprint(port)), timeout)
+
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		return nil
+	}
+
+	switch t := err.(type) {
+
+	case *net.OpError:
+		switch t := t.Unwrap().(type) {
+		case *os.SyscallError:
+			if t.Syscall == "connect" {
+				return nil
+			}
+		}
+		if t.Op == "dial" {
+			return err
+		} else if t.Op == "read" {
+			return nil
+		}
+
+	case syscall.Errno:
+		if t == syscall.ECONNREFUSED {
+			return nil
+		}
+	}
+
+	if conn != nil {
+		defer conn.Close()
+		return fmt.Errorf("port %d is unavailable. please check to see if another process is listening on that port.", port)
+	}
+	return nil
 }
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
