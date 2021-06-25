@@ -5,7 +5,6 @@ go 1.16
 require (
 	github.com/briandowns/spinner v1.12.0
 	github.com/btcsuite/btcd v0.21.0-beta
-	github.com/castillobgr/sententia v0.0.0-20160918013314-9b04b4a53625
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-isatty v0.0.13
 	github.com/mitchellh/go-homedir v1.1.0

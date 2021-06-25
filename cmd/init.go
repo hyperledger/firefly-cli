@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/castillobgr/sententia"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
 
@@ -36,10 +35,9 @@ var initCmd = &cobra.Command{
 	Long:  `Create a new FireFly local dev stack`,
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("initializing new FireFly stack...")
+		var stackName string
 
-		defaultStackName, _ := sententia.Make("{{ adjective }}-{{ nouns }}")
-		stackName := defaultStackName
+		fmt.Println("initializing new FireFly stack...")
 
 		if len(args) > 0 {
 			stackName = args[0]
