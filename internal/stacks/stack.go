@@ -241,14 +241,14 @@ func createMember(id string, index int, options *InitOptions) *Member {
 		Index:                   &index,
 		Address:                 encodedAddress,
 		PrivateKey:              encodedPrivateKey,
-		ExposedFireflyPort:      options.FireFlyBasePort + (index * 2),
-		ExposedFireflyAdminPort: options.FireFlyBasePort + 1 + (index * 2),
-		ExposedEthconnectPort:   serviceBase + 1, // note shared ganache is on zero
-		ExposedUIPort:           serviceBase + 2,
-		ExposedPostgresPort:     serviceBase + 3,
-		ExposedDataexchangePort: serviceBase + 4,
-		ExposedIPFSApiPort:      serviceBase + 5,
-		ExposedIPFSGWPort:       serviceBase + 6,
+		ExposedFireflyPort:      options.FireFlyBasePort + index,
+		ExposedFireflyAdminPort: serviceBase + 1, // note shared ganache is on zero
+		ExposedEthconnectPort:   serviceBase + 2,
+		ExposedUIPort:           serviceBase + 3,
+		ExposedPostgresPort:     serviceBase + 4,
+		ExposedDataexchangePort: serviceBase + 5,
+		ExposedIPFSApiPort:      serviceBase + 6,
+		ExposedIPFSGWPort:       serviceBase + 7,
 	}
 }
 
