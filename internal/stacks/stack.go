@@ -631,42 +631,50 @@ func (s *Stack) PrintStackInfo(verbose bool) error {
 	return nil
 }
 
+func (s *Stack) deployContract(member *Member, contract *contracts.Contract, name string, args map[string]string) (string, error) {
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
+	if err != nil {
+		return "", err
+	}
+	deployResponse, err := contracts.DeployContract(ethconnectUrl, abiResponse.ID, member.Address, args, name)
+	if err != nil {
+		return "", err
+	}
+	return deployResponse.ContractAddress, nil
+}
+
+func (s *Stack) registerContract(member *Member, contract *contracts.Contract, contractAddress string, name string, args map[string]string) error {
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
+	if err != nil {
+		return err
+	}
+	_, err = contracts.RegisterContract(ethconnectUrl, abiResponse.ID, contractAddress, member.Address, name, args)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
-	contractDeployed := false
 	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(StacksDir, s.Name, "contracts", "Firefly.json"))
 	if err != nil {
 		return err
 	}
+
 	var fireflyContractAddress string
 	for _, member := range s.Members {
-		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-		if !contractDeployed {
-			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
-			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
-			if err != nil {
-				return err
-			}
-			fireflyAbiId := publishFireflyResponse.ID
-
+		if fireflyContractAddress == "" {
 			// TODO: version the registered name
-			updateStatus(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID), spin)
-			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{}, "firefly")
+			updateStatus(fmt.Sprintf("deploying firefly contract on '%s'", member.ID), spin)
+			fireflyContractAddress, err = s.deployContract(member, fireflyContract, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
-			fireflyContractAddress = deployFireflyResponse.ContractAddress
-
-			contractDeployed = true
 		} else {
-			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
-			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
-			if err != nil {
-				return err
-			}
-			fireflyAbiId := publishFireflyResponse.ID
-
-			updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
-			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{})
+			updateStatus(fmt.Sprintf("registering firefly contract on '%s'", member.ID), spin)
+			err = s.registerContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
