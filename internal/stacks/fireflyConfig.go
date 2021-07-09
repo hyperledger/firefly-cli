@@ -70,7 +70,7 @@ type DataExchangeConfig struct {
 	HTTPS *HttpEndpointConfig `yaml:"https,omitempty"`
 }
 
-type PostgresConfig struct {
+type CommonDBConfig struct {
 	URL        string            `yaml:"url,omitempty"`
 	Migrations *MigrationsConfig `yaml:"migrations,omitempty"`
 }
@@ -82,7 +82,9 @@ type MigrationsConfig struct {
 
 type DatabaseConfig struct {
 	Type     string          `yaml:"type,omitempty"`
-	Postgres *PostgresConfig `yaml:"postgres,omitempty"`
+	Postgres *CommonDBConfig `yaml:"postgres,omitempty"`
+	SQLite3  *CommonDBConfig `yaml:"sqlite3,omitempty"`
+	SQLiteGo *CommonDBConfig `yaml:"sqlitego,omitempty"`
 }
 
 type PublicStorageConfig struct {
@@ -113,7 +115,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 	configs := make(map[string]*FireflyConfig)
 
 	for _, member := range stack.Members {
-		configs[member.ID] = &FireflyConfig{
+		memberConfig := &FireflyConfig{
 			Log: &LogConfig{
 				Level: "debug",
 			},
@@ -152,15 +154,6 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 					},
 				},
 			},
-			Database: &DatabaseConfig{
-				Type: "postgres",
-				Postgres: &PostgresConfig{
-					URL: "postgres://postgres:f1refly@postgres_" + member.ID + ":5432?sslmode=disable",
-					Migrations: &MigrationsConfig{
-						Auto: true,
-					},
-				},
-			},
 			P2PFS: &PublicStorageConfig{
 				Type: "ipfs",
 				IPFS: &FireflyIPFSConfig{
@@ -178,6 +171,29 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				},
 			},
 		}
+		switch stack.Database {
+		case "postgres":
+			memberConfig.Database = &DatabaseConfig{
+				Type: "postgres",
+				Postgres: &CommonDBConfig{
+					URL: "postgres://postgres:f1refly@postgres_" + member.ID + ":5432?sslmode=disable",
+					Migrations: &MigrationsConfig{
+						Auto: true,
+					},
+				},
+			}
+		case "sqlite3", "sqlitego":
+			memberConfig.Database = &DatabaseConfig{
+				Type: stack.Database,
+				Postgres: &CommonDBConfig{
+					URL: "THIS IS WHERE I GOT TO...."
+					Migrations: &MigrationsConfig{
+						Auto: true,
+					},
+				},
+			}
+		}
+		configs[member.ID] = memberConfig
 	}
 	return configs
 }

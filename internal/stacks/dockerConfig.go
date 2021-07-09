@@ -75,41 +75,46 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 	compose.Volumes["ganache"] = struct{}{}
 
 	for _, member := range stack.Members {
-		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image: "ghcr.io/hyperledger-labs/firefly:latest",
-			Ports: []string{
-				fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
-				fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
-			},
-			Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
-			DependsOn: map[string]map[string]string{
-				"postgres_" + member.ID:     {"condition": "service_healthy"},
-				"ethconnect_" + member.ID:   {"condition": "service_started"},
-				"dataexchange_" + member.ID: {"condition": "service_started"},
-			},
-			Logging: standardLogOptions,
+
+		if stack.Database == "postgres" {
+			compose.Services["firefly_core_"+member.ID] = &Service{
+				Image: "ghcr.io/hyperledger-labs/firefly:latest",
+				Ports: []string{
+					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+				},
+				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+				DependsOn: map[string]map[string]string{
+					"postgres_" + member.ID:     {"condition": "service_healthy"},
+					"ethconnect_" + member.ID:   {"condition": "service_started"},
+					"dataexchange_" + member.ID: {"condition": "service_started"},
+				},
+				Logging: standardLogOptions,
+			}
 		}
 
 		compose.Volumes["firefly_core_"+member.ID] = struct{}{}
 
-		compose.Services["postgres_"+member.ID] = &Service{
-			Image: "postgres",
-			Ports: []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
-			Environment: map[string]string{
-				"POSTGRES_PASSWORD": "f1refly",
-				"PGDATA":            "/var/lib/postgresql/data/pgdata",
-			},
-			Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
-			HealthCheck: &HealthCheck{
-				Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
-				Interval: "5s",
-				Timeout:  "3s",
-				Retries:  12,
-			},
-			Logging: standardLogOptions,
-		}
+		if stack.Database == "postgres" {
+			compose.Services["postgres_"+member.ID] = &Service{
+				Image: "postgres",
+				Ports: []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
+				Environment: map[string]string{
+					"POSTGRES_PASSWORD": "f1refly",
+					"PGDATA":            "/var/lib/postgresql/data/pgdata",
+				},
+				Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
+				HealthCheck: &HealthCheck{
+					Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
+					Interval: "5s",
+					Timeout:  "3s",
+					Retries:  12,
+				},
+				Logging: standardLogOptions,
+			}
 
-		compose.Volumes["postgres_"+member.ID] = struct{}{}
+			compose.Volumes["postgres_"+member.ID] = struct{}{}
+		}
 
 		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",

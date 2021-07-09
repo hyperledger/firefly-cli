@@ -39,6 +39,7 @@ type Stack struct {
 	Members            []*Member `json:"members,omitempty"`
 	SwarmKey           string    `json:"swarmKey,omitempty"`
 	ExposedGanachePort int       `json:"exposedGanachePort,omitempty"`
+	Database           string    `json:"database"`
 }
 
 type Member struct {
