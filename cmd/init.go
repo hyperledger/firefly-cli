@@ -94,6 +94,7 @@ func validateCount(input string) error {
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+	initCmd.Flags().StringVarP(&initOptions.DatabaseSelection, "database", "d", "", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
 
 	rootCmd.AddCommand(initCmd)
 }

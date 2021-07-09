@@ -81,10 +81,10 @@ type MigrationsConfig struct {
 }
 
 type DatabaseConfig struct {
-	Type     string          `yaml:"type,omitempty"`
-	Postgres *CommonDBConfig `yaml:"postgres,omitempty"`
-	SQLite3  *CommonDBConfig `yaml:"sqlite3,omitempty"`
-	SQLiteGo *CommonDBConfig `yaml:"sqlitego,omitempty"`
+	Type       string          `yaml:"type,omitempty"`
+	PostgreSQL *CommonDBConfig `yaml:"postgres,omitempty"`
+	SQLite3    *CommonDBConfig `yaml:"sqlite3,omitempty"`
+	SQLiteGo   *CommonDBConfig `yaml:"sqlitego,omitempty"`
 }
 
 type PublicStorageConfig struct {
@@ -175,18 +175,28 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 		case "postgres":
 			memberConfig.Database = &DatabaseConfig{
 				Type: "postgres",
-				Postgres: &CommonDBConfig{
+				PostgreSQL: &CommonDBConfig{
 					URL: "postgres://postgres:f1refly@postgres_" + member.ID + ":5432?sslmode=disable",
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
 				},
 			}
-		case "sqlite3", "sqlitego":
+		case "sqlite3":
 			memberConfig.Database = &DatabaseConfig{
 				Type: stack.Database,
-				Postgres: &CommonDBConfig{
-					URL: "THIS IS WHERE I GOT TO...."
+				SQLite3: &CommonDBConfig{
+					URL: "/etc/firefly/db",
+					Migrations: &MigrationsConfig{
+						Auto: true,
+					},
+				},
+			}
+		case "sqlitego":
+			memberConfig.Database = &DatabaseConfig{
+				Type: stack.Database,
+				SQLiteGo: &CommonDBConfig{
+					URL: "/etc/firefly/db",
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
