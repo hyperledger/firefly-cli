@@ -40,10 +40,9 @@ type DatabaseSelection int
 const (
 	PostgreSQL DatabaseSelection = iota
 	SQLite3
-	SQLiteGo
 )
 
-var DBSelectionStrings = []string{"postgres", "sqlite3", "sqlitego"}
+var DBSelectionStrings = []string{"postgres", "sqlite3"}
 
 func (db DatabaseSelection) String() string {
 	return DBSelectionStrings[db]

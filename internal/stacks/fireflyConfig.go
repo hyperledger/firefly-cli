@@ -84,7 +84,6 @@ type DatabaseConfig struct {
 	Type       string          `yaml:"type,omitempty"`
 	PostgreSQL *CommonDBConfig `yaml:"postgres,omitempty"`
 	SQLite3    *CommonDBConfig `yaml:"sqlite3,omitempty"`
-	SQLiteGo   *CommonDBConfig `yaml:"sqlitego,omitempty"`
 }
 
 type PublicStorageConfig struct {
@@ -186,16 +185,6 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 			memberConfig.Database = &DatabaseConfig{
 				Type: stack.Database,
 				SQLite3: &CommonDBConfig{
-					URL: "/etc/firefly/db",
-					Migrations: &MigrationsConfig{
-						Auto: true,
-					},
-				},
-			}
-		case "sqlitego":
-			memberConfig.Database = &DatabaseConfig{
-				Type: stack.Database,
-				SQLiteGo: &CommonDBConfig{
 					URL: "/etc/firefly/db",
 					Migrations: &MigrationsConfig{
 						Auto: true,
