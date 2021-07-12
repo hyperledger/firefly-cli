@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,11 +35,34 @@ var dockerfile []byte
 //go:embed ganache/healthcheck.sh
 var healthcheck []byte
 
+type DatabaseSelection int
+
+const (
+	PostgreSQL DatabaseSelection = iota
+	SQLite3
+)
+
+var DBSelectionStrings = []string{"postgres", "sqlite3"}
+
+func (db DatabaseSelection) String() string {
+	return DBSelectionStrings[db]
+}
+
+func DatabaseSelectionFromString(s string) (DatabaseSelection, error) {
+	for i, dbSelection := range DBSelectionStrings {
+		if strings.ToLower(s) == dbSelection {
+			return DatabaseSelection(i), nil
+		}
+	}
+	return SQLite3, fmt.Errorf("\"%s\" is not a valid database selection. valid options are: %v", s, DBSelectionStrings)
+}
+
 type Stack struct {
 	Name               string    `json:"name,omitempty"`
 	Members            []*Member `json:"members,omitempty"`
 	SwarmKey           string    `json:"swarmKey,omitempty"`
 	ExposedGanachePort int       `json:"exposedGanachePort,omitempty"`
+	Database           string    `json:"database"`
 }
 
 type Member struct {
@@ -61,8 +85,9 @@ type StartOptions struct {
 }
 
 type InitOptions struct {
-	FireFlyBasePort  int
-	ServicesBasePort int
+	FireFlyBasePort   int
+	ServicesBasePort  int
+	DatabaseSelection string
 }
 
 func ListStacks() ([]string, error) {
@@ -85,12 +110,20 @@ func ListStacks() ([]string, error) {
 }
 
 func InitStack(stackName string, memberCount int, options *InitOptions) error {
+
+	dbSelection, err := DatabaseSelectionFromString(options.DatabaseSelection)
+	if err != nil {
+		return err
+	}
+
 	stack := &Stack{
 		Name:               stackName,
 		Members:            make([]*Member, memberCount),
 		SwarmKey:           GenerateSwarmKey(),
 		ExposedGanachePort: options.ServicesBasePort,
+		Database:           dbSelection.String(),
 	}
+
 	for i := 0; i < memberCount; i++ {
 		stack.Members[i] = createMember(fmt.Sprint(i), i, options)
 	}
