@@ -185,7 +185,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 			memberConfig.Database = &DatabaseConfig{
 				Type: stack.Database,
 				SQLite3: &CommonDBConfig{
-					URL: "/etc/firefly/db",
+					URL: "/etc/firefly/db?_busy_timeout=5000",
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
