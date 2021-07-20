@@ -343,7 +343,7 @@ func (s *Stack) StopStack(verbose bool) error {
 }
 
 func (s *Stack) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(filepath.Join(StacksDir, s.Name), verbose, verbose, "down", "--rmi", "all", "--volumes"); err != nil {
+	if err := docker.RunDockerComposeCommand(filepath.Join(StacksDir, s.Name), verbose, verbose, "down", "--volumes"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(filepath.Join(StacksDir, s.Name, "data")); err != nil {
