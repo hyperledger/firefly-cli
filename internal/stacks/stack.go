@@ -416,7 +416,7 @@ func checkPortAvailable(port int) error {
 
 	if conn != nil {
 		defer conn.Close()
-		return fmt.Errorf("port %d is unavailable. please check to see if another process is listening on that port.", port)
+		return fmt.Errorf("port %d is unavailable. please check to see if another process is listening on that port", port)
 	}
 	return nil
 }
@@ -499,7 +499,6 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	var paymentContractAddress string
 	var fireflyContractAddress string
 	for _, member := range s.Members {
-		var fireflyAbiId string
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
 			updateStatus(fmt.Sprintf("publishing payment ABI to '%s'", member.ID), spin)
@@ -533,19 +532,18 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 
 			contractDeployed = true
 		} else {
-			// Just load the ABI
 			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
 			}
-			fireflyAbiId = publishFireflyResponse.ID
-		}
-		// Register as "firefly"
-		updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
-		_, err := contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
-		if err != nil {
-			return err
+			fireflyAbiId := publishFireflyResponse.ID
+
+			updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
+			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
+			if err != nil {
+				return err
+			}
 		}
 	}
 

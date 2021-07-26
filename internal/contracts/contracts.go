@@ -3,6 +3,7 @@ package contracts
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -91,6 +92,9 @@ func PublishABI(ethconnectUrl string, contract *Contract) (*PublishAbiResponseBo
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+	}
 	var publishAbiResponse *PublishAbiResponseBody
 	json.Unmarshal(responseBody, &publishAbiResponse)
 	return publishAbiResponse, nil
@@ -130,6 +134,9 @@ func DeployContract(ethconnectUrl string, abiId string, fromAddress string, para
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+	}
 	var deployContractResponse *DeployContractResponseBody
 	json.Unmarshal(responseBody, &deployContractResponse)
 	return deployContractResponse, nil
@@ -161,6 +168,9 @@ func RegisterContract(ethconnectUrl string, abiId string, contractAddress string
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != 201 {
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
 	}
 	var registerResponseBody *RegisterResponseBody
 	json.Unmarshal(responseBody, &registerResponseBody)
