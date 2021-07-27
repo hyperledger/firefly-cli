@@ -21,6 +21,7 @@ import (
 	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/hyperledger-labs/firefly-cli/internal/contracts"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/geth"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
@@ -28,12 +29,6 @@ import (
 
 var homeDir, _ = os.UserHomeDir()
 var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
-
-//go:embed ganache/Dockerfile
-var dockerfile []byte
-
-//go:embed ganache/healthcheck.sh
-var healthcheck []byte
 
 type DatabaseSelection int
 
@@ -58,11 +53,11 @@ func DatabaseSelectionFromString(s string) (DatabaseSelection, error) {
 }
 
 type Stack struct {
-	Name               string    `json:"name,omitempty"`
-	Members            []*Member `json:"members,omitempty"`
-	SwarmKey           string    `json:"swarmKey,omitempty"`
-	ExposedGanachePort int       `json:"exposedGanachePort,omitempty"`
-	Database           string    `json:"database"`
+	Name            string    `json:"name,omitempty"`
+	Members         []*Member `json:"members,omitempty"`
+	SwarmKey        string    `json:"swarmKey,omitempty"`
+	ExposedGethPort int       `json:"exposedGethPort,omitempty"`
+	Database        string    `json:"database"`
 }
 
 type Member struct {
@@ -88,6 +83,7 @@ type InitOptions struct {
 	FireFlyBasePort   int
 	ServicesBasePort  int
 	DatabaseSelection string
+	Verbose           bool
 }
 
 func ListStacks() ([]string, error) {
@@ -117,11 +113,11 @@ func InitStack(stackName string, memberCount int, options *InitOptions) error {
 	}
 
 	stack := &Stack{
-		Name:               stackName,
-		Members:            make([]*Member, memberCount),
-		SwarmKey:           GenerateSwarmKey(),
-		ExposedGanachePort: options.ServicesBasePort,
-		Database:           dbSelection.String(),
+		Name:            stackName,
+		Members:         make([]*Member, memberCount),
+		SwarmKey:        GenerateSwarmKey(),
+		ExposedGethPort: options.ServicesBasePort,
+		Database:        dbSelection.String(),
 	}
 
 	for i := 0; i < memberCount; i++ {
@@ -134,7 +130,7 @@ func InitStack(stackName string, memberCount int, options *InitOptions) error {
 	if err := stack.writeDockerCompose(compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
 	}
-	return stack.writeConfigs()
+	return stack.writeConfigs(options.Verbose)
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -174,16 +170,15 @@ func (s *Stack) ensureDirectories() error {
 	stackDir := filepath.Join(StacksDir, s.Name)
 	dataDir := filepath.Join(stackDir, "data")
 
-	if err := os.MkdirAll(filepath.Join(stackDir, "ganache"), 0755); err != nil {
-		return err
-	}
-
 	if err := os.MkdirAll(filepath.Join(stackDir, "configs"), 0755); err != nil {
 		return err
 	}
 
 	for _, member := range s.Members {
 		if err := os.MkdirAll(filepath.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Join(stackDir, "geth", member.ID), 0755); err != nil {
 			return err
 		}
 	}
@@ -198,18 +193,10 @@ func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) error {
 
 	stackDir := filepath.Join(StacksDir, s.Name)
 
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "ganache", "Dockerfile"), dockerfile, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "ganache", "healthcheck.sh"), healthcheck, 0755); err != nil {
-		return err
-	}
-
 	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *Stack) writeConfigs() error {
+func (s *Stack) writeConfigs(verbose bool) error {
 	stackDir := filepath.Join(StacksDir, s.Name)
 
 	fireflyConfigs := NewFireflyConfigs(s)
@@ -221,6 +208,59 @@ func (s *Stack) writeConfigs() error {
 
 	stackConfigBytes, _ := json.MarshalIndent(s, "", " ")
 	if err := ioutil.WriteFile(filepath.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
+		return err
+	}
+
+	for _, member := range s.Members {
+		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
+		if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
+			return err
+		}
+	}
+
+	return s.writeGenesisJson(verbose)
+}
+
+func (s *Stack) initializeGethNode(verbose bool) error {
+
+	volumeName := fmt.Sprintf("%s_geth", s.Name)
+	gethConfigDir := path.Join(StacksDir, s.Name, "geth")
+
+	for _, member := range s.Members {
+		// TODO: Revisit this when member names are customizable. I doubt this will work if they have spaces in them
+		if err := docker.RunDockerCommand(StacksDir, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/geth", gethConfigDir), "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--nousb", "account", "import", "--password", "/geth/password", "--keystore", "/data/keystore", fmt.Sprintf("/geth/%s/keyfile", member.ID)); err != nil {
+			return err
+		}
+	}
+	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "genesis.json"), "genesis.json", verbose); err != nil {
+		return err
+	}
+	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "password"), "password", verbose); err != nil {
+		return err
+	}
+
+	if err := docker.RunDockerCommand(StacksDir, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--datadir", "/data", "--nousb", "init", "/data/genesis.json"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Stack) writeGenesisJson(verbose bool) error {
+	stackDir := filepath.Join(StacksDir, s.Name)
+
+	addresses := make([]string, len(s.Members))
+	for i, member := range s.Members {
+		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
+		addresses[i] = member.Address[2:]
+	}
+	genesis := geth.CreateGenesisJson(addresses)
+	genesisJsonBytes, _ := json.MarshalIndent(genesis, "", " ")
+	if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", "genesis.json"), genesisJsonBytes, 0755); err != nil {
 		return err
 	}
 	return nil
@@ -275,7 +315,7 @@ func createMember(id string, index int, options *InitOptions) *Member {
 		Address:                 encodedAddress,
 		PrivateKey:              encodedPrivateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
-		ExposedFireflyAdminPort: serviceBase + 1, // note shared ganache is on zero
+		ExposedFireflyAdminPort: serviceBase + 1, // note shared geth is on zero
 		ExposedEthconnectPort:   serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
 		ExposedPostgresPort:     serviceBase + 4,
@@ -361,7 +401,7 @@ func (s *Stack) RemoveStack(verbose bool) error {
 
 func (s *Stack) checkPortsAvailable() error {
 	ports := make([]int, 1)
-	ports[0] = s.ExposedGanachePort
+	ports[0] = s.ExposedGethPort
 	for _, member := range s.Members {
 		ports = append(ports, member.ExposedDataexchangePort)
 		ports = append(ports, member.ExposedEthconnectPort)
@@ -423,6 +463,12 @@ func checkPortAvailable(port int) error {
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
 	workingDir := filepath.Join(StacksDir, s.Name)
+
+	updateStatus("initializing geth node", spin)
+	if err := s.initializeGethNode(verbose); err != nil {
+		return err
+	}
+
 	updateStatus("writing data exchange certs", spin)
 	if err := s.writeDataExchangeCerts(verbose); err != nil {
 		return err

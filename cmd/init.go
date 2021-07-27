@@ -61,6 +61,7 @@ var initCmd = &cobra.Command{
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
+		initOptions.Verbose = verbose
 		if err := stacks.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
