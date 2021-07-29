@@ -534,33 +534,14 @@ func (s *Stack) PrintStackInfo(verbose bool) error {
 
 func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	contractDeployed := false
-	paymentContract, err := contracts.ReadCompiledContract(filepath.Join(StacksDir, s.Name, "contracts", "Payment.json"))
-	if err != nil {
-		return err
-	}
 	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(StacksDir, s.Name, "contracts", "Firefly.json"))
 	if err != nil {
 		return err
 	}
-	var paymentContractAddress string
 	var fireflyContractAddress string
 	for _, member := range s.Members {
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
-			updateStatus(fmt.Sprintf("publishing payment ABI to '%s'", member.ID), spin)
-			publishPaymentResponse, err := contracts.PublishABI(ethconnectUrl, paymentContract)
-			if err != nil {
-				return err
-			}
-			paymentAbiId := publishPaymentResponse.ID
-			// TODO: version the registered name
-			updateStatus(fmt.Sprintf("deploying payment contract to '%s'", member.ID), spin)
-			deployPaymentResponse, err := contracts.DeployContract(ethconnectUrl, paymentAbiId, member.Address, map[string]string{"initialSupply": "100000000000000000000"}, "payment")
-			if err != nil {
-				return err
-			}
-			paymentContractAddress = deployPaymentResponse.ContractAddress
-
 			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
@@ -570,7 +551,7 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 
 			// TODO: version the registered name
 			updateStatus(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID), spin)
-			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{"paymentContract": paymentContractAddress}, "firefly")
+			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{}, "firefly")
 			if err != nil {
 				return err
 			}
@@ -586,7 +567,7 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 			fireflyAbiId := publishFireflyResponse.ID
 
 			updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
-			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{"paymentContract": paymentContractAddress})
+			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
