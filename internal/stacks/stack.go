@@ -567,7 +567,7 @@ func (s *Stack) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner)
 }
 
 func (s *Stack) waitForFireflyStart(port int) error {
-	retries := 60
+	retries := 120
 	retryPeriod := 1000 // ms
 	retriesRemaining := retries
 	for retriesRemaining > 0 {
