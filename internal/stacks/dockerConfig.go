@@ -72,21 +72,23 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 	for _, member := range stack.Members {
 
-		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image: "ghcr.io/hyperledger-labs/firefly:latest",
-			Ports: []string{
-				fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
-				fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
-			},
-			Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
-			DependsOn: map[string]map[string]string{
-				"ethconnect_" + member.ID:   {"condition": "service_started"},
-				"dataexchange_" + member.ID: {"condition": "service_started"},
-			},
-			Logging: standardLogOptions,
-		}
+		if !member.External {
+			compose.Services["firefly_core_"+member.ID] = &Service{
+				Image: "ghcr.io/hyperledger-labs/firefly:latest",
+				Ports: []string{
+					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+				},
+				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+				DependsOn: map[string]map[string]string{
+					"ethconnect_" + member.ID:   {"condition": "service_started"},
+					"dataexchange_" + member.ID: {"condition": "service_started"},
+				},
+				Logging: standardLogOptions,
+			}
 
-		compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+			compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+		}
 
 		if stack.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{

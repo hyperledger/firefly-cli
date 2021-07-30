@@ -3,6 +3,7 @@ package stacks
 import (
 	"fmt"
 	"io/ioutil"
+	"path"
 
 	"gopkg.in/yaml.v2"
 )
@@ -147,7 +148,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Type: "ethereum",
 				Ethereum: &EthereumConfig{
 					Ethconnect: &EthconnectConfig{
-						URL:      "http://ethconnect_" + member.ID + ":8080",
+						URL:      getEthconnectURL(member),
 						Instance: "/contracts/firefly",
 						Topic:    member.ID,
 					},
@@ -157,16 +158,16 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 				Type: "ipfs",
 				IPFS: &FireflyIPFSConfig{
 					API: &HttpEndpointConfig{
-						URL: "http://ipfs_" + member.ID + ":5001",
+						URL: getIPFSAPIURL(member),
 					},
 					Gateway: &HttpEndpointConfig{
-						URL: "http://ipfs_" + member.ID + ":8080",
+						URL: getIPFSGatewayURL(member),
 					},
 				},
 			},
 			DataExchange: &DataExchangeConfig{
 				HTTPS: &HttpEndpointConfig{
-					URL: "http://dataexchange_" + member.ID + ":3000",
+					URL: getDataExchangeURL(member),
 				},
 			},
 		}
@@ -175,7 +176,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 			memberConfig.Database = &DatabaseConfig{
 				Type: "postgres",
 				PostgreSQL: &CommonDBConfig{
-					URL: "postgres://postgres:f1refly@postgres_" + member.ID + ":5432?sslmode=disable",
+					URL: getPostgresURL(member),
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
@@ -185,7 +186,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 			memberConfig.Database = &DatabaseConfig{
 				Type: stack.Database,
 				SQLite3: &CommonDBConfig{
-					URL: "/etc/firefly/db?_busy_timeout=5000",
+					URL: getSQLitePath(member, stack.Name),
 					Migrations: &MigrationsConfig{
 						Auto: true,
 					},
@@ -195,6 +196,54 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 		configs[member.ID] = memberConfig
 	}
 	return configs
+}
+
+func getEthconnectURL(member *Member) string {
+	if !member.External {
+		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+	} else {
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	}
+}
+
+func getIPFSAPIURL(member *Member) string {
+	if !member.External {
+		return fmt.Sprintf("http://ipfs_%s:5001", member.ID)
+	} else {
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedIPFSApiPort)
+	}
+}
+
+func getIPFSGatewayURL(member *Member) string {
+	if !member.External {
+		return fmt.Sprintf("http://ipfs_%s:8080", member.ID)
+	} else {
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedIPFSGWPort)
+	}
+}
+
+func getPostgresURL(member *Member) string {
+	if !member.External {
+		return fmt.Sprintf("postgres://postgres:f1refly@postgres_%s:5432?sslmode=disable", member.ID)
+	} else {
+		return fmt.Sprintf("postgres://postgres:f1refly@127.0.0.1:%v?sslmode=disable", member.ExposedPostgresPort)
+	}
+}
+
+func getSQLitePath(member *Member, stackName string) string {
+	if !member.External {
+		return "/etc/firefly/db?_busy_timeout=5000"
+	} else {
+		return path.Join(StacksDir, stackName, "data", "sqlite", member.ID+".db")
+	}
+}
+
+func getDataExchangeURL(member *Member) string {
+	if !member.External {
+		return fmt.Sprintf("http://dataexchange_%s:3000", member.ID)
+	} else {
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedDataexchangePort)
+	}
 }
 
 func ReadFireflyConfig(filePath string) (*FireflyConfig, error) {

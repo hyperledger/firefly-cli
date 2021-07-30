@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -72,7 +73,8 @@ type Member struct {
 	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
 	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
 	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
-	ExposedUIPort           int    `json:"exposedUiPort ,omitempty"`
+	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
+	External                bool   `json:"external,omitempty"`
 }
 
 type StartOptions struct {
@@ -84,6 +86,7 @@ type InitOptions struct {
 	ServicesBasePort  int
 	DatabaseSelection string
 	Verbose           bool
+	ExternalProcesses int
 }
 
 func ListStacks() ([]string, error) {
@@ -121,7 +124,8 @@ func InitStack(stackName string, memberCount int, options *InitOptions) error {
 	}
 
 	for i := 0; i < memberCount; i++ {
-		stack.Members[i] = createMember(fmt.Sprint(i), i, options)
+		externalProcess := i < options.ExternalProcesses
+		stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
 	compose := CreateDockerCompose(stack)
 	if err := stack.ensureDirectories(); err != nil {
@@ -180,6 +184,11 @@ func (s *Stack) ensureDirectories() error {
 		}
 		if err := os.MkdirAll(filepath.Join(stackDir, "geth", member.ID), 0755); err != nil {
 			return err
+		}
+		if member.External && s.Database == "sqlite3" {
+			if err := os.MkdirAll(filepath.Join(dataDir, "sqlite"), 0755); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -296,7 +305,7 @@ func (s *Stack) writeDataExchangeCerts(verbose bool) error {
 	return nil
 }
 
-func createMember(id string, index int, options *InitOptions) *Member {
+func createMember(id string, index int, options *InitOptions, external bool) *Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -322,6 +331,7 @@ func createMember(id string, index int, options *InitOptions) *Member {
 		ExposedDataexchangePort: serviceBase + 5,
 		ExposedIPFSApiPort:      serviceBase + 6,
 		ExposedIPFSGWPort:       serviceBase + 7,
+		External:                external,
 	}
 }
 
@@ -366,6 +376,9 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptio
 		}
 		updateStatus("starting FireFly dependencies", spin)
 		err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d")
+
+		s.ensureFireflyNodesUp(false, spin)
+
 		if spin != nil {
 			spin.Stop()
 		}
@@ -405,32 +418,33 @@ func (s *Stack) checkPortsAvailable() error {
 	for _, member := range s.Members {
 		ports = append(ports, member.ExposedDataexchangePort)
 		ports = append(ports, member.ExposedEthconnectPort)
-		ports = append(ports, member.ExposedFireflyAdminPort)
-		ports = append(ports, member.ExposedFireflyPort)
+		if !member.External {
+			ports = append(ports, member.ExposedFireflyAdminPort)
+			ports = append(ports, member.ExposedFireflyPort)
+		}
 		ports = append(ports, member.ExposedIPFSApiPort)
 		ports = append(ports, member.ExposedIPFSGWPort)
 		ports = append(ports, member.ExposedPostgresPort)
 		ports = append(ports, member.ExposedUIPort)
 	}
 	for _, port := range ports {
-		if err := checkPortAvailable(port); err != nil {
+		available, err := checkPortAvailable(port)
+		if err != nil {
 			return err
+		}
+		if !available {
+			return fmt.Errorf("port %d is unavailable. please check to see if another process is listening on that port", port)
 		}
 	}
 	return nil
 }
 
-/* This function checks if a TCP port is available by trying to connect to it
-* This means the code actually expects an error to be returned when trying to connect
-* If an error (of the expected type) is returned, the func will return nil. If it is
-* able to connect to something, or an unexpected error occurs, an error will be returned.
- */
-func checkPortAvailable(port int) error {
+func checkPortAvailable(port int) (bool, error) {
 	timeout := time.Millisecond * 500
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", fmt.Sprint(port)), timeout)
 
 	if netError, ok := err.(net.Error); ok && netError.Timeout() {
-		return nil
+		return true, nil
 	}
 
 	switch t := err.(type) {
@@ -439,26 +453,26 @@ func checkPortAvailable(port int) error {
 		switch t := t.Unwrap().(type) {
 		case *os.SyscallError:
 			if t.Syscall == "connect" {
-				return nil
+				return true, nil
 			}
 		}
 		if t.Op == "dial" {
-			return err
+			return false, err
 		} else if t.Op == "read" {
-			return nil
+			return true, nil
 		}
 
 	case syscall.Errno:
 		if t == syscall.ECONNREFUSED {
-			return nil
+			return true, nil
 		}
 	}
 
 	if conn != nil {
 		defer conn.Close()
-		return fmt.Errorf("port %d is unavailable. please check to see if another process is listening on that port", port)
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
@@ -476,10 +490,12 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 
 	// write firefly configs to volumes
 	for _, member := range s.Members {
-		updateStatus(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID), spin)
-		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
-		if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
-			return err
+		if !member.External {
+			updateStatus(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID), spin)
+			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
+			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -494,11 +510,25 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
-	containerName := fmt.Sprintf("%s_firefly_core_%s_1", s.Name, s.Members[0].ID)
+
+	var containerName string
+	for _, member := range s.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+		}
+	}
+	if containerName == "" {
+		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+	}
 	updateStatus("extracting smart contracts", spin)
 	if err := s.extractContracts(containerName, verbose); err != nil {
 		return err
 	}
+
+	if err := s.ensureFireflyNodesUp(true, spin); err != nil {
+		return err
+	}
+
 	updateStatus("deploying smart contracts", spin)
 	if err := s.deployContracts(spin, verbose); err != nil {
 		return err
@@ -508,6 +538,50 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 		return err
 	}
 	return nil
+}
+
+func (s *Stack) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner) error {
+	for _, member := range s.Members {
+		if member.External {
+			configFilename := path.Join(StacksDir, s.Name, "configs", fmt.Sprintf("firefly_core_%v.yml", member.ID))
+			var port int
+			if firstTimeSetup {
+				port = member.ExposedFireflyAdminPort
+			} else {
+				port = member.ExposedFireflyPort
+			}
+			// Check process running
+			available, err := checkPortAvailable(port)
+			if err != nil {
+				return err
+			}
+			if available {
+				updateStatus(fmt.Sprintf("please start your firefly core with the config file for this stack: firefly -f %s", configFilename), spin)
+				if err := s.waitForFireflyStart(port); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Stack) waitForFireflyStart(port int) error {
+	retries := 60
+	retryPeriod := 1000 // ms
+	retriesRemaining := retries
+	for retriesRemaining > 0 {
+		time.Sleep(time.Duration(retryPeriod) * time.Millisecond)
+		available, err := checkPortAvailable(port)
+		if err != nil {
+			return err
+		}
+		if !available {
+			return nil
+		}
+		retriesRemaining--
+	}
+	return fmt.Errorf("waited for %v seconds for firefly to start on port %v but it was never available", retries*retryPeriod/1000, port)
 }
 
 func (s *Stack) UpgradeStack(verbose bool) error {
