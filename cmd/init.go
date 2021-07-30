@@ -61,6 +61,7 @@ var initCmd = &cobra.Command{
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
+		initOptions.Verbose = verbose
 		if err := stacks.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
@@ -87,6 +88,8 @@ func validateCount(input string) error {
 		return errors.New("invalid number")
 	} else if i <= 0 {
 		return errors.New("number of members must be greater than zero")
+	} else if initOptions.ExternalProcesses >= i {
+		return errors.New("number of external processes should not be equal to or greater than the number of members in the network - at least one FireFly core container must exist to be able to extrat and deploy smart contracts")
 	}
 	return nil
 }
@@ -95,6 +98,7 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&initOptions.DatabaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
+	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 
 	rootCmd.AddCommand(initCmd)
 }

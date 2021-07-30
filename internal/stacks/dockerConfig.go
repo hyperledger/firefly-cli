@@ -43,13 +43,6 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		Volumes:  make(map[string]struct{}),
 	}
 
-	ganacheCommand := ""
-
-	for _, member := range stack.Members {
-		ganacheCommand += "--account " + member.PrivateKey + ",100000000000000000000 "
-	}
-	ganacheCommand += "--db /data/ganache"
-
 	standardLogOptions := &LoggingConfig{
 		Driver: "json-file",
 		Options: map[string]string{
@@ -58,39 +51,44 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 		},
 	}
 
-	compose.Services["ganache"] = &Service{
-		Build:   "ganache",
-		Command: ganacheCommand,
-		Volumes: []string{"ganache:/data"},
-		HealthCheck: &HealthCheck{
-			Test:     []string{"CMD-SHELL", "./healthcheck.sh"},
-			Interval: "4s",
-			Timeout:  "3s", // 1 second longer than the timeout in the script itself
-			Retries:  15,   // 15 * 4 second intervals = one minute
-		},
+	addresses := ""
+	for i, member := range stack.Members {
+		addresses = addresses + member.Address
+		if i+1 < len(stack.Members) {
+			addresses = addresses + ","
+		}
+	}
+	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --rpcvhosts=* --rpccorsdomain "*" --miner.gastarget 804247552 --rpc --rpcaddr "0.0.0.0" --rpcport 8545 --rpcapi 'admin,personal,db,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --unlock '%s' --password /data/password --mine --nousb --allow-insecure-unlock --nodiscover`, addresses)
+
+	compose.Services["geth"] = &Service{
+		Image:   "ethereum/client-go:release-1.9",
+		Command: gethCommand,
+		Volumes: []string{"geth:/data"},
 		Logging: standardLogOptions,
-		Ports:   []string{fmt.Sprintf("%d:8545", stack.ExposedGanachePort)},
+		Ports:   []string{fmt.Sprintf("%d:8545", stack.ExposedGethPort)},
 	}
 
-	compose.Volumes["ganache"] = struct{}{}
+	compose.Volumes["geth"] = struct{}{}
 
 	for _, member := range stack.Members {
 
-		compose.Services["firefly_core_"+member.ID] = &Service{
-			Image: "ghcr.io/hyperledger-labs/firefly:latest",
-			Ports: []string{
-				fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
-				fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
-			},
-			Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
-			DependsOn: map[string]map[string]string{
-				"ethconnect_" + member.ID:   {"condition": "service_started"},
-				"dataexchange_" + member.ID: {"condition": "service_started"},
-			},
-			Logging: standardLogOptions,
-		}
+		if !member.External {
+			compose.Services["firefly_core_"+member.ID] = &Service{
+				Image: "ghcr.io/hyperledger-labs/firefly:latest",
+				Ports: []string{
+					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+				},
+				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+				DependsOn: map[string]map[string]string{
+					"ethconnect_" + member.ID:   {"condition": "service_started"},
+					"dataexchange_" + member.ID: {"condition": "service_started"},
+				},
+				Logging: standardLogOptions,
+			}
 
-		compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+			compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+		}
 
 		if stack.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
@@ -117,8 +115,8 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 
 		compose.Services["ethconnect_"+member.ID] = &Service{
 			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
-			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://ganache:8545 -E ./events -d 3",
-			DependsOn: map[string]map[string]string{"ganache": {"condition": "service_healthy"}},
+			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://geth:8545 -E ./events -d 3",
+			DependsOn: map[string]map[string]string{"geth": {"condition": "service_started"}},
 			Ports:     []string{fmt.Sprintf("%d:8080", member.ExposedEthconnectPort)},
 			Volumes: []string{
 				fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
