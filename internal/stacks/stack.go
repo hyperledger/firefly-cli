@@ -515,6 +515,7 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 	for _, member := range s.Members {
 		if !member.External {
 			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+			break
 		}
 	}
 	if containerName == "" {
