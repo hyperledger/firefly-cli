@@ -556,7 +556,7 @@ func (s *Stack) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner)
 				return err
 			}
 			if available {
-				updateStatus(fmt.Sprintf("please start your firefly core with the config file for this stack: firefly -f %s", configFilename), spin)
+				updateStatus(fmt.Sprintf("please start your firefly core with the config file for this stack: firefly -f %s  ", configFilename), spin)
 				if err := s.waitForFireflyStart(port); err != nil {
 					return err
 				}
