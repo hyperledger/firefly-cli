@@ -78,7 +78,8 @@ type Member struct {
 }
 
 type StartOptions struct {
-	NoPull bool
+	NoPull     bool
+	NoRollback bool
 }
 
 type InitOptions struct {
@@ -361,10 +362,27 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptio
 			spin.Start()
 		}
 		if err := s.runFirstTimeSetup(spin, verbose, options); err != nil {
-			if spin != nil {
-				spin.Stop()
+			// Something bad happened during setup
+			if options.NoRollback {
+				return err
+			} else {
+				// Rollback changes
+				updateStatus("an error occurred - rolling back changes", spin)
+				resetErr := s.ResetStack(verbose)
+				if spin != nil {
+					spin.Stop()
+				}
+
+				var finalErr error
+
+				if resetErr != nil {
+					finalErr = fmt.Errorf("%s - error resetting stack: %s", err.Error(), resetErr.Error())
+				} else {
+					finalErr = fmt.Errorf("%s - all changes rolled back", err.Error())
+				}
+
+				return finalErr
 			}
-			return err
 		}
 		if spin != nil {
 			spin.Stop()
@@ -649,22 +667,20 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 		}
 	}
 
-	updateStatus("restarting FireFly nodes", spin)
-	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
+	if err := s.patchConfigAndRestartFireflyNodes(verbose, spin); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool) error {
+func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool, spin *spinner.Spinner) error {
 	for _, member := range s.Members {
-		fmt.Println("setting pre-init false")
+		updateStatus(fmt.Sprintf("applying configuration changes to %s", member.ID), spin)
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
 		if err := s.httpJSONWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
 			return err
 		}
-		fmt.Println("resetting config")
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
 		if err := s.httpJSONWithRetry("POST", resetUrl, "{}", nil); err != nil {
 			return err
