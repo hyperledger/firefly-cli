@@ -99,6 +99,7 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 		}
 
 		foundOrg := false
+		retries := 60
 		for !foundOrg {
 			type establishedOrg struct {
 				ID   string `json:"id"`
@@ -113,8 +114,11 @@ func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) e
 			for _, o := range orgs {
 				foundOrg = foundOrg || o.Name == orgName
 			}
-			if !foundOrg {
+			if !foundOrg && retries > 0 {
 				time.Sleep(1 * time.Second)
+				retries--
+			} else if !foundOrg && retries == 0 {
+				return fmt.Errorf("timeout error waiting to register %s and %s", orgName, nodeName)
 			}
 		}
 
