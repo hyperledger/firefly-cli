@@ -393,8 +393,10 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptio
 			spin.Start()
 		}
 		updateStatus("starting FireFly dependencies", spin)
-		err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d")
-
+		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
+			return err
+		}
+		err := s.UnlockAccounts(spin)
 		s.ensureFireflyNodesUp(false, spin)
 
 		if spin != nil {
@@ -526,6 +528,10 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 
 	updateStatus("starting FireFly dependencies", spin)
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
+		return err
+	}
+
+	if err := s.UnlockAccounts(spin); err != nil {
 		return err
 	}
 
@@ -708,4 +714,24 @@ func (s *Stack) StackHasRunBefore() (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+func (s *Stack) UnlockAccounts(spin *spinner.Spinner) error {
+	gethClient := geth.NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", s.ExposedGethPort))
+	for _, m := range s.Members {
+		retries := 10
+		updateStatus(fmt.Sprintf("unlocking account for member %s", m.ID), spin)
+		for {
+			if err := gethClient.UnlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
+				if retries == 0 {
+					return fmt.Errorf("unable to unlock account %s for member %s", m.Address, m.ID)
+				}
+				time.Sleep(time.Second * 1)
+				retries--
+			} else {
+				break
+			}
+		}
+	}
+	return nil
 }
