@@ -3,7 +3,7 @@ name: goreleaser
 on:
   push:
     branches:
-      - 'main'
+      - 'goreleaser'
     tags:
       - 'v*'
 
