@@ -1,11 +1,12 @@
-name: goreleaser
+name: build
 
 on:
   push:
     branches:
-      - 'goreleaser-v4'
+      - 'main'
     tags:
       - 'v*'
+  pull_request:
 
 permissions:
   contents: write

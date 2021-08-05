@@ -16,21 +16,6 @@ archives:
       windows: Windows
       386: i386
       amd64: x86_64
-brews:
-  - tap:
-      owner: hyperledger-labs
-      name: homebrew-tap
-    folder: Formula
-    homepage: https://github.com/hyperledger-labs/firefly-cli
-    description: FireFly Command Line Interface (CLI)
-    license: Apache-2.0
-    dependencies:
-      - name: go
-        type: optional
-      - name: docker
-      - name: openssl
-    install: |-
-      bin.install "ff"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
