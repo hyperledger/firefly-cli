@@ -28,6 +28,8 @@ import (
 )
 
 var initOptions stacks.InitOptions
+var databaseSelection string
+var blockchainProviderSelection string
 
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
@@ -36,6 +38,13 @@ var initCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var stackName string
+
+		if err := validateDatabaseProvider(databaseSelection); err != nil {
+			return err
+		}
+		if err := validateBlockchainProvider(blockchainProviderSelection); err != nil {
+			return err
+		}
 
 		fmt.Println("initializing new FireFly stack...")
 
@@ -94,10 +103,31 @@ func validateCount(input string) error {
 	return nil
 }
 
+func validateDatabaseProvider(input string) error {
+	_, err := stacks.DatabaseSelectionFromString(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateBlockchainProvider(input string) error {
+	blockchainSelection, err := stacks.BlockchainProviderFromString(input)
+	if err != nil {
+		return err
+	}
+
+	if blockchainSelection != stacks.GoEthereum {
+		return errors.New("geth is currently the only supported blockchain provider - support for other providers is coming soon")
+	}
+	return nil
+}
+
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
-	initCmd.Flags().StringVarP(&initOptions.DatabaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
+	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderSelection, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 
 	rootCmd.AddCommand(initCmd)
