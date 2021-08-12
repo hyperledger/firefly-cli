@@ -28,6 +28,7 @@ var infoCmd = &cobra.Command{
 	Long: `Get info about a stack such as each container name
 	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		stackManager := stacks.NewStackManager()
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
@@ -38,14 +39,13 @@ var infoCmd = &cobra.Command{
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		if stack, err := stacks.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
-		} else {
-			if err := stack.PrintStackInfo(verbose); err != nil {
-				return err
-			}
-			return nil
 		}
+		if err := stackManager.PrintStackInfo(verbose); err != nil {
+			return err
+		}
+		return nil
 	},
 }
 

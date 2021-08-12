@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 )
 
@@ -38,6 +39,7 @@ var initCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var stackName string
+		stackManager := stacks.NewStackManager()
 
 		if err := validateDatabaseProvider(databaseSelection); err != nil {
 			return err
@@ -71,12 +73,12 @@ var initCmd = &cobra.Command{
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
 		initOptions.Verbose = verbose
-		if err := stacks.InitStack(stackName, memberCount, &initOptions); err != nil {
+		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
-		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stacks.StacksDir, stackName, "docker-compose.yml"))
+		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, stackName, "docker-compose.yml"))
 		return nil
 	},
 }

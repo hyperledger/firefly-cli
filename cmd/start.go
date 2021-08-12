@@ -33,26 +33,24 @@ var startCmd = &cobra.Command{
 This command will start a stack and run it in the background.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		stackManager := stacks.NewStackManager()
 		if len(args) == 0 {
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
-		stack, err := stacks.LoadStack(stackName)
-
-		if err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
-		if err = stack.StartStack(fancyFeatures, verbose, &startOptions); err != nil {
+		if err := stackManager.StartStack(fancyFeatures, verbose, &startOptions); err != nil {
 			return err
-		} else {
-			fmt.Print("\n\n")
-			for _, member := range stack.Members {
-				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
-			}
-			fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		}
+		fmt.Print("\n\n")
+		for _, member := range stackManager.Stack.Members {
+			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
+		}
+		fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		return nil
 	},
 }

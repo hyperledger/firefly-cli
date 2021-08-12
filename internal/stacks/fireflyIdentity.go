@@ -27,7 +27,7 @@ import (
 	"github.com/briandowns/spinner"
 )
 
-func (s *Stack) httpJSONWithRetry(method, url string, body, result interface{}) (err error) {
+func (s *StackManager) httpJSONWithRetry(method, url string, body, result interface{}) (err error) {
 	retries := 30
 	for {
 		if err := s.httpJSON(method, url, body, result); err != nil {
@@ -43,7 +43,7 @@ func (s *Stack) httpJSONWithRetry(method, url string, body, result interface{}) 
 	}
 }
 
-func (s *Stack) httpJSON(method, url string, body, result interface{}) (err error) {
+func (s *StackManager) httpJSON(method, url string, body, result interface{}) (err error) {
 	if body == nil {
 		body = make(map[string]interface{})
 	}
@@ -85,8 +85,8 @@ func (s *Stack) httpJSON(method, url string, body, result interface{}) (err erro
 	return json.NewDecoder(resp.Body).Decode(&result)
 }
 
-func (s *Stack) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) error {
-	for _, member := range s.Members {
+func (s *StackManager) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) error {
+	for _, member := range s.Stack.Members {
 		orgName := fmt.Sprintf("org_%s", member.ID)
 		nodeName := fmt.Sprintf("node_%s", member.ID)
 		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)

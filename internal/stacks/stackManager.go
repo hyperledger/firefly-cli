@@ -19,40 +19,20 @@ import (
 
 	"github.com/briandowns/spinner"
 	secp256k1 "github.com/btcsuite/btcd/btcec"
+	"github.com/hyperledger-labs/firefly-cli/internal/blockchain"
+	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/contracts"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/geth"
+	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
 )
 
-var homeDir, _ = os.UserHomeDir()
-var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
-
-type Stack struct {
-	Name               string    `json:"name,omitempty"`
-	Members            []*Member `json:"members,omitempty"`
-	SwarmKey           string    `json:"swarmKey,omitempty"`
-	ExposedGethPort    int       `json:"exposedGethPort,omitempty"`
-	Database           string    `json:"database"`
-	BlockchainProvider string    `json:"blockchainProvider"`
-}
-
-type Member struct {
-	ID                      string `json:"id,omitempty"`
-	Index                   *int   `json:"index,omitempty"`
-	Address                 string `json:"address,omitempty"`
-	PrivateKey              string `json:"privateKey,omitempty"`
-	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
-	ExposedFireflyAdminPort int    `json:"exposedFireflyAdminPort,omitempty"`
-	ExposedEthconnectPort   int    `json:"exposedEthconnectPort,omitempty"`
-	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
-	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
-	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
-	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
-	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
-	External                bool   `json:"external,omitempty"`
+type StackManager struct {
+	Stack *types.Stack
 }
 
 type StartOptions struct {
@@ -70,7 +50,7 @@ type InitOptions struct {
 }
 
 func ListStacks() ([]string, error) {
-	files, err := ioutil.ReadDir(StacksDir)
+	files, err := ioutil.ReadDir(constants.StacksDir)
 	if err != nil {
 		return nil, err
 	}
@@ -88,32 +68,42 @@ func ListStacks() ([]string, error) {
 	return stacks, nil
 }
 
-func InitStack(stackName string, memberCount int, options *InitOptions) error {
-	stack := &Stack{
-		Name:               stackName,
-		Members:            make([]*Member, memberCount),
-		SwarmKey:           GenerateSwarmKey(),
-		ExposedGethPort:    options.ServicesBasePort,
-		Database:           options.DatabaseSelection.String(),
-		BlockchainProvider: options.BlockchainProvider.String(),
+func NewStackManager() *StackManager {
+	return &StackManager{}
+}
+
+func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) error {
+	s.Stack = &types.Stack{
+		Name:                  stackName,
+		Members:               make([]*types.Member, memberCount),
+		SwarmKey:              GenerateSwarmKey(),
+		ExposedBlockchainPort: options.ServicesBasePort,
+		Database:              options.DatabaseSelection.String(),
+		BlockchainProvider:    options.BlockchainProvider.String(),
 	}
+
+	blockchainProvider := s.getBlockchainProvider(false)
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
-		stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
+		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
-	compose := CreateDockerCompose(stack)
-	if err := stack.ensureDirectories(); err != nil {
+	compose := docker.CreateDockerCompose(s.Stack)
+	blockchainServiceName, blockchainServiceDefinition := blockchainProvider.GetDockerServiceDefinition()
+	compose.Services[blockchainServiceName] = blockchainServiceDefinition
+	compose.Volumes[blockchainServiceName] = struct{}{}
+
+	if err := s.ensureDirectories(); err != nil {
 		return err
 	}
-	if err := stack.writeDockerCompose(compose); err != nil {
+	if err := s.writeDockerCompose(compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
 	}
-	return stack.writeConfigs(options.Verbose)
+	return s.writeConfigs(options.Verbose)
 }
 
 func CheckExists(stackName string) (bool, error) {
-	_, err := os.Stat(filepath.Join(StacksDir, stackName, "stack.json"))
+	_, err := os.Stat(filepath.Join(constants.StacksDir, stackName, "stack.json"))
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -123,67 +113,62 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
-func LoadStack(stackName string) (*Stack, error) {
+func (s *StackManager) LoadStack(stackName string) error {
 	exists, err := CheckExists(stackName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !exists {
-		return nil, fmt.Errorf("stack '%s' does not exist", stackName)
+		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
 	fmt.Printf("reading stack config... ")
-	if d, err := ioutil.ReadFile(filepath.Join(StacksDir, stackName, "stack.json")); err != nil {
-		return nil, err
+	if d, err := ioutil.ReadFile(filepath.Join(constants.StacksDir, stackName, "stack.json")); err != nil {
+		return err
 	} else {
-		var stack *Stack
+		var stack *types.Stack
 		if err := json.Unmarshal(d, &stack); err == nil {
 			fmt.Printf("done\n")
 		}
-		return stack, err
+		s.Stack = stack
 	}
-
+	return nil
 }
 
-func (s *Stack) ensureDirectories() error {
+func (s *StackManager) ensureDirectories() error {
 
-	stackDir := filepath.Join(StacksDir, s.Name)
+	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	dataDir := filepath.Join(stackDir, "data")
 
 	if err := os.MkdirAll(filepath.Join(stackDir, "configs"), 0755); err != nil {
 		return err
 	}
 
-	for _, member := range s.Members {
+	for _, member := range s.Stack.Members {
 		if err := os.MkdirAll(filepath.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Join(stackDir, "geth", member.ID), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(stackDir, "blockchain", member.ID), 0755); err != nil {
 			return err
-		}
-		if member.External && s.Database == "sqlite3" {
-			if err := os.MkdirAll(filepath.Join(dataDir, "sqlite"), 0755); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
 }
 
-func (s *Stack) writeDockerCompose(compose *DockerComposeConfig) error {
+func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) error {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
 		return err
 	}
 
-	stackDir := filepath.Join(StacksDir, s.Name)
+	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *Stack) writeConfigs(verbose bool) error {
-	stackDir := filepath.Join(StacksDir, s.Name)
+func (s *StackManager) writeConfigs(verbose bool) error {
+	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	fireflyConfigs := NewFireflyConfigs(s)
+	fireflyConfigs := NewFireflyConfigs(s.Stack)
 	for memberId, config := range fireflyConfigs {
 		if err := WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
 			return err
@@ -195,64 +180,17 @@ func (s *Stack) writeConfigs(verbose bool) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
-		return err
-	}
-
-	for _, member := range s.Members {
-		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
-			return err
-		}
-	}
-
-	return s.writeGenesisJson(verbose)
-}
-
-func (s *Stack) initializeGethNode(verbose bool) error {
-
-	volumeName := fmt.Sprintf("%s_geth", s.Name)
-	gethConfigDir := path.Join(StacksDir, s.Name, "geth")
-
-	for _, member := range s.Members {
-		// TODO: Revisit this when member names are customizable. I doubt this will work if they have spaces in them
-		if err := docker.RunDockerCommand(StacksDir, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/geth", gethConfigDir), "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--nousb", "account", "import", "--password", "/geth/password", "--keystore", "/data/keystore", fmt.Sprintf("/geth/%s/keyfile", member.ID)); err != nil {
-			return err
-		}
-	}
-	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "genesis.json"), "genesis.json", verbose); err != nil {
-		return err
-	}
-	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "password"), "password", verbose); err != nil {
-		return err
-	}
-
-	if err := docker.RunDockerCommand(StacksDir, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--datadir", "/data", "--nousb", "init", "/data/genesis.json"); err != nil {
+	p := s.getBlockchainProvider(verbose)
+	if err := p.WriteConfig(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *Stack) writeGenesisJson(verbose bool) error {
-	stackDir := filepath.Join(StacksDir, s.Name)
-
-	addresses := make([]string, len(s.Members))
-	for i, member := range s.Members {
-		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
-		addresses[i] = member.Address[2:]
-	}
-	genesis := geth.CreateGenesisJson(addresses)
-	genesisJsonBytes, _ := json.MarshalIndent(genesis, "", " ")
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", "genesis.json"), genesisJsonBytes, 0755); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Stack) writeDataExchangeCerts(verbose bool) error {
-	stackDir := filepath.Join(StacksDir, s.Name)
-	for _, member := range s.Members {
+func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
+	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	for _, member := range s.Stack.Members {
 
 		memberDXDir := path.Join(stackDir, "data", "dataexchange_"+member.ID)
 
@@ -271,7 +209,7 @@ func (s *Stack) writeDataExchangeCerts(verbose bool) error {
 		ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755)
 
 		// Copy files into docker volumes
-		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID)
+		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
 		docker.MkdirInVolume(volumeName, "peer-certs", verbose)
 		docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "config.json"), "/config.json", verbose)
 		docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "cert.pem"), "/cert.pem", verbose)
@@ -280,7 +218,7 @@ func (s *Stack) writeDataExchangeCerts(verbose bool) error {
 	return nil
 }
 
-func createMember(id string, index int, options *InitOptions, external bool) *Member {
+func createMember(id string, index int, options *InitOptions, external bool) *types.Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -293,13 +231,13 @@ func createMember(id string, index int, options *InitOptions, external bool) *Me
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	serviceBase := options.ServicesBasePort + (index * 100)
-	return &Member{
+	return &types.Member{
 		ID:                      id,
 		Index:                   &index,
 		Address:                 encodedAddress,
 		PrivateKey:              encodedPrivateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
-		ExposedFireflyAdminPort: serviceBase + 1, // note shared geth is on zero
+		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
 		ExposedEthconnectPort:   serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
 		ExposedPostgresPort:     serviceBase + 4,
@@ -318,13 +256,14 @@ func updateStatus(message string, spin *spinner.Spinner) {
 	}
 }
 
-func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
-	fmt.Printf("starting FireFly stack '%s'... ", s.Name)
+func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
+	blockchainProvider := s.getBlockchainProvider(verbose)
+	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
 		return err
 	}
-	workingDir := filepath.Join(StacksDir, s.Name)
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	var spin *spinner.Spinner
 	if fancyFeatures && !verbose {
 		spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
@@ -366,12 +305,23 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptio
 		if spin != nil {
 			spin.Start()
 		}
+
+		if err := blockchainProvider.PreStart(); err != nil {
+			return err
+		}
+
 		updateStatus("starting FireFly dependencies", spin)
 		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 			return err
 		}
-		err := s.UnlockAccounts(spin)
-		s.ensureFireflyNodesUp(false, spin)
+
+		if err := blockchainProvider.PostStart(); err != nil {
+			return err
+		}
+
+		if err := s.ensureFireflyNodesUp(false, spin); err != nil {
+			return err
+		}
 
 		if spin != nil {
 			spin.Stop()
@@ -385,31 +335,31 @@ func (s *Stack) StartStack(fancyFeatures bool, verbose bool, options *StartOptio
 	}
 }
 
-func (s *Stack) StopStack(verbose bool) error {
-	return docker.RunDockerComposeCommand(filepath.Join(StacksDir, s.Name), verbose, verbose, "stop")
+func (s *StackManager) StopStack(verbose bool) error {
+	return docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "stop")
 }
 
-func (s *Stack) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(filepath.Join(StacksDir, s.Name), verbose, verbose, "down", "--volumes"); err != nil {
+func (s *StackManager) ResetStack(verbose bool) error {
+	if err := docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "down", "--volumes"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(filepath.Join(StacksDir, s.Name, "data")); err != nil {
+	if err := os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name, "data")); err != nil {
 		return err
 	}
 	return s.ensureDirectories()
 }
 
-func (s *Stack) RemoveStack(verbose bool) error {
+func (s *StackManager) RemoveStack(verbose bool) error {
 	if err := s.ResetStack(verbose); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.Join(StacksDir, s.Name))
+	return os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name))
 }
 
-func (s *Stack) checkPortsAvailable() error {
+func (s *StackManager) checkPortsAvailable() error {
 	ports := make([]int, 1)
-	ports[0] = s.ExposedGethPort
-	for _, member := range s.Members {
+	ports[0] = s.Stack.ExposedBlockchainPort
+	for _, member := range s.Stack.Members {
 		ports = append(ports, member.ExposedDataexchangePort)
 		ports = append(ports, member.ExposedEthconnectPort)
 		if !member.External {
@@ -469,11 +419,12 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
-	workingDir := filepath.Join(StacksDir, s.Name)
+func (s *StackManager) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	blockchainProvider := s.getBlockchainProvider(verbose)
 
-	updateStatus("initializing geth node", spin)
-	if err := s.initializeGethNode(verbose); err != nil {
+	updateStatus("initializing blockchain node", spin)
+	if err := blockchainProvider.Init(); err != nil {
 		return err
 	}
 
@@ -483,10 +434,10 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 	}
 
 	// write firefly configs to volumes
-	for _, member := range s.Members {
+	for _, member := range s.Stack.Members {
 		if !member.External {
 			updateStatus(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID), spin)
-			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
+			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
@@ -505,14 +456,14 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 		return err
 	}
 
-	if err := s.UnlockAccounts(spin); err != nil {
+	if err := blockchainProvider.PostStart(); err != nil {
 		return err
 	}
 
 	var containerName string
-	for _, member := range s.Members {
+	for _, member := range s.Stack.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Stack.Name, member.ID)
 			break
 		}
 	}
@@ -539,10 +490,10 @@ func (s *Stack) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *
 	return nil
 }
 
-func (s *Stack) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner) error {
-	for _, member := range s.Members {
+func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner) error {
+	for _, member := range s.Stack.Members {
 		if member.External {
-			configFilename := path.Join(StacksDir, s.Name, "configs", fmt.Sprintf("firefly_core_%v.yml", member.ID))
+			configFilename := path.Join(constants.StacksDir, s.Stack.Name, "configs", fmt.Sprintf("firefly_core_%v.yml", member.ID))
 			var port int
 			if firstTimeSetup {
 				port = member.ExposedFireflyAdminPort
@@ -565,7 +516,7 @@ func (s *Stack) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner)
 	return nil
 }
 
-func (s *Stack) waitForFireflyStart(port int) error {
+func (s *StackManager) waitForFireflyStart(port int) error {
 	retries := 120
 	retryPeriod := 1000 // ms
 	retriesRemaining := retries
@@ -583,16 +534,16 @@ func (s *Stack) waitForFireflyStart(port int) error {
 	return fmt.Errorf("waited for %v seconds for firefly to start on port %v but it was never available", retries*retryPeriod/1000, port)
 }
 
-func (s *Stack) UpgradeStack(verbose bool) error {
-	workingDir := filepath.Join(StacksDir, s.Name)
+func (s *StackManager) UpgradeStack(verbose bool) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "down"); err != nil {
 		return err
 	}
 	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
 }
 
-func (s *Stack) PrintStackInfo(verbose bool) error {
-	workingDir := filepath.Join(StacksDir, s.Name)
+func (s *StackManager) PrintStackInfo(verbose bool) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	fmt.Print("\n")
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "images"); err != nil {
 		return err
@@ -601,18 +552,18 @@ func (s *Stack) PrintStackInfo(verbose bool) error {
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "ps"); err != nil {
 		return err
 	}
-	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(StacksDir, s.Name, "docker-compose.yml"))
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, s.Stack.Name, "docker-compose.yml"))
 	return nil
 }
 
-func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
+func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	contractDeployed := false
-	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(StacksDir, s.Name, "contracts", "Firefly.json"))
+	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Stack.Name, "contracts", "Firefly.json"))
 	if err != nil {
 		return err
 	}
 	var fireflyContractAddress string
-	for _, member := range s.Members {
+	for _, member := range s.Stack.Members {
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
 			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
@@ -654,8 +605,8 @@ func (s *Stack) deployContracts(spin *spinner.Spinner, verbose bool) error {
 	return nil
 }
 
-func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool, spin *spinner.Spinner) error {
-	for _, member := range s.Members {
+func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool, spin *spinner.Spinner) error {
+	for _, member := range s.Stack.Members {
 		updateStatus(fmt.Sprintf("applying configuration changes to %s", member.ID), spin)
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
 		if err := s.httpJSONWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
@@ -669,8 +620,8 @@ func (s *Stack) patchConfigAndRestartFireflyNodes(verbose bool, spin *spinner.Sp
 	return nil
 }
 
-func (s *Stack) extractContracts(containerName string, verbose bool) error {
-	workingDir := filepath.Join(StacksDir, s.Name)
+func (s *StackManager) extractContracts(containerName string, verbose bool) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	destinationDir := filepath.Join(workingDir, "contracts")
 	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":/firefly/contracts", destinationDir); err != nil {
 		return err
@@ -678,8 +629,8 @@ func (s *Stack) extractContracts(containerName string, verbose bool) error {
 	return nil
 }
 
-func (s *Stack) StackHasRunBefore() (bool, error) {
-	path := filepath.Join(StacksDir, s.Name, "data", fmt.Sprintf("dataexchange_%s", s.Members[0].ID), "cert.pem")
+func (s *StackManager) StackHasRunBefore() (bool, error) {
+	path := filepath.Join(constants.StacksDir, s.Stack.Name, "data", fmt.Sprintf("dataexchange_%s", s.Stack.Members[0].ID), "cert.pem")
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -690,22 +641,20 @@ func (s *Stack) StackHasRunBefore() (bool, error) {
 	}
 }
 
-func (s *Stack) UnlockAccounts(spin *spinner.Spinner) error {
-	gethClient := geth.NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", s.ExposedGethPort))
-	for _, m := range s.Members {
-		retries := 10
-		updateStatus(fmt.Sprintf("unlocking account for member %s", m.ID), spin)
-		for {
-			if err := gethClient.UnlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
-				if retries == 0 {
-					return fmt.Errorf("unable to unlock account %s for member %s", m.Address, m.ID)
-				}
-				time.Sleep(time.Second * 1)
-				retries--
-			} else {
-				break
-			}
+func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
+	switch s.Stack.BlockchainProvider {
+	case GoEthereum.String():
+		return &geth.GethProvider{
+			Verbose: verbose,
+			Stack:   s.Stack,
 		}
+	case HyperledgerBesu.String():
+		return &besu.BesuProvider{
+			Verbose: verbose,
+			Stack:   s.Stack,
+		}
+	default:
+		return nil
 	}
-	return nil
+
 }

@@ -30,6 +30,7 @@ var upgradeCmd = &cobra.Command{
 	If certain containers were pinned to a specific image at init,
 	this command will have no effect on those containers.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		stackManager := stacks.NewStackManager()
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
@@ -40,16 +41,15 @@ var upgradeCmd = &cobra.Command{
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		if stack, err := stacks.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
-		} else {
-			fmt.Printf("upgrading stack '%s'... ", stackName)
-			if err := stack.UpgradeStack(verbose); err != nil {
-				return err
-			}
-			fmt.Printf("done\n\nYour stack has been upgraded. To start your upgraded stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
-			return nil
 		}
+		fmt.Printf("upgrading stack '%s'... ", stackName)
+		if err := stackManager.UpgradeStack(verbose); err != nil {
+			return err
+		}
+		fmt.Printf("done\n\nYour stack has been upgraded. To start your upgraded stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
+		return nil
 	},
 }
 

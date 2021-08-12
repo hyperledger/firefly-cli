@@ -21,7 +21,7 @@ type DataExchangePeerConfig struct {
 	Peers []*PeerConfig               `json:"peers"`
 }
 
-func (s *Stack) GenerateDataExchangeHTTPSConfig(memberId string) *DataExchangePeerConfig {
+func (s *StackManager) GenerateDataExchangeHTTPSConfig(memberId string) *DataExchangePeerConfig {
 	return &DataExchangePeerConfig{
 		API: &DataExchangeListenerConfig{
 			Hostname: "0.0.0.0",
