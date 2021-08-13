@@ -1,4 +1,4 @@
-package stacks
+package core
 
 import (
 	"fmt"
@@ -146,16 +146,6 @@ func NewFireflyConfigs(stack *types.Stack) map[string]*FireflyConfig {
 				Name:     fmt.Sprintf("org_%s", member.ID),
 				Identity: member.Address,
 			},
-			Blockchain: &BlockchainConfig{
-				Type: "ethereum",
-				Ethereum: &EthereumConfig{
-					Ethconnect: &EthconnectConfig{
-						URL:      getEthconnectURL(member),
-						Instance: "/contracts/firefly",
-						Topic:    member.ID,
-					},
-				},
-			},
 			P2PFS: &PublicStorageConfig{
 				Type: "ipfs",
 				IPFS: &FireflyIPFSConfig{
@@ -198,14 +188,6 @@ func NewFireflyConfigs(stack *types.Stack) map[string]*FireflyConfig {
 		configs[member.ID] = memberConfig
 	}
 	return configs
-}
-
-func getEthconnectURL(member *types.Member) string {
-	if !member.External {
-		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
-	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-	}
 }
 
 func getIPFSAPIURL(member *types.Member) string {

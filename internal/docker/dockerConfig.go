@@ -20,6 +20,12 @@ type LoggingConfig struct {
 	Options map[string]string `yaml:"options,omitempty"`
 }
 
+type ServiceDefinition struct {
+	ServiceName string
+	Service     *Service
+	VolumeNames []string
+}
+
 type Service struct {
 	Image       string                       `yaml:"image,omitempty"`
 	Build       string                       `yaml:"build,omitempty"`
@@ -64,7 +70,6 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 				},
 				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
 				DependsOn: map[string]map[string]string{
-					"ethconnect_" + member.ID:   {"condition": "service_started"},
 					"dataexchange_" + member.ID: {"condition": "service_started"},
 				},
 				Logging: StandardLogOptions,
@@ -95,21 +100,6 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 
 			compose.Services["firefly_core_"+member.ID].DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 		}
-
-		compose.Services["ethconnect_"+member.ID] = &Service{
-			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
-			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://geth:8545 -E ./events -d 3",
-			DependsOn: map[string]map[string]string{"geth": {"condition": "service_started"}},
-			Ports:     []string{fmt.Sprintf("%d:8080", member.ExposedEthconnectPort)},
-			Volumes: []string{
-				fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
-				fmt.Sprintf("ethconnect_events_%s:/ethconnect/events", member.ID),
-			},
-			Logging: StandardLogOptions,
-		}
-
-		compose.Volumes["ethconnect_abis_"+member.ID] = struct{}{}
-		compose.Volumes["ethconnect_events_"+member.ID] = struct{}{}
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",

@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/geth"
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/contracts"
+	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
@@ -93,9 +92,21 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
-	blockchainServiceName, blockchainServiceDefinition := s.blockchainProvider.GetDockerServiceDefinition()
-	compose.Services[blockchainServiceName] = blockchainServiceDefinition
-	compose.Volumes[blockchainServiceName] = struct{}{}
+	blockchainServiceDefinitions := s.blockchainProvider.GetDockerServiceDefinitions()
+
+	for _, serviceDefinition := range blockchainServiceDefinitions {
+		// Add each service definition to the docker compose file
+		compose.Services[serviceDefinition.ServiceName] = serviceDefinition.Service
+		// Add the volume name for each volume used by this service
+		for _, volumeName := range serviceDefinition.VolumeNames {
+			compose.Volumes[volumeName] = struct{}{}
+		}
+
+		// Add a dependency so each firefly core container won't start up until blockchain containers are up
+		for _, member := range s.Stack.Members {
+			compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+		}
+	}
 
 	if err := s.ensureDirectories(); err != nil {
 		return err
@@ -173,11 +184,14 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 func (s *StackManager) writeConfigs(verbose bool) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	fireflyConfigs := NewFireflyConfigs(s.Stack)
+	fireflyConfigs := core.NewFireflyConfigs(s.Stack)
+	i := 0
 	for memberId, config := range fireflyConfigs {
-		if err := WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
+		config.Blockchain = s.blockchainProvider.GetFireflyConfig(s.Stack.Members[i])
+		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
 			return err
 		}
+		i++
 	}
 
 	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
@@ -397,7 +411,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	s.Log.Info("initializing blockchain node")
-	if err := s.blockchainProvider.Init(); err != nil {
+	if err := s.blockchainProvider.RunFirstTimeSetup(); err != nil {
 		return err
 	}
 
@@ -433,34 +447,19 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		return err
 	}
 
-	var coreContainer string
-	var tokensContainer string
-	for _, member := range s.Stack.Members {
-		if !member.External {
-			coreContainer = fmt.Sprintf("%s_firefly_core_%s_1", s.Stack.Name, member.ID)
-			break
-		}
-	}
-	if coreContainer == "" {
-		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
-	}
-	s.Log.Info("extracting smart contracts")
-
-	if err := s.extractContracts(coreContainer, "/firefly/contracts", verbose); err != nil {
-		return err
-	}
-	if err := s.extractContracts(tokensContainer, "/root/contracts", verbose); err != nil {
-		return err
-	}
-
 	if err := s.ensureFireflyNodesUp(true); err != nil {
 		return err
 	}
 
 	s.Log.Info("deploying smart contracts")
-	if err := s.deployContracts(verbose); err != nil {
+	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
 		return err
 	}
+
+	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
+		return err
+	}
+
 	s.Log.Info("registering FireFly identities")
 	if err := s.registerFireflyIdentities(verbose); err != nil {
 		return err
@@ -534,63 +533,6 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) deployContracts(verbose bool) error {
-	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Stack.Name, "contracts", "Firefly.json"))
-	if err != nil {
-		return err
-	}
-
-	var fireflyContractAddress string
-	for _, member := range s.Stack.Members {
-		if fireflyContractAddress == "" {
-			// TODO: version the registered name
-			s.Log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
-			fireflyContractAddress, err = s.deployContract(member, fireflyContract, "firefly", map[string]string{})
-			if err != nil {
-				return err
-			}
-		} else {
-			s.Log.Info(fmt.Sprintf("registering firefly contract on '%s'", member.ID))
-			err = s.registerContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *StackManager) deployContract(member *types.Member, contract *contracts.Contract, name string, args map[string]string) (string, error) {
-	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
-	if err != nil {
-		return "", err
-	}
-	deployResponse, err := contracts.DeployContract(ethconnectUrl, abiResponse.ID, member.Address, args, name)
-	if err != nil {
-		return "", err
-	}
-	return deployResponse.ContractAddress, nil
-}
-
-func (s *StackManager) registerContract(member *types.Member, contract *contracts.Contract, contractAddress string, name string, args map[string]string) error {
-	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
-	if err != nil {
-		return err
-	}
-	_, err = contracts.RegisterContract(ethconnectUrl, abiResponse.ID, contractAddress, member.Address, name, args)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
@@ -602,14 +544,6 @@ func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 		if err := s.httpJSONWithRetry("POST", resetUrl, "{}", nil); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (s *StackManager) extractContracts(containerName string, dirName string, verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":"+dirName, workingDir); err != nil {
-		return err
 	}
 	return nil
 }

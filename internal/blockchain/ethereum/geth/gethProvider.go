@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
+	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"github.com/hyperledger-labs/firefly-cli/internal/log"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
@@ -49,7 +51,7 @@ func (p *GethProvider) WriteConfig() error {
 	return nil
 }
 
-func (p *GethProvider) Init() error {
+func (p *GethProvider) RunFirstTimeSetup() error {
 	volumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
 	gethConfigDir := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 
@@ -103,7 +105,11 @@ func (p *GethProvider) PostStart() error {
 	return nil
 }
 
-func (p *GethProvider) GetDockerServiceDefinition() (serviceName string, serviceDefinition *docker.Service) {
+func (p *GethProvider) DeploySmartContracts() error {
+	return ethereum.DeployContracts(p.Stack, p.Log, p.Verbose)
+}
+
+func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	addresses := ""
 	for i, member := range p.Stack.Members {
 		addresses = addresses + member.Address
@@ -113,13 +119,39 @@ func (p *GethProvider) GetDockerServiceDefinition() (serviceName string, service
 	}
 	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --rpcvhosts=* --rpccorsdomain "*" --miner.gastarget 804247552 --rpc --rpcaddr "0.0.0.0" --rpcport 8545 --rpcapi 'admin,personal,db,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --unlock '%s' --password /data/password --mine --nousb --allow-insecure-unlock --nodiscover`, addresses)
 
-	serviceDefinition = &docker.Service{
-		Image:   "ethereum/client-go:release-1.9",
-		Command: gethCommand,
-		Volumes: []string{"geth:/data"},
-		Logging: docker.StandardLogOptions,
-		Ports:   []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
+	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
+	serviceDefinitions[0] = &docker.ServiceDefinition{
+		ServiceName: "geth",
+		Service: &docker.Service{
+			Image:   "ethereum/client-go:release-1.9",
+			Command: gethCommand,
+			Volumes: []string{"geth:/data"},
+			Logging: docker.StandardLogOptions,
+			Ports:   []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
+		},
+		VolumeNames: []string{"geth"},
 	}
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack.Members)...)
+	return serviceDefinitions
+}
 
-	return "geth", serviceDefinition
+func (p *GethProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig {
+	return &core.BlockchainConfig{
+		Type: "ethereum",
+		Ethereum: &core.EthereumConfig{
+			Ethconnect: &core.EthconnectConfig{
+				URL:      p.getEthconnectURL(m),
+				Instance: "/contracts/firefly",
+				Topic:    m.ID,
+			},
+		},
+	}
+}
+
+func (p *GethProvider) getEthconnectURL(member *types.Member) string {
+	if !member.External {
+		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+	} else {
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	}
 }
