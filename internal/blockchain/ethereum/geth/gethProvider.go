@@ -10,10 +10,12 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
 type GethProvider struct {
+	Log     log.Logger
 	Verbose bool
 	Stack   *types.Stack
 }
@@ -85,8 +87,7 @@ func (p *GethProvider) PostStart() error {
 	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.Stack.ExposedBlockchainPort))
 	for _, m := range p.Stack.Members {
 		retries := 10
-		// TODO: Figure out how to get logging back in here after the big refactor
-		// updateStatus(fmt.Sprintf("unlocking account for member %s", m.ID), spin)
+		p.Log.Info(fmt.Sprintf("unlocking account for member %s", m.ID))
 		for {
 			if err := gethClient.UnlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
 				if retries == 0 {

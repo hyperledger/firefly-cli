@@ -2,11 +2,13 @@ package besu
 
 import (
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
 type BesuProvider struct {
 	Verbose bool
+	Log     log.Logger
 	Stack   *types.Stack
 }
 

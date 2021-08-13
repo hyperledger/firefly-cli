@@ -30,7 +30,7 @@ var upgradeCmd = &cobra.Command{
 	If certain containers were pinned to a specific image at init,
 	this command will have no effect on those containers.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stackManager := stacks.NewStackManager()
+		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}

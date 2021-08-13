@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -17,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/briandowns/spinner"
 	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain"
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
@@ -29,10 +27,14 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
+
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 )
 
 type StackManager struct {
-	Stack *types.Stack
+	Log                log.Logger
+	Stack              *types.Stack
+	blockchainProvider blockchain.IBlockchainProvider
 }
 
 type StartOptions struct {
@@ -68,8 +70,10 @@ func ListStacks() ([]string, error) {
 	return stacks, nil
 }
 
-func NewStackManager() *StackManager {
-	return &StackManager{}
+func NewStackManager(logger log.Logger) *StackManager {
+	return &StackManager{
+		Log: logger,
+	}
 }
 
 func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) error {
@@ -82,14 +86,14 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		BlockchainProvider:    options.BlockchainProvider.String(),
 	}
 
-	blockchainProvider := s.getBlockchainProvider(false)
+	s.blockchainProvider = s.getBlockchainProvider(false)
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
-	blockchainServiceName, blockchainServiceDefinition := blockchainProvider.GetDockerServiceDefinition()
+	blockchainServiceName, blockchainServiceDefinition := s.blockchainProvider.GetDockerServiceDefinition()
 	compose.Services[blockchainServiceName] = blockchainServiceDefinition
 	compose.Volumes[blockchainServiceName] = struct{}{}
 
@@ -130,6 +134,7 @@ func (s *StackManager) LoadStack(stackName string) error {
 			fmt.Printf("done\n")
 		}
 		s.Stack = stack
+		s.blockchainProvider = s.getBlockchainProvider(false)
 	}
 	return nil
 }
@@ -180,8 +185,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 		return err
 	}
 
-	p := s.getBlockchainProvider(verbose)
-	if err := p.WriteConfig(); err != nil {
+	if err := s.blockchainProvider.WriteConfig(); err != nil {
 		return err
 	}
 
@@ -204,7 +208,7 @@ func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
 		dataExchangeConfig := s.GenerateDataExchangeHTTPSConfig(member.ID)
 		configBytes, err := json.Marshal(dataExchangeConfig)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755)
 
@@ -248,43 +252,22 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	}
 }
 
-func updateStatus(message string, spin *spinner.Spinner) {
-	if spin != nil {
-		spin.Suffix = fmt.Sprintf(" %s...", message)
-	} else {
-		fmt.Println(message)
-	}
-}
-
 func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
-	blockchainProvider := s.getBlockchainProvider(verbose)
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
 		return err
 	}
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	var spin *spinner.Spinner
-	if fancyFeatures && !verbose {
-		spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-		spin.FinalMSG = "done"
-	}
 	if hasBeenRun, err := s.StackHasRunBefore(); !hasBeenRun && err == nil {
-		fmt.Println("\nthis will take a few seconds longer since this is the first time you're running this stack...")
-		if spin != nil {
-			spin.Start()
-		}
-		if err := s.runFirstTimeSetup(spin, verbose, options); err != nil {
+		if err := s.runFirstTimeSetup(verbose, options); err != nil {
 			// Something bad happened during setup
 			if options.NoRollback {
 				return err
 			} else {
 				// Rollback changes
-				updateStatus("an error occurred - rolling back changes", spin)
+				s.Log.Error(fmt.Errorf("an error occurred - rolling back changes"))
 				resetErr := s.ResetStack(verbose)
-				if spin != nil {
-					spin.Stop()
-				}
 
 				var finalErr error
 
@@ -297,40 +280,29 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 				return finalErr
 			}
 		}
-		if spin != nil {
-			spin.Stop()
-		}
+
 		return nil
 	} else if err == nil {
-		if spin != nil {
-			spin.Start()
-		}
 
-		if err := blockchainProvider.PreStart(); err != nil {
+		if err := s.blockchainProvider.PreStart(); err != nil {
 			return err
 		}
 
-		updateStatus("starting FireFly dependencies", spin)
+		s.Log.Info("starting FireFly dependencies")
 		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 			return err
 		}
 
-		if err := blockchainProvider.PostStart(); err != nil {
+		if err := s.blockchainProvider.PostStart(); err != nil {
 			return err
 		}
 
-		if err := s.ensureFireflyNodesUp(false, spin); err != nil {
+		if err := s.ensureFireflyNodesUp(false); err != nil {
 			return err
 		}
 
-		if spin != nil {
-			spin.Stop()
-		}
 		return err
 	} else {
-		if spin != nil {
-			spin.Stop()
-		}
 		return err
 	}
 }
@@ -419,16 +391,15 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, options *StartOptions) error {
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	blockchainProvider := s.getBlockchainProvider(verbose)
 
-	updateStatus("initializing blockchain node", spin)
-	if err := blockchainProvider.Init(); err != nil {
+	s.Log.Info("initializing blockchain node")
+	if err := s.blockchainProvider.Init(); err != nil {
 		return err
 	}
 
-	updateStatus("writing data exchange certs", spin)
+	s.Log.Info("writing data exchange certs")
 	if err := s.writeDataExchangeCerts(verbose); err != nil {
 		return err
 	}
@@ -436,7 +407,7 @@ func (s *StackManager) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, op
 	// write firefly configs to volumes
 	for _, member := range s.Stack.Members {
 		if !member.External {
-			updateStatus(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID), spin)
+			s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
 			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
@@ -445,18 +416,18 @@ func (s *StackManager) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, op
 	}
 
 	if !options.NoPull {
-		updateStatus("pulling latest versions", spin)
+		s.Log.Info("pulling latest versions")
 		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
 			return err
 		}
 	}
 
-	updateStatus("starting FireFly dependencies", spin)
+	s.Log.Info("starting FireFly dependencies")
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
 
-	if err := blockchainProvider.PostStart(); err != nil {
+	if err := s.blockchainProvider.PostStart(); err != nil {
 		return err
 	}
 
@@ -470,27 +441,27 @@ func (s *StackManager) runFirstTimeSetup(spin *spinner.Spinner, verbose bool, op
 	if containerName == "" {
 		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
-	updateStatus("extracting smart contracts", spin)
+	s.Log.Info("extracting smart contracts")
 	if err := s.extractContracts(containerName, verbose); err != nil {
 		return err
 	}
 
-	if err := s.ensureFireflyNodesUp(true, spin); err != nil {
+	if err := s.ensureFireflyNodesUp(true); err != nil {
 		return err
 	}
 
-	updateStatus("deploying smart contracts", spin)
-	if err := s.deployContracts(spin, verbose); err != nil {
+	s.Log.Info("deploying smart contracts")
+	if err := s.deployContracts(verbose); err != nil {
 		return err
 	}
-	updateStatus("registering FireFly identities", spin)
-	if err := s.registerFireflyIdentities(spin, verbose); err != nil {
+	s.Log.Info("registering FireFly identities")
+	if err := s.registerFireflyIdentities(verbose); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.Spinner) error {
+func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
 	for _, member := range s.Stack.Members {
 		if member.External {
 			configFilename := path.Join(constants.StacksDir, s.Stack.Name, "configs", fmt.Sprintf("firefly_core_%v.yml", member.ID))
@@ -506,7 +477,7 @@ func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool, spin *spinner.S
 				return err
 			}
 			if available {
-				updateStatus(fmt.Sprintf("please start your firefly core with the config file for this stack: firefly -f %s  ", configFilename), spin)
+				s.Log.Info(fmt.Sprintf("please start your firefly core with the config file for this stack: firefly -f %s  ", configFilename))
 				if err := s.waitForFireflyStart(port); err != nil {
 					return err
 				}
@@ -556,7 +527,7 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) error {
+func (s *StackManager) deployContracts(verbose bool) error {
 	contractDeployed := false
 	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Stack.Name, "contracts", "Firefly.json"))
 	if err != nil {
@@ -566,7 +537,7 @@ func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) erro
 	for _, member := range s.Stack.Members {
 		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 		if !contractDeployed {
-			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
+			s.Log.Info(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID))
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
@@ -574,7 +545,7 @@ func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) erro
 			fireflyAbiId := publishFireflyResponse.ID
 
 			// TODO: version the registered name
-			updateStatus(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID), spin)
+			s.Log.Info(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID))
 			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{}, "firefly")
 			if err != nil {
 				return err
@@ -583,14 +554,14 @@ func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) erro
 
 			contractDeployed = true
 		} else {
-			updateStatus(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID), spin)
+			s.Log.Info(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID))
 			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
 			if err != nil {
 				return err
 			}
 			fireflyAbiId := publishFireflyResponse.ID
 
-			updateStatus(fmt.Sprintf("registering FireFly contract on '%s'", member.ID), spin)
+			s.Log.Info(fmt.Sprintf("registering FireFly contract on '%s'", member.ID))
 			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{})
 			if err != nil {
 				return err
@@ -598,16 +569,16 @@ func (s *StackManager) deployContracts(spin *spinner.Spinner, verbose bool) erro
 		}
 	}
 
-	if err := s.patchConfigAndRestartFireflyNodes(verbose, spin); err != nil {
+	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool, spin *spinner.Spinner) error {
+func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
-		updateStatus(fmt.Sprintf("applying configuration changes to %s", member.ID), spin)
+		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
 		if err := s.httpJSONWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
 			return err
@@ -646,11 +617,13 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 	case GoEthereum.String():
 		return &geth.GethProvider{
 			Verbose: verbose,
+			Log:     s.Log,
 			Stack:   s.Stack,
 		}
 	case HyperledgerBesu.String():
 		return &besu.BesuProvider{
 			Verbose: verbose,
+			Log:     s.Log,
 			Stack:   s.Stack,
 		}
 	default:

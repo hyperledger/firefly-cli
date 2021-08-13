@@ -39,7 +39,7 @@ var initCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var stackName string
-		stackManager := stacks.NewStackManager()
+		stackManager := stacks.NewStackManager(logger)
 
 		if err := validateDatabaseProvider(databaseSelection); err != nil {
 			return err

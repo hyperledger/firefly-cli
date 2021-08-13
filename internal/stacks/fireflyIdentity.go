@@ -23,8 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
-
-	"github.com/briandowns/spinner"
 )
 
 func (s *StackManager) httpJSONWithRetry(method, url string, body, result interface{}) (err error) {
@@ -85,12 +83,12 @@ func (s *StackManager) httpJSON(method, url string, body, result interface{}) (e
 	return json.NewDecoder(resp.Body).Decode(&result)
 }
 
-func (s *StackManager) registerFireflyIdentities(spin *spinner.Spinner, verbose bool) error {
+func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		orgName := fmt.Sprintf("org_%s", member.ID)
 		nodeName := fmt.Sprintf("node_%s", member.ID)
 		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)
-		updateStatus(fmt.Sprintf("registering %s and %s", orgName, nodeName), spin)
+		s.Log.Info(fmt.Sprintf("registering %s and %s", orgName, nodeName))
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
 		err := s.httpJSONWithRetry(http.MethodPost, registerOrgURL, nil, nil)
