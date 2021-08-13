@@ -31,7 +31,7 @@ import (
 
 var initOptions stacks.InitOptions
 var databaseSelection string
-var blockchainProviderSelection string
+var blockchainProviderInput string
 
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
@@ -45,7 +45,7 @@ var initCmd = &cobra.Command{
 		if err := validateDatabaseProvider(databaseSelection); err != nil {
 			return err
 		}
-		if err := validateBlockchainProvider(blockchainProviderSelection); err != nil {
+		if err := validateBlockchainProvider(blockchainProviderInput); err != nil {
 			return err
 		}
 
@@ -74,6 +74,7 @@ var initCmd = &cobra.Command{
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
 		initOptions.Verbose = verbose
+		initOptions.BlockchainProvider, _ = stacks.BlockchainProviderFromString(blockchainProviderInput)
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
@@ -120,8 +121,8 @@ func validateBlockchainProvider(input string) error {
 		return err
 	}
 
-	if blockchainSelection != stacks.GoEthereum {
-		return errors.New("geth is currently the only supported blockchain provider - support for other providers is coming soon")
+	if blockchainSelection == stacks.Corda {
+		return errors.New("support for corda is coming soon")
 	}
 	return nil
 }
@@ -130,7 +131,7 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderSelection, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 
 	rootCmd.AddCommand(initCmd)

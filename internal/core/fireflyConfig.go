@@ -79,9 +79,14 @@ type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
 }
 
+type FabricConfig struct {
+	Fabconnect *EthconnectConfig `yaml:"fabconnect,omitempty"`
+}
+
 type BlockchainConfig struct {
 	Type     string          `yaml:"type,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
+	Fabric   *FabricConfig   `yaml:"fabric,omitempty"`
 }
 
 type DataExchangeConfig struct {

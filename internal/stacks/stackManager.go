@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain"
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
@@ -586,6 +587,12 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 		}
 	case HyperledgerBesu.String():
 		return &besu.BesuProvider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
+	case HyperledgerFabric.String():
+		return &fabric.FabricProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
