@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -45,19 +46,17 @@ func (s *StackManager) httpJSON(method, url string, body, result interface{}) (e
 	if body == nil {
 		body = make(map[string]interface{})
 	}
-	if result == nil {
-		result = make(map[string]interface{})
-	}
 
-	var requestBody []byte
-	if method != http.MethodGet && method != http.MethodDelete {
-		requestBody, err = json.Marshal(&body)
+	var bodyReader io.Reader
+	if body != nil {
+		requestBody, err := json.Marshal(&body)
 		if err != nil {
 			return err
 		}
+		bodyReader = bytes.NewReader(requestBody)
 	}
 
-	req, err := http.NewRequest(method, url, bytes.NewReader(requestBody))
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		return err
 	}
@@ -72,8 +71,11 @@ func (s *StackManager) httpJSON(method, url string, body, result interface{}) (e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("%s returned %d: %s", url, resp.StatusCode, b)
+		var responseBytes []byte
+		if resp.StatusCode != 204 {
+			responseBytes, _ = ioutil.ReadAll(resp.Body)
+		}
+		return fmt.Errorf("%s returned %d: %s", url, resp.StatusCode, responseBytes)
 	}
 
 	if resp.StatusCode == 204 {
@@ -84,6 +86,8 @@ func (s *StackManager) httpJSON(method, url string, body, result interface{}) (e
 }
 
 func (s *StackManager) registerFireflyIdentities(verbose bool) error {
+	emptyObject := make(map[string]interface{})
+
 	for _, member := range s.Stack.Members {
 		orgName := fmt.Sprintf("org_%s", member.ID)
 		nodeName := fmt.Sprintf("node_%s", member.ID)
@@ -91,7 +95,7 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		s.Log.Info(fmt.Sprintf("registering %s and %s", orgName, nodeName))
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
-		err := s.httpJSONWithRetry(http.MethodPost, registerOrgURL, nil, nil)
+		err := s.httpJSONWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
 		if err != nil {
 			return err
 		}
@@ -121,7 +125,7 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		}
 
 		registerNodeURL := fmt.Sprintf("%s/network/register/node", ffURL)
-		err = s.httpJSONWithRetry(http.MethodPost, registerNodeURL, nil, nil)
+		err = s.httpJSONWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil)
 		if err != nil {
 			return nil
 		}

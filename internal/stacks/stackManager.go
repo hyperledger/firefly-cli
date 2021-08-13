@@ -248,6 +248,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		ExposedDataexchangePort: serviceBase + 5,
 		ExposedIPFSApiPort:      serviceBase + 6,
 		ExposedIPFSGWPort:       serviceBase + 7,
+		ExposedTokensPort:       serviceBase + 8,
 		External:                external,
 	}
 }
@@ -342,6 +343,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedIPFSGWPort)
 		ports = append(ports, member.ExposedPostgresPort)
 		ports = append(ports, member.ExposedUIPort)
+		ports = append(ports, member.ExposedTokensPort)
 	}
 	for _, port := range ports {
 		available, err := checkPortAvailable(port)
@@ -431,18 +433,23 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		return err
 	}
 
-	var containerName string
+	var coreContainer string
+	var tokensContainer string
 	for _, member := range s.Stack.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Stack.Name, member.ID)
+			coreContainer = fmt.Sprintf("%s_firefly_core_%s_1", s.Stack.Name, member.ID)
 			break
 		}
 	}
-	if containerName == "" {
+	if coreContainer == "" {
 		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
 	s.Log.Info("extracting smart contracts")
-	if err := s.extractContracts(containerName, verbose); err != nil {
+
+	if err := s.extractContracts(coreContainer, "/firefly/contracts", verbose); err != nil {
+		return err
+	}
+	if err := s.extractContracts(tokensContainer, "/root/contracts", verbose); err != nil {
 		return err
 	}
 
@@ -528,41 +535,23 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 }
 
 func (s *StackManager) deployContracts(verbose bool) error {
-	contractDeployed := false
 	fireflyContract, err := contracts.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Stack.Name, "contracts", "Firefly.json"))
 	if err != nil {
 		return err
 	}
+
 	var fireflyContractAddress string
 	for _, member := range s.Stack.Members {
-		ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-		if !contractDeployed {
-			s.Log.Info(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID))
-			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
-			if err != nil {
-				return err
-			}
-			fireflyAbiId := publishFireflyResponse.ID
-
+		if fireflyContractAddress == "" {
 			// TODO: version the registered name
-			s.Log.Info(fmt.Sprintf("deploying FireFly contract to '%s'", member.ID))
-			deployFireflyResponse, err := contracts.DeployContract(ethconnectUrl, fireflyAbiId, member.Address, map[string]string{}, "firefly")
+			s.Log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
+			fireflyContractAddress, err = s.deployContract(member, fireflyContract, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
-			fireflyContractAddress = deployFireflyResponse.ContractAddress
-
-			contractDeployed = true
 		} else {
-			s.Log.Info(fmt.Sprintf("publishing FireFly ABI to '%s'", member.ID))
-			publishFireflyResponse, err := contracts.PublishABI(ethconnectUrl, fireflyContract)
-			if err != nil {
-				return err
-			}
-			fireflyAbiId := publishFireflyResponse.ID
-
-			s.Log.Info(fmt.Sprintf("registering FireFly contract on '%s'", member.ID))
-			_, err = contracts.RegisterContract(ethconnectUrl, fireflyAbiId, fireflyContractAddress, member.Address, "firefly", map[string]string{})
+			s.Log.Info(fmt.Sprintf("registering firefly contract on '%s'", member.ID))
+			err = s.registerContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
@@ -573,6 +562,32 @@ func (s *StackManager) deployContracts(verbose bool) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s *StackManager) deployContract(member *types.Member, contract *contracts.Contract, name string, args map[string]string) (string, error) {
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
+	if err != nil {
+		return "", err
+	}
+	deployResponse, err := contracts.DeployContract(ethconnectUrl, abiResponse.ID, member.Address, args, name)
+	if err != nil {
+		return "", err
+	}
+	return deployResponse.ContractAddress, nil
+}
+
+func (s *StackManager) registerContract(member *types.Member, contract *contracts.Contract, contractAddress string, name string, args map[string]string) error {
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	abiResponse, err := contracts.PublishABI(ethconnectUrl, contract)
+	if err != nil {
+		return err
+	}
+	_, err = contracts.RegisterContract(ethconnectUrl, abiResponse.ID, contractAddress, member.Address, name, args)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -591,10 +606,9 @@ func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) extractContracts(containerName string, verbose bool) error {
+func (s *StackManager) extractContracts(containerName string, dirName string, verbose bool) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	destinationDir := filepath.Join(workingDir, "contracts")
-	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":/firefly/contracts", destinationDir); err != nil {
+	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":"+dirName, workingDir); err != nil {
 		return err
 	}
 	return nil

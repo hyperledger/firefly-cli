@@ -22,5 +22,6 @@ type Member struct {
 	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
 	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
 	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
+	ExposedTokensPort       int    `json:"exposedTokensPort,omitempty"`
 	External                bool   `json:"external,omitempty"`
 }
