@@ -175,7 +175,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 		}
 	}
 
-	stackConfigBytes, _ := json.MarshalIndent(s, "", " ")
+	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
 	if err := ioutil.WriteFile(filepath.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
 		return err
 	}

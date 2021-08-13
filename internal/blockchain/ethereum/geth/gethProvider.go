@@ -40,7 +40,7 @@ func (p *GethProvider) WriteConfig() error {
 
 	// Write the password that will be used to encrypt the private key
 	// TODO: Probably randomize this and make it differnet per member?
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "geth", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(stackDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
 		return err
 	}
 
