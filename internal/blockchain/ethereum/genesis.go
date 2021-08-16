@@ -14,10 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package geth
+package ethereum
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 )
 
@@ -100,4 +103,12 @@ func CreateGenesisJson(addresses []string) *Genesis {
 		GasUsed:    "0x0",
 		ParentHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
+}
+
+func (g *Genesis) WriteGenesisJson(filename string) error {
+	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
+	if err := ioutil.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
+		return err
+	}
+	return nil
 }

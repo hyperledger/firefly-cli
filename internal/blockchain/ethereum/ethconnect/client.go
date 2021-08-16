@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package contracts
+package ethconnect
 
 import (
 	"bytes"
@@ -27,13 +27,9 @@ import (
 	"net/url"
 	"path"
 	"strings"
-)
 
-type Contract struct {
-	ContractName string      `json:"contractName"`
-	ABI          interface{} `json:"abi"`
-	Bytecode     string      `json:"bytecode"`
-}
+	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+)
 
 type PublishAbiResponseBody struct {
 	ID string `json:"id,omitempty"`
@@ -52,17 +48,7 @@ type RegisterResponseBody struct {
 	RegisteredAs string `json:"registeredAs,omitempty"`
 }
 
-func ReadCompiledContract(filePath string) (*Contract, error) {
-	d, _ := ioutil.ReadFile(filePath)
-	var contract *Contract
-	err := json.Unmarshal(d, &contract)
-	if err != nil {
-		return nil, err
-	}
-	return contract, nil
-}
-
-func PublishABI(ethconnectUrl string, contract *Contract) (*PublishAbiResponseBody, error) {
+func PublishABI(ethconnectUrl string, contract *types.Contract) (*PublishAbiResponseBody, error) {
 	u, err := url.Parse(ethconnectUrl)
 	if err != nil {
 		return nil, err

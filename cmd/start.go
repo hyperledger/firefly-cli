@@ -19,7 +19,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/briandowns/spinner"
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -34,26 +37,45 @@ var startCmd = &cobra.Command{
 This command will start a stack and run it in the background.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var spin *spinner.Spinner
+		if fancyFeatures && !verbose {
+			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+			spin.FinalMSG = "done"
+			logger = &log.SpinnerLogger{
+				Spinner: spin,
+			}
+		}
+
+		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
-		stack, err := stacks.LoadStack(stackName)
-
-		if err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
-		if err = stack.StartStack(fancyFeatures, verbose, &startOptions); err != nil {
+		if runBefore, err := stackManager.StackHasRunBefore(); err != nil {
 			return err
-		} else {
-			fmt.Print("\n\n")
-			for _, member := range stack.Members {
-				fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
-			}
-			fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
+		} else if !runBefore {
+			fmt.Println("this will take a few seconds longer since this is the first time you're running this stack...")
 		}
+
+		if spin != nil {
+			spin.Start()
+		}
+		if err := stackManager.StartStack(fancyFeatures, verbose, &startOptions); err != nil {
+			return err
+		}
+		if spin != nil {
+			spin.Stop()
+		}
+		fmt.Print("\n\n")
+		for _, member := range stackManager.Stack.Members {
+			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
+		}
+		fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		return nil
 	},
 }

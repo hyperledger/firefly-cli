@@ -14,13 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stacks
+package core
 
 import (
 	"fmt"
 	"io/ioutil"
 	"path"
 
+	"github.com/hyperledger-labs/firefly-cli/internal/constants"
+	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -127,7 +129,7 @@ type FireflyConfig struct {
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 }
 
-func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
+func NewFireflyConfigs(stack *types.Stack) map[string]*FireflyConfig {
 	configs := make(map[string]*FireflyConfig)
 
 	for _, member := range stack.Members {
@@ -159,16 +161,6 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 			Org: &OrgConfig{
 				Name:     fmt.Sprintf("org_%s", member.ID),
 				Identity: member.Address,
-			},
-			Blockchain: &BlockchainConfig{
-				Type: "ethereum",
-				Ethereum: &EthereumConfig{
-					Ethconnect: &EthconnectConfig{
-						URL:      getEthconnectURL(member),
-						Instance: "/contracts/firefly",
-						Topic:    member.ID,
-					},
-				},
 			},
 			P2PFS: &PublicStorageConfig{
 				Type: "ipfs",
@@ -214,15 +206,7 @@ func NewFireflyConfigs(stack *Stack) map[string]*FireflyConfig {
 	return configs
 }
 
-func getEthconnectURL(member *Member) string {
-	if !member.External {
-		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
-	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
-	}
-}
-
-func getIPFSAPIURL(member *Member) string {
+func getIPFSAPIURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://ipfs_%s:5001", member.ID)
 	} else {
@@ -230,7 +214,7 @@ func getIPFSAPIURL(member *Member) string {
 	}
 }
 
-func getIPFSGatewayURL(member *Member) string {
+func getIPFSGatewayURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://ipfs_%s:8080", member.ID)
 	} else {
@@ -238,7 +222,7 @@ func getIPFSGatewayURL(member *Member) string {
 	}
 }
 
-func getPostgresURL(member *Member) string {
+func getPostgresURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("postgres://postgres:f1refly@postgres_%s:5432?sslmode=disable", member.ID)
 	} else {
@@ -246,15 +230,15 @@ func getPostgresURL(member *Member) string {
 	}
 }
 
-func getSQLitePath(member *Member, stackName string) string {
+func getSQLitePath(member *types.Member, stackName string) string {
 	if !member.External {
 		return "/etc/firefly/db?_busy_timeout=5000"
 	} else {
-		return path.Join(StacksDir, stackName, "data", "sqlite", member.ID+".db")
+		return path.Join(constants.StacksDir, stackName, "data", member.ID+".db")
 	}
 }
 
-func getDataExchangeURL(member *Member) string {
+func getDataExchangeURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://dataexchange_%s:3000", member.ID)
 	} else {

@@ -14,10 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stacks
+package docker
 
 import (
 	"fmt"
+
+	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
 type DependsOn map[string]map[string]string
@@ -32,6 +34,12 @@ type HealthCheck struct {
 type LoggingConfig struct {
 	Driver  string            `yaml:"driver,omitempty"`
 	Options map[string]string `yaml:"options,omitempty"`
+}
+
+type ServiceDefinition struct {
+	ServiceName string
+	Service     *Service
+	VolumeNames []string
 }
 
 type Service struct {
@@ -52,39 +60,20 @@ type DockerComposeConfig struct {
 	Volumes  map[string]struct{} `yaml:"volumes,omitempty"`
 }
 
-func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
+var StandardLogOptions = &LoggingConfig{
+	Driver: "json-file",
+	Options: map[string]string{
+		"max-size": "10m",
+		"max-file": "1",
+	},
+}
+
+func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}
-
-	standardLogOptions := &LoggingConfig{
-		Driver: "json-file",
-		Options: map[string]string{
-			"max-size": "10m",
-			"max-file": "1",
-		},
-	}
-
-	addresses := ""
-	for i, member := range stack.Members {
-		addresses = addresses + member.Address
-		if i+1 < len(stack.Members) {
-			addresses = addresses + ","
-		}
-	}
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --rpcvhosts=* --rpccorsdomain "*" --miner.gastarget 804247552 --rpc --rpcaddr "0.0.0.0" --rpcport 8545 --rpcapi 'admin,personal,db,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --unlock '%s' --password /data/password --mine --nousb --allow-insecure-unlock --nodiscover`, addresses)
-
-	compose.Services["geth"] = &Service{
-		Image:   "ethereum/client-go:release-1.9",
-		Command: gethCommand,
-		Volumes: []string{"geth:/data"},
-		Logging: standardLogOptions,
-		Ports:   []string{fmt.Sprintf("%d:8545", stack.ExposedGethPort)},
-	}
-
-	compose.Volumes["geth"] = struct{}{}
 
 	for _, member := range stack.Members {
 
@@ -97,10 +86,9 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 				},
 				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
 				DependsOn: map[string]map[string]string{
-					"ethconnect_" + member.ID:   {"condition": "service_started"},
 					"dataexchange_" + member.ID: {"condition": "service_started"},
 				},
-				Logging: standardLogOptions,
+				Logging: StandardLogOptions,
 			}
 
 			compose.Volumes["firefly_core_"+member.ID] = struct{}{}
@@ -121,28 +109,13 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 					Timeout:  "3s",
 					Retries:  12,
 				},
-				Logging: standardLogOptions,
+				Logging: StandardLogOptions,
 			}
 
 			compose.Volumes["postgres_"+member.ID] = struct{}{}
 
 			compose.Services["firefly_core_"+member.ID].DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 		}
-
-		compose.Services["ethconnect_"+member.ID] = &Service{
-			Image:     "ghcr.io/hyperledger-labs/firefly-ethconnect:latest",
-			Command:   "rest -U http://127.0.0.1:8080 -I ./abis -r http://geth:8545 -E ./events -d 3",
-			DependsOn: map[string]map[string]string{"geth": {"condition": "service_started"}},
-			Ports:     []string{fmt.Sprintf("%d:8080", member.ExposedEthconnectPort)},
-			Volumes: []string{
-				fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
-				fmt.Sprintf("ethconnect_events_%s:/ethconnect/events", member.ID),
-			},
-			Logging: standardLogOptions,
-		}
-
-		compose.Volumes["ethconnect_abis_"+member.ID] = struct{}{}
-		compose.Volumes["ethconnect_events_"+member.ID] = struct{}{}
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image: "ipfs/go-ipfs",
@@ -158,7 +131,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 				fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
 				fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
 			},
-			Logging: standardLogOptions,
+			Logging: StandardLogOptions,
 		}
 
 		compose.Volumes["ipfs_staging_"+member.ID] = struct{}{}
@@ -168,7 +141,7 @@ func CreateDockerCompose(stack *Stack) *DockerComposeConfig {
 			Image:   "ghcr.io/hyperledger-labs/firefly-dataexchange-https:latest",
 			Ports:   []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
 			Volumes: []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
-			Logging: standardLogOptions,
+			Logging: StandardLogOptions,
 		}
 
 		compose.Volumes["dataexchange_"+member.ID] = struct{}{}

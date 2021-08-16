@@ -34,6 +34,7 @@ but don't want to actually recreate the resources in the stack itself.
 Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
@@ -52,18 +53,18 @@ Note: this will also stop the stack if it is running.
 			}
 		}
 
-		if stack, err := stacks.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
-		} else {
-			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
-			if err := stack.StopStack(verbose); err != nil {
-				return err
-			}
-			if err := stack.ResetStack(verbose); err != nil {
-				return err
-			}
-			fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 		}
+
+		fmt.Printf("resetting FireFly stack '%s'... ", stackName)
+		if err := stackManager.StopStack(verbose); err != nil {
+			return err
+		}
+		if err := stackManager.ResetStack(verbose); err != nil {
+			return err
+		}
+		fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 
 		return nil
 	},

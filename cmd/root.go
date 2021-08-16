@@ -25,6 +25,8 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 )
 
 var cfgFile string
@@ -32,6 +34,9 @@ var ansi string
 var fancyFeatures bool
 var verbose bool
 var force bool
+var logger log.Logger = &log.StdoutLogger{
+	LogLevel: log.Debug,
+}
 
 func GetFireflyAsciiArt() string {
 	s := ""
