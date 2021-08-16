@@ -17,73 +17,12 @@
 package stacks
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/hyperledger-labs/firefly-cli/internal/core"
 )
-
-func (s *StackManager) httpJSONWithRetry(method, url string, body, result interface{}) (err error) {
-	retries := 30
-	for {
-		if err := s.httpJSON(method, url, body, result); err != nil {
-			if retries > 0 {
-				retries--
-				time.Sleep(1 * time.Second)
-			} else {
-				return err
-			}
-		} else {
-			return nil
-		}
-	}
-}
-
-func (s *StackManager) httpJSON(method, url string, body, result interface{}) (err error) {
-	if body == nil {
-		body = make(map[string]interface{})
-	}
-
-	var bodyReader io.Reader
-	if body != nil {
-		requestBody, err := json.Marshal(&body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(requestBody)
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if err != nil {
-		return err
-	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var responseBytes []byte
-		if resp.StatusCode != 204 {
-			responseBytes, _ = ioutil.ReadAll(resp.Body)
-		}
-		return fmt.Errorf("%s returned %d: %s", url, resp.StatusCode, responseBytes)
-	}
-
-	if resp.StatusCode == 204 {
-		return nil
-	}
-
-	return json.NewDecoder(resp.Body).Decode(&result)
-}
 
 func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 	emptyObject := make(map[string]interface{})
@@ -95,7 +34,7 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		s.Log.Info(fmt.Sprintf("registering %s and %s", orgName, nodeName))
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
-		err := s.httpJSONWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
+		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
 		if err != nil {
 			return err
 		}
@@ -109,7 +48,7 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 			}
 			orgURL := fmt.Sprintf("%s/network/organizations", ffURL)
 			var orgs []establishedOrg
-			err := s.httpJSONWithRetry(http.MethodGet, orgURL, nil, &orgs)
+			err := core.RequestWithRetry(http.MethodGet, orgURL, nil, &orgs)
 			if err != nil {
 				return nil
 			}
@@ -125,7 +64,7 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		}
 
 		registerNodeURL := fmt.Sprintf("%s/network/register/node", ffURL)
-		err = s.httpJSONWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil)
+		err = core.RequestWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil)
 		if err != nil {
 			return nil
 		}
