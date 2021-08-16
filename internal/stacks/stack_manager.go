@@ -314,28 +314,30 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 
 		return nil
 	} else if err == nil {
-
-		if err := s.blockchainProvider.PreStart(); err != nil {
-			return err
-		}
-
-		s.Log.Info("starting FireFly dependencies")
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
-			return err
-		}
-
-		if err := s.blockchainProvider.PostStart(); err != nil {
-			return err
-		}
-
-		if err := s.ensureFireflyNodesUp(false); err != nil {
-			return err
-		}
-
-		return err
+		return s.runStartupSequence(workingDir, verbose)
 	} else {
 		return err
 	}
+}
+
+func (s *StackManager) runStartupSequence(workingDir string, verbose bool) error {
+	if err := s.blockchainProvider.PreStart(); err != nil {
+		return err
+	}
+
+	s.Log.Info("starting FireFly dependencies")
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
+		return err
+	}
+
+	if err := s.blockchainProvider.PostStart(); err != nil {
+		return err
+	}
+
+	if err := s.ensureFireflyNodesUp(false); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *StackManager) StopStack(verbose bool) error {
@@ -454,16 +456,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		}
 	}
 
-	s.Log.Info("starting FireFly dependencies")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
-		return err
-	}
-
-	if err := s.blockchainProvider.PostStart(); err != nil {
-		return err
-	}
-
-	if err := s.ensureFireflyNodesUp(true); err != nil {
+	if err := s.runStartupSequence(workingDir, verbose); err != nil {
 		return err
 	}
 
