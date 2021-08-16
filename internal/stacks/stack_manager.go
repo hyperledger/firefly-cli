@@ -38,6 +38,8 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens/erc1155"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -50,6 +52,7 @@ type StackManager struct {
 	Log                log.Logger
 	Stack              *types.Stack
 	blockchainProvider blockchain.IBlockchainProvider
+	tokensProvider     tokens.ITokensProvider
 }
 
 type StartOptions struct {
@@ -64,6 +67,7 @@ type InitOptions struct {
 	Verbose            bool
 	ExternalProcesses  int
 	BlockchainProvider BlockchainProvider
+	TokensProvider     TokensProvider
 }
 
 func ListStacks() ([]string, error) {
@@ -99,18 +103,21 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		ExposedBlockchainPort: options.ServicesBasePort,
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
+		TokensProvider:        options.TokensProvider.String(),
 	}
 
 	s.blockchainProvider = s.getBlockchainProvider(false)
+	s.tokensProvider = s.getTokensProvider(false)
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
-	blockchainServiceDefinitions := s.blockchainProvider.GetDockerServiceDefinitions()
+	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
+	extraServices = append(extraServices, s.tokensProvider.GetDockerServiceDefinitions()...)
 
-	for _, serviceDefinition := range blockchainServiceDefinitions {
+	for _, serviceDefinition := range extraServices {
 		// Add each service definition to the docker compose file
 		compose.Services[serviceDefinition.ServiceName] = serviceDefinition.Service
 		// Add the volume name for each volume used by this service
@@ -118,7 +125,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 			compose.Volumes[volumeName] = struct{}{}
 		}
 
-		// Add a dependency so each firefly core container won't start up until blockchain containers are up
+		// Add a dependency so each firefly core container won't start up until dependencies are up
 		for _, member := range s.Stack.Members {
 			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
 				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
@@ -164,6 +171,7 @@ func (s *StackManager) LoadStack(stackName string) error {
 		}
 		s.Stack = stack
 		s.blockchainProvider = s.getBlockchainProvider(false)
+		s.tokensProvider = s.getTokensProvider(false)
 	}
 	return nil
 }
@@ -206,6 +214,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 	i := 0
 	for memberId, config := range fireflyConfigs {
 		config.Blockchain = s.blockchainProvider.GetFireflyConfig(s.Stack.Members[i])
+		config.Tokens = s.tokensProvider.GetFireflyConfig(s.Stack.Members[i])
 		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
 			return err
 		}
@@ -430,8 +439,8 @@ func checkPortAvailable(port int) (bool, error) {
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	s.Log.Info("initializing blockchain node")
-	if err := s.blockchainProvider.RunFirstTimeSetup(); err != nil {
+	s.Log.Info("performing early initialization tasks")
+	if err := s.blockchainProvider.PreFirstTimeSetup(); err != nil {
 		return err
 	}
 
@@ -462,8 +471,10 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		return err
 	}
 
-	s.Log.Info("deploying smart contracts")
 	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
+		return err
+	}
+	if err := s.tokensProvider.DeploySmartContracts(); err != nil {
 		return err
 	}
 
@@ -473,6 +484,11 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 
 	s.Log.Info("registering FireFly identities")
 	if err := s.registerFireflyIdentities(verbose); err != nil {
+		return err
+	}
+
+	s.Log.Info("performing late initialization tasks")
+	if err := s.tokensProvider.PostFirstTimeSetup(); err != nil {
 		return err
 	}
 	return nil
@@ -588,5 +604,17 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 	default:
 		return nil
 	}
+}
 
+func (s *StackManager) getTokensProvider(verbose bool) tokens.ITokensProvider {
+	switch s.Stack.TokensProvider {
+	case ERC1155.String():
+		return &erc1155.ERC1155Provider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
+	default:
+		return nil
+	}
 }

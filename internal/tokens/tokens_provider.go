@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package blockchain
+package tokens
 
 import (
 	"github.com/hyperledger-labs/firefly-cli/internal/core"
@@ -22,12 +22,9 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
-type IBlockchainProvider interface {
-	WriteConfig() error
-	PreFirstTimeSetup() error
+type ITokensProvider interface {
 	DeploySmartContracts() error
-	PreStart() error
-	PostStart() error
+	PostFirstTimeSetup() error
 	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member) *core.BlockchainConfig
+	GetFireflyConfig(m *types.Member) *core.TokensConfig
 }

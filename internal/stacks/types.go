@@ -66,3 +66,24 @@ func BlockchainProviderFromString(s string) (BlockchainProvider, error) {
 	}
 	return GoEthereum, fmt.Errorf("\"%s\" is not a valid blockchain provider selection. valid options are: %v", s, BlockchainProviderStrings)
 }
+
+type TokensProvider int
+
+const (
+	ERC1155 TokensProvider = iota
+)
+
+var TokensProviderStrings = []string{"erc1155"}
+
+func (tokensProvider TokensProvider) String() string {
+	return TokensProviderStrings[tokensProvider]
+}
+
+func TokensProviderFromString(s string) (TokensProvider, error) {
+	for i, tokensProviderSelection := range TokensProviderStrings {
+		if strings.ToLower(s) == tokensProviderSelection {
+			return TokensProvider(i), nil
+		}
+	}
+	return ERC1155, fmt.Errorf("\"%s\" is not a valid tokens provider selection. valid options are: %v", s, TokensProviderStrings)
+}

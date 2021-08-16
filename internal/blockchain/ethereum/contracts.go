@@ -31,23 +31,23 @@ import (
 )
 
 func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
-	var coreContainer string
+	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
-			coreContainer = fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
+			containerName = fmt.Sprintf("%s_firefly_core_%s_1", s.Name, member.ID)
 			break
 		}
 	}
-	if coreContainer == "" {
+	if containerName == "" {
 		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
-	if err := extractContracts(s.Name, coreContainer, "/firefly/contracts", verbose); err != nil {
+	if err := ExtractContracts(s.Name, containerName, "/firefly/contracts", verbose); err != nil {
 		return err
 	}
 
-	fireflyContract, err := readCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
+	fireflyContract, err := ReadCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
 	if err != nil {
 		return err
 	}
@@ -57,13 +57,13 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 		if fireflyContractAddress == "" {
 			// TODO: version the registered name
 			log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
-			fireflyContractAddress, err = deployContract(member, fireflyContract, "firefly", map[string]string{})
+			fireflyContractAddress, err = DeployContract(member, fireflyContract, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering firefly contract on '%s'", member.ID))
-			err = registerContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
+			err = RegisterContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 	return nil
 }
 
-func readCompiledContract(filePath string) (*types.Contract, error) {
+func ReadCompiledContract(filePath string) (*types.Contract, error) {
 	d, _ := ioutil.ReadFile(filePath)
 	var contract *types.Contract
 	err := json.Unmarshal(d, &contract)
@@ -83,7 +83,7 @@ func readCompiledContract(filePath string) (*types.Contract, error) {
 	return contract, nil
 }
 
-func extractContracts(stackName string, containerName string, dirName string, verbose bool) error {
+func ExtractContracts(stackName string, containerName string, dirName string, verbose bool) error {
 	workingDir := filepath.Join(constants.StacksDir, stackName)
 	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":"+dirName, workingDir); err != nil {
 		return err
@@ -91,7 +91,7 @@ func extractContracts(stackName string, containerName string, dirName string, ve
 	return nil
 }
 
-func deployContract(member *types.Member, contract *types.Contract, name string, args map[string]string) (string, error) {
+func DeployContract(member *types.Member, contract *types.Contract, name string, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 	abiResponse, err := ethconnect.PublishABI(ethconnectUrl, contract)
 	if err != nil {
@@ -104,7 +104,7 @@ func deployContract(member *types.Member, contract *types.Contract, name string,
 	return deployResponse.ContractAddress, nil
 }
 
-func registerContract(member *types.Member, contract *types.Contract, contractAddress string, name string, args map[string]string) error {
+func RegisterContract(member *types.Member, contract *types.Contract, contractAddress string, name string, args map[string]string) error {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 	abiResponse, err := ethconnect.PublishABI(ethconnectUrl, contract)
 	if err != nil {
