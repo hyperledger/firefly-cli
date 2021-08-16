@@ -120,7 +120,9 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 
 		// Add a dependency so each firefly core container won't start up until blockchain containers are up
 		for _, member := range s.Stack.Members {
-			compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
+				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+			}
 		}
 	}
 
@@ -314,13 +316,13 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 
 		return nil
 	} else if err == nil {
-		return s.runStartupSequence(workingDir, verbose)
+		return s.runStartupSequence(workingDir, verbose, false)
 	} else {
 		return err
 	}
 }
 
-func (s *StackManager) runStartupSequence(workingDir string, verbose bool) error {
+func (s *StackManager) runStartupSequence(workingDir string, verbose bool, firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
 	}
@@ -334,7 +336,7 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool) error
 		return err
 	}
 
-	if err := s.ensureFireflyNodesUp(false); err != nil {
+	if err := s.ensureFireflyNodesUp(firstTimeSetup); err != nil {
 		return err
 	}
 	return nil
@@ -456,7 +458,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		}
 	}
 
-	if err := s.runStartupSequence(workingDir, verbose); err != nil {
+	if err := s.runStartupSequence(workingDir, verbose, true); err != nil {
 		return err
 	}
 
