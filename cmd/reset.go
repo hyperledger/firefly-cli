@@ -55,16 +55,16 @@ Note: this will also stop the stack if it is running.
 
 		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
-		} else {
-			fmt.Printf("resetting FireFly stack '%s'... ", stackName)
-			if err := stackManager.StopStack(verbose); err != nil {
-				return err
-			}
-			if err := stackManager.ResetStack(verbose); err != nil {
-				return err
-			}
-			fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 		}
+
+		fmt.Printf("resetting FireFly stack '%s'... ", stackName)
+		if err := stackManager.StopStack(verbose); err != nil {
+			return err
+		}
+		if err := stackManager.ResetStack(verbose); err != nil {
+			return err
+		}
+		fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
 
 		return nil
 	},
