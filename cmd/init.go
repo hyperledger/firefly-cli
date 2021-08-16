@@ -74,6 +74,7 @@ var initCmd = &cobra.Command{
 		memberCount, _ := strconv.Atoi(memberCountInput)
 
 		initOptions.Verbose = verbose
+		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
