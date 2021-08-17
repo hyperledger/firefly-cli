@@ -70,10 +70,11 @@ func BlockchainProviderFromString(s string) (BlockchainProvider, error) {
 type TokensProvider int
 
 const (
-	ERC1155 TokensProvider = iota
+	NilTokens TokensProvider = iota
+	ERC1155
 )
 
-var TokensProviderStrings = []string{"erc1155"}
+var TokensProviderStrings = []string{"none", "erc1155"}
 
 func (tokensProvider TokensProvider) String() string {
 	return TokensProviderStrings[tokensProvider]

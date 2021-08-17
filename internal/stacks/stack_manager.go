@@ -40,6 +40,7 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
 	"github.com/hyperledger-labs/firefly-cli/internal/tokens"
 	"github.com/hyperledger-labs/firefly-cli/internal/tokens/erc1155"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens/niltokens"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -608,6 +609,12 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 
 func (s *StackManager) getTokensProvider(verbose bool) tokens.ITokensProvider {
 	switch s.Stack.TokensProvider {
+	case NilTokens.String():
+		return &niltokens.NilTokensProvider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
 	case ERC1155.String():
 		return &erc1155.ERC1155Provider{
 			Verbose: verbose,
