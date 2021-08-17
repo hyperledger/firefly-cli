@@ -24,7 +24,7 @@ import (
 
 type IBlockchainProvider interface {
 	WriteConfig() error
-	PreFirstTimeSetup() error
+	FirstTimeSetup() error
 	DeploySmartContracts() error
 	PreStart() error
 	PostStart() error

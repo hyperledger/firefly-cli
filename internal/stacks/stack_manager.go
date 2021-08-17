@@ -439,8 +439,8 @@ func checkPortAvailable(port int) (bool, error) {
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	s.Log.Info("performing early initialization tasks")
-	if err := s.blockchainProvider.PreFirstTimeSetup(); err != nil {
+	s.Log.Info("initializing blockchain node")
+	if err := s.blockchainProvider.FirstTimeSetup(); err != nil {
 		return err
 	}
 
@@ -487,8 +487,8 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		return err
 	}
 
-	s.Log.Info("performing late initialization tasks")
-	if err := s.tokensProvider.PostFirstTimeSetup(); err != nil {
+	s.Log.Info("initializing token providers")
+	if err := s.tokensProvider.FirstTimeSetup(); err != nil {
 		return err
 	}
 	return nil
