@@ -79,6 +79,8 @@ var initCmd = &cobra.Command{
 
 		initOptions.Verbose = verbose
 		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
+		initOptions.TokensProvider, _ = stacks.TokensProviderFromString(tokensProviderSelection)
+
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
 		}
