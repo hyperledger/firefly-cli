@@ -23,6 +23,7 @@ type Stack struct {
 	ExposedBlockchainPort int       `json:"exposedGethPort,omitempty"`
 	Database              string    `json:"database"`
 	BlockchainProvider    string    `json:"blockchainProvider"`
+	TokensProvider        string    `json:"tokensProvider"`
 }
 
 type Member struct {

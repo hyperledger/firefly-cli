@@ -67,7 +67,7 @@ func (p *GethProvider) WriteConfig() error {
 	return nil
 }
 
-func (p *GethProvider) RunFirstTimeSetup() error {
+func (p *GethProvider) FirstTimeSetup() error {
 	volumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
 	gethConfigDir := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 

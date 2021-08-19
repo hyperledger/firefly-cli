@@ -114,7 +114,9 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 
 			compose.Volumes["postgres_"+member.ID] = struct{}{}
 
-			compose.Services["firefly_core_"+member.ID].DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
+			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
+				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
+			}
 		}
 
 		compose.Services["ipfs_"+member.ID] = &Service{

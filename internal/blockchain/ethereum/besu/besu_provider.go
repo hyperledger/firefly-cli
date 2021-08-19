@@ -34,7 +34,7 @@ func (p *BesuProvider) WriteConfig() error {
 	return nil
 }
 
-func (p *BesuProvider) RunFirstTimeSetup() error {
+func (p *BesuProvider) FirstTimeSetup() error {
 	return nil
 }
 

@@ -39,6 +39,9 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/internal/constants"
 	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens/erc1155"
+	"github.com/hyperledger-labs/firefly-cli/internal/tokens/niltokens"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -51,6 +54,7 @@ type StackManager struct {
 	Log                log.Logger
 	Stack              *types.Stack
 	blockchainProvider blockchain.IBlockchainProvider
+	tokensProvider     tokens.ITokensProvider
 }
 
 type StartOptions struct {
@@ -65,6 +69,7 @@ type InitOptions struct {
 	Verbose            bool
 	ExternalProcesses  int
 	BlockchainProvider BlockchainProvider
+	TokensProvider     TokensProvider
 }
 
 func ListStacks() ([]string, error) {
@@ -100,18 +105,21 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		ExposedBlockchainPort: options.ServicesBasePort,
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
+		TokensProvider:        options.TokensProvider.String(),
 	}
 
 	s.blockchainProvider = s.getBlockchainProvider(false)
+	s.tokensProvider = s.getTokensProvider(false)
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
-	blockchainServiceDefinitions := s.blockchainProvider.GetDockerServiceDefinitions()
+	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
+	extraServices = append(extraServices, s.tokensProvider.GetDockerServiceDefinitions()...)
 
-	for _, serviceDefinition := range blockchainServiceDefinitions {
+	for _, serviceDefinition := range extraServices {
 		// Add each service definition to the docker compose file
 		compose.Services[serviceDefinition.ServiceName] = serviceDefinition.Service
 		// Add the volume name for each volume used by this service
@@ -119,9 +127,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 			compose.Volumes[volumeName] = struct{}{}
 		}
 
-		// Add a dependency so each firefly core container won't start up until blockchain containers are up
+		// Add a dependency so each firefly core container won't start up until dependencies are up
 		for _, member := range s.Stack.Members {
-			compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
+				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+			}
 		}
 	}
 
@@ -163,6 +173,7 @@ func (s *StackManager) LoadStack(stackName string) error {
 		}
 		s.Stack = stack
 		s.blockchainProvider = s.getBlockchainProvider(false)
+		s.tokensProvider = s.getTokensProvider(false)
 	}
 	return nil
 }
@@ -205,6 +216,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 	i := 0
 	for memberId, config := range fireflyConfigs {
 		config.Blockchain = s.blockchainProvider.GetFireflyConfig(s.Stack.Members[i])
+		config.Tokens = s.tokensProvider.GetFireflyConfig(s.Stack.Members[i])
 		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
 			return err
 		}
@@ -315,13 +327,13 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 
 		return nil
 	} else if err == nil {
-		return s.runStartupSequence(workingDir, verbose)
+		return s.runStartupSequence(workingDir, verbose, false)
 	} else {
 		return err
 	}
 }
 
-func (s *StackManager) runStartupSequence(workingDir string, verbose bool) error {
+func (s *StackManager) runStartupSequence(workingDir string, verbose bool, firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
 	}
@@ -335,7 +347,7 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool) error
 		return err
 	}
 
-	if err := s.ensureFireflyNodesUp(false); err != nil {
+	if err := s.ensureFireflyNodesUp(firstTimeSetup); err != nil {
 		return err
 	}
 	return nil
@@ -430,7 +442,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	s.Log.Info("initializing blockchain node")
-	if err := s.blockchainProvider.RunFirstTimeSetup(); err != nil {
+	if err := s.blockchainProvider.FirstTimeSetup(); err != nil {
 		return err
 	}
 
@@ -457,12 +469,14 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		}
 	}
 
-	if err := s.runStartupSequence(workingDir, verbose); err != nil {
+	if err := s.runStartupSequence(workingDir, verbose, true); err != nil {
 		return err
 	}
 
-	s.Log.Info("deploying smart contracts")
 	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
+		return err
+	}
+	if err := s.tokensProvider.DeploySmartContracts(); err != nil {
 		return err
 	}
 
@@ -472,6 +486,11 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 
 	s.Log.Info("registering FireFly identities")
 	if err := s.registerFireflyIdentities(verbose); err != nil {
+		return err
+	}
+
+	s.Log.Info("initializing token providers")
+	if err := s.tokensProvider.FirstTimeSetup(); err != nil {
 		return err
 	}
 	return nil
@@ -547,11 +566,11 @@ func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
-		if err := s.httpJSONWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
+		if err := core.RequestWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
 			return err
 		}
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
-		if err := s.httpJSONWithRetry("POST", resetUrl, "{}", nil); err != nil {
+		if err := core.RequestWithRetry("POST", resetUrl, "{}", nil); err != nil {
 			return err
 		}
 	}
@@ -593,5 +612,23 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 	default:
 		return nil
 	}
+}
 
+func (s *StackManager) getTokensProvider(verbose bool) tokens.ITokensProvider {
+	switch s.Stack.TokensProvider {
+	case NilTokens.String():
+		return &niltokens.NilTokensProvider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
+	case ERC1155.String():
+		return &erc1155.ERC1155Provider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
+	default:
+		return nil
+	}
 }

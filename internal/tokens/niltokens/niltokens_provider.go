@@ -14,20 +14,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package blockchain
+package niltokens
 
 import (
 	"github.com/hyperledger-labs/firefly-cli/internal/core"
 	"github.com/hyperledger-labs/firefly-cli/internal/docker"
+	"github.com/hyperledger-labs/firefly-cli/internal/log"
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
-type IBlockchainProvider interface {
-	WriteConfig() error
-	FirstTimeSetup() error
-	DeploySmartContracts() error
-	PreStart() error
-	PostStart() error
-	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member) *core.BlockchainConfig
+type NilTokensProvider struct {
+	Log     log.Logger
+	Verbose bool
+	Stack   *types.Stack
+}
+
+func (p *NilTokensProvider) DeploySmartContracts() error {
+	return nil
+}
+
+func (p *NilTokensProvider) FirstTimeSetup() error {
+	return nil
+}
+
+func (p *NilTokensProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
+	return nil
+}
+
+func (p *NilTokensProvider) GetFireflyConfig(m *types.Member) *core.TokensConfig {
+	return nil
 }

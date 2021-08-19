@@ -120,6 +120,14 @@ type FireflyIPFSConfig struct {
 	Gateway *HttpEndpointConfig `yaml:"gateway,omitempty"`
 }
 
+type TokenConnector struct {
+	Connector string `yaml:"connector,omitempty"`
+	Name      string `yaml:"name,omitempty"`
+	URL       string `yaml:"url,omitempty"`
+}
+
+type TokensConfig []*TokenConnector
+
 type FireflyConfig struct {
 	Log          *LogConfig           `yaml:"log,omitempty"`
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
@@ -132,6 +140,7 @@ type FireflyConfig struct {
 	Database     *DatabaseConfig      `yaml:"database,omitempty"`
 	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
+	Tokens       *TokensConfig        `yaml:"tokens,omitempty"`
 }
 
 func NewFireflyConfigs(stack *types.Stack) map[string]*FireflyConfig {
