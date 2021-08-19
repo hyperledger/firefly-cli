@@ -46,7 +46,7 @@ func (p *FabricProvider) WriteConfig() error {
 	return fabconnect.WriteFabconnectConfig(path.Join(blockchainDirectory, "fabconnect.yaml"))
 }
 
-func (p *FabricProvider) RunFirstTimeSetup() error {
+func (p *FabricProvider) FirstTimeSetup() error {
 	/*
 		TODO:
 		1) Start fab-ca

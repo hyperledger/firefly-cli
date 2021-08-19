@@ -75,12 +75,20 @@ type EthconnectConfig struct {
 	Auth                *BasicAuth `yaml:"auth,omitempty"`
 }
 
+type FabconnectConfig struct {
+	URL                 string     `yaml:"url,omitempty"`
+	Instance            string     `yaml:"instance,omitempty"`
+	Topic               string     `yaml:"topic,omitempty"`
+	SkipEventStreamInit bool       `yaml:"skipEventstreamInit,omitempty"`
+	Auth                *BasicAuth `yaml:"auth,omitempty"`
+}
+
 type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
 }
 
 type FabricConfig struct {
-	Fabconnect *EthconnectConfig `yaml:"fabconnect,omitempty"`
+	Fabconnect *FabconnectConfig `yaml:"fabconnect,omitempty"`
 }
 
 type BlockchainConfig struct {
