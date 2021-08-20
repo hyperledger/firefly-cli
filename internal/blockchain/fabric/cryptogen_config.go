@@ -17,16 +17,18 @@
 package fabric
 
 import (
-	"encoding/json"
 	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Template struct {
-	Count int `yaml:Count,omitempty`
+	Count    int    `yaml:"Count,omitempty"`
+	Hostname string `yaml:"Hostname,omitempty"`
 }
 
 type Users struct {
-	Count int `yaml:Count,omitempty`
+	Count int `yaml:"Count,omitempty"`
 }
 
 type CA struct {
@@ -44,8 +46,8 @@ type Spec struct {
 type Org struct {
 	Name          string    `yaml:"Orderer,omitempty"`
 	Domain        string    `yaml:"Domain,omitempty"`
-	EnableNodeOUs bool      `yaml:"EnableNodeOUs,omitempty"`
-	Specs         []*Spec   `yaml:"Specs,omitempty`
+	EnableNodeOUs bool      `yaml:"EnableNodeOUs"`
+	Specs         []*Spec   `yaml:"Specs,omitempty"`
 	CA            *CA       `yaml:"CA,omitempty"`
 	Template      *Template `yaml:"Template,omitempty"`
 	Users         *Users    `yaml:"Users,omitempty"`
@@ -59,26 +61,30 @@ type CryptogenConfig struct {
 func WriteCryptogenConfig(memberCount int, path string) error {
 	cryptogenConfig := &CryptogenConfig{
 		OrdererOrgs: []*Org{
-			&Org{
+			{
 				Name:          "Orderer",
 				Domain:        "example.com",
 				EnableNodeOUs: false,
+				Specs: []*Spec{
+					{Hostname: "fabric_orderer"},
+				},
 			},
 		},
 		PeerOrgs: []*Org{
-			&Org{
+			{
 				Name:          "Org1",
 				Domain:        "org1.example.com",
 				EnableNodeOUs: false,
 				CA: &CA{
-					Hostname:           "ca",
+					Hostname:           "fabric_ca",
 					Country:            "US",
 					Province:           "California",
 					Locality:           "San Francisco",
 					OrganizationalUnit: "Hyperledger Fabric",
 				},
 				Template: &Template{
-					Count: 1,
+					Count:    1,
+					Hostname: "fabric_peer",
 				},
 				Users: &Users{
 					Count: memberCount,
@@ -87,6 +93,6 @@ func WriteCryptogenConfig(memberCount int, path string) error {
 		},
 	}
 
-	cryptogenConfigBytes, _ := json.MarshalIndent(cryptogenConfig, "", " ")
+	cryptogenConfigBytes, _ := yaml.Marshal(cryptogenConfig)
 	return ioutil.WriteFile(path, cryptogenConfigBytes, 0755)
 }

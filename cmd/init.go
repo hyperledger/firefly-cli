@@ -131,6 +131,12 @@ func validateBlockchainProvider(input string) error {
 	if blockchainSelection == stacks.Corda {
 		return errors.New("support for corda is coming soon")
 	}
+
+	// TODO: When we get tokens on Fabric this should change
+	if blockchainSelection == stacks.HyperledgerFabric {
+		tokensProviderSelection = "none"
+	}
+
 	return nil
 }
 

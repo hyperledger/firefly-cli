@@ -17,8 +17,9 @@
 package fabconnect
 
 import (
-	"encoding/json"
 	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
 )
 
 type FabconnectConfig struct {
@@ -84,6 +85,6 @@ func WriteFabconnectConfig(filePath string) error {
 		},
 	}
 
-	fabconnectConfigBytes, _ := json.MarshalIndent(fabconnectConfig, "", " ")
+	fabconnectConfigBytes, _ := yaml.Marshal(fabconnectConfig)
 	return ioutil.WriteFile(filePath, fabconnectConfigBytes, 0755)
 }

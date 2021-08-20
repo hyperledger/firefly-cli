@@ -36,116 +36,120 @@ func GenerateGenesisBlock(outputPath string, verbose bool) error {
 }
 
 func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition {
-
 	stackDir := path.Join(constants.StacksDir, s.Name)
-	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members)+3)
+	serviceDefinitions := []*docker.ServiceDefinition{
+		// Fabric CA
+		{
+			ServiceName: "fabric_ca",
+			Service: &docker.Service{
+				Image: "hyperledger/fabric-ca:latest",
+				Environment: map[string]string{
+					"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
+					"FABRIC_CA_SERVER_CA_NAME":                  "ca-org1",
+					"FABRIC_CA_SERVER_TLS_ENABLED":              "true",
+					"FABRIC_CA_SERVER_PORT":                     "7054",
+					"FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS": "0.0.0.0:17054",
+					"FABRIC_CA_SERVER_CA_CERTFILE":              "/etc/hyperledger/fabric-ca-server-config/ca.org1.example.com-cert.pem",
+					"FABRIC_CA_SERVER_CA_KEYFILE":               "/etc/hyperledger/fabric-ca-server-config/priv_sk",
+				},
+				// TODO: Figure out how to increment ports here
+				Ports: []string{
+					"7054:7054",
+					"17054:17054",
+				},
+				Command: "sh -c 'fabric-ca-server start -b admin:adminpw -d'",
+				Volumes: []string{
+					// fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server", path.Join(stackDir, "blockchain", "fabric-ca-server")),
+					fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server-config", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "ca")),
+				},
+			},
+			VolumeNames: []string{"fabric_ca"},
+		},
 
-	// Fabric CA
-	serviceDefinitions[0] = &docker.ServiceDefinition{
-		ServiceName: "ca_org1",
-		Service: &docker.Service{
-			Image: "hyperledger/fabric-ca:latest",
-			Environment: map[string]string{
-				"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
-				"FABRIC_CA_SERVER_CA_NAME":                  "ca-org1",
-				"FABRIC_CA_SERVER_TLS_ENABLED":              "true",
-				"FABRIC_CA_SERVER_PORT":                     "7054",
-				"FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS": "0.0.0.0:17054",
+		// Fabric Orderer
+		{
+			ServiceName: "fabric_orderer",
+			Service: &docker.Service{
+				Image: "hyperledger/fabric-orderer:latest",
+				Environment: map[string]string{
+					"FABRIC_LOGGING_SPEC":                       "INFO",
+					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
+					"ORDERER_GENERAL_LISTENPORT":                "7050",
+					"ORDERER_GENERAL_LOCALMSPID":                "OrdererMSP",
+					"ORDERER_GENERAL_LOCALMSPDIR":               "/var/hyperledger/orderer/msp",
+					"ORDERER_GENERAL_TLS_ENABLED":               "true",
+					"ORDERER_GENERAL_TLS_PRIVATEKEY":            "/var/hyperledger/orderer/tls/server.key",
+					"ORDERER_GENERAL_TLS_CERTIFICATE":           "/var/hyperledger/orderer/tls/server.crt",
+					"ORDERER_GENERAL_TLS_ROOTCAS":               "[/var/hyperledger/orderer/tls/ca.crt]",
+					"ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR":     "1",
+					"ORDERER_KAFKA_VERBOSE":                     "true",
+					"ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE": "/var/hyperledger/orderer/tls/server.crt",
+					"ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY":  "/var/hyperledger/orderer/tls/server.key",
+					"ORDERER_GENERAL_CLUSTER_ROOTCAS":           "[/var/hyperledger/orderer/tls/ca.crt]",
+					"ORDERER_GENERAL_BOOTSTRAPMETHOD":           "none",
+					"ORDERER_CHANNELPARTICIPATION_ENABLED":      "true",
+					"ORDERER_ADMIN_TLS_ENABLED":                 "true",
+					"ORDERER_ADMIN_TLS_CERTIFICATE":             "/var/hyperledger/orderer/tls/server.crt",
+					"ORDERER_ADMIN_TLS_PRIVATEKEY":              "/var/hyperledger/orderer/tls/server.key",
+					"ORDERER_ADMIN_TLS_ROOTCAS":                 "[/var/hyperledger/orderer/tls/ca.crt]",
+					"ORDERER_ADMIN_TLS_CLIENTROOTCAS":           "[/var/hyperledger/orderer/tls/ca.crt]",
+					"ORDERER_ADMIN_LISTENADDRESS":               "0.0.0.0:7053",
+					"ORDERER_OPERATIONS_LISTENADDRESS":          "0.0.0.0:17050",
+				},
+				WorkingDir: "/opt/gopath/src/github.com/hyperledger/fabric",
+				Command:    "orderer",
+				Volumes: []string{
+					fmt.Sprintf("%s:/var/hyperledger/orderer/orderer.genesis.block", path.Join(stackDir, "blockchain", "genesis_block.pb")),
+					fmt.Sprintf("%s:/var/hyperledger/orderer/msp", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "msp")),
+					fmt.Sprintf("%s:/var/hyperledger/orderer/tls", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "tls")),
+					"fabric_orderer:/var/hyperledger/production/orderer",
+				},
+				// TODO: Figure out how to increment ports here
+				Ports: []string{
+					"7050:7050",
+					"7053:7053",
+					"17050:17050",
+				},
 			},
-			// TODO: Figure out how to increment ports here
-			Ports: []string{
-				"7054:7054",
-				"17054:17054",
+			VolumeNames: []string{"fabric_orderer"},
+		},
+
+		// Fabric Peer
+		{
+			ServiceName: "fabric_peer",
+			Service: &docker.Service{
+				Image: "hyperledger/fabric-peer:latest",
+				Environment: map[string]string{
+					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
+					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": "fabric_test",
+					"FABRIC_LOGGING_SPEC":                   "INFO",
+					"CORE_PEER_TLS_ENABLED":                 "true",
+					"CORE_PEER_PROFILE_ENABLED":             "false",
+					"CORE_PEER_TLS_CERT_FILE":               "/etc/hyperledger/fabric/tls/server.crt",
+					"CORE_PEER_TLS_KEY_FILE":                "/etc/hyperledger/fabric/tls/server.key",
+					"CORE_PEER_TLS_ROOTCERT_FILE":           "/etc/hyperledger/fabric/tls/ca.crt",
+					"CORE_PEER_ID":                          "peer0.org1.example.com",
+					"CORE_PEER_ADDRESS":                     "peer0.org1.example.com:7051",
+					"CORE_PEER_LISTENADDRESS":               "0.0.0.0:7051",
+					"CORE_PEER_CHAINCODEADDRESS":            "peer0.org1.example.com:7052",
+					"CORE_PEER_CHAINCODELISTENADDRESS":      "0.0.0.0:7052",
+					"CORE_PEER_GOSSIP_BOOTSTRAP":            "peer0.org1.example.com:7051",
+					"CORE_PEER_GOSSIP_EXTERNALENDPOINT":     "peer0.org1.example.com:7051",
+					"CORE_PEER_LOCALMSPID":                  "Org1MSP",
+					"CORE_OPERATIONS_LISTENADDRESS":         "0.0.0.0:17051",
+				},
+				Volumes: []string{
+					fmt.Sprintf("%s:/etc/hyperledger/fabric/msp", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp")),
+					fmt.Sprintf("%s:/etc/hyperledger/fabric/tls", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "tls")),
+					"fabric_peer:/var/hyperledger/production",
+				},
+				Ports: []string{
+					"7051:7051",
+					"17051:17051",
+				},
 			},
-			Command: "sh -c 'fabric-ca-server start -b admin:adminpw -d'",
+			VolumeNames: []string{"fabric_peer"},
 		},
 	}
-
-	// Fabric Orderer
-	serviceDefinitions[1] = &docker.ServiceDefinition{
-		ServiceName: "orderer.example.com",
-		Service: &docker.Service{
-			Image: "hyperledger/fabric-ca:latest",
-			Environment: map[string]string{
-				"FABRIC_LOGGING_SPEC":                       "INFO",
-				"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
-				"ORDERER_GENERAL_LISTENPORT":                "7050",
-				"ORDERER_GENERAL_LOCALMSPID":                "OrdererMSP",
-				"ORDERER_GENERAL_LOCALMSPDIR":               "/var/hyperledger/orderer/msp",
-				"ORDERER_GENERAL_TLS_ENABLED":               "true",
-				"ORDERER_GENERAL_TLS_PRIVATEKEY":            "/var/hyperledger/orderer/tls/server.key",
-				"ORDERER_GENERAL_TLS_CERTIFICATE":           "/var/hyperledger/orderer/tls/server.crt",
-				"ORDERER_GENERAL_TLS_ROOTCAS":               "[/var/hyperledger/orderer/tls/ca.crt]",
-				"ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR":     "1",
-				"ORDERER_KAFKA_VERBOSE":                     "true",
-				"ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE": "/var/hyperledger/orderer/tls/server.crt",
-				"ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY":  "/var/hyperledger/orderer/tls/server.key",
-				"ORDERER_GENERAL_CLUSTER_ROOTCAS":           "[/var/hyperledger/orderer/tls/ca.crt]",
-				"ORDERER_GENERAL_BOOTSTRAPMETHOD":           "none",
-				"ORDERER_CHANNELPARTICIPATION_ENABLED":      "true",
-				"ORDERER_ADMIN_TLS_ENABLED":                 "true",
-				"ORDERER_ADMIN_TLS_CERTIFICATE":             "/var/hyperledger/orderer/tls/server.crt",
-				"ORDERER_ADMIN_TLS_PRIVATEKEY":              "/var/hyperledger/orderer/tls/server.key",
-				"ORDERER_ADMIN_TLS_ROOTCAS":                 "[/var/hyperledger/orderer/tls/ca.crt]",
-				"ORDERER_ADMIN_TLS_CLIENTROOTCAS":           "[/var/hyperledger/orderer/tls/ca.crt]",
-				"ORDERER_ADMIN_LISTENADDRESS":               "0.0.0.0:7053",
-				"ORDERER_OPERATIONS_LISTENADDRESS":          "0.0.0.0:17050",
-			},
-			WorkingDir: "/opt/gopath/src/github.com/hyperledger/fabric",
-			Command:    "orderer",
-			Volumes: []string{
-				fmt.Sprintf("%s:/var/hyperledger/orderer/orderer.genesis.block", path.Join(stackDir, "blockchain", "genesis_block.pb")),
-				fmt.Sprintf("%s:/var/hyperledger/orderer/msp", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "orderer.example.com", "msp")),
-				fmt.Sprintf("%s:/var/hyperledger/orderer/tls", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "orderer.example.com", "tls")),
-				"orderer.example.com:/var/hyperledger/production/orderer",
-			},
-			// TODO: Figure out how to increment ports here
-			Ports: []string{
-				"7054:7054",
-				"17054:17054",
-			},
-		},
-		VolumeNames: []string{"orderer.example.com"},
-	}
-
-	// Fabric Peer
-	serviceDefinitions[2] = &docker.ServiceDefinition{
-		ServiceName: "peer0.org1.example.com",
-		Service: &docker.Service{
-			Image: "hyperledger/fabric-peer:latest",
-			Environment: map[string]string{
-				"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
-				"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": "fabric_test",
-				"FABRIC_LOGGING_SPEC":                   "INFO",
-				"CORE_PEER_TLS_ENABLED":                 "true",
-				"CORE_PEER_PROFILE_ENABLED":             "false",
-				"CORE_PEER_TLS_CERT_FILE":               "/etc/hyperledger/fabric/tls/server.crt",
-				"CORE_PEER_TLS_KEY_FILE":                "/etc/hyperledger/fabric/tls/server.key",
-				"CORE_PEER_TLS_ROOTCERT_FILE":           "/etc/hyperledger/fabric/tls/ca.crt",
-				"CORE_PEER_ID":                          "peer0.org1.example.com",
-				"CORE_PEER_ADDRESS":                     "peer0.org1.example.com:7051",
-				"CORE_PEER_LISTENADDRESS":               "0.0.0.0:7051",
-				"CORE_PEER_CHAINCODEADDRESS":            "peer0.org1.example.com:7052",
-				"CORE_PEER_CHAINCODELISTENADDRESS":      "0.0.0.0:7052",
-				"CORE_PEER_GOSSIP_BOOTSTRAP":            "peer0.org1.example.com:7051",
-				"CORE_PEER_GOSSIP_EXTERNALENDPOINT":     "peer0.org1.example.com:7051",
-				"CORE_PEER_LOCALMSPID":                  "Org1MSP",
-				"CORE_OPERATIONS_LISTENADDRESS":         "0.0.0.0:17051",
-			},
-			Volumes: []string{
-				fmt.Sprintf("%s:/etc/hyperledger/fabric/msp", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "peer0.org1.example.com", "msp")),
-				fmt.Sprintf("%s:/etc/hyperledger/fabric/tls", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "peer0.org1.example.com", "tls")),
-				"peer0.org1.example.com:/var/hyperledger/production",
-			},
-		},
-	}
-
-	// Fabconnect instance for each member
-	for i, member := range s.Members {
-		serviceDefinitions[i+3] = &docker.ServiceDefinition{
-			ServiceName: fmt.Sprintf("fabconnect_%s", member.ID),
-		}
-	}
-
 	return serviceDefinitions
 }

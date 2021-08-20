@@ -17,9 +17,9 @@
 package fabric
 
 import (
-	"encoding/json"
 	"io/ioutil"
-	"path"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Registrar struct {
@@ -32,16 +32,16 @@ type Path struct {
 }
 
 type NetworkEntity struct {
-	TLSCACerts *Path      `yaml:"tlsCACerts",omitempty"`
+	TLSCACerts *Path      `yaml:"tlsCACerts,omitempty"`
 	URL        string     `yaml:"url,omitempty"`
 	Registrar  *Registrar `yaml:"registrar,omitempty"`
 }
 
 type ChannelPeer struct {
-	ChaincodeQuery bool `yaml:chaincodeQuery,omitempty`
-	EndorsingPeer  bool `yaml:endorsingPeer,omitempty`
-	EventSource    bool `yaml:eventSource,omitempty`
-	LedgerQuery    bool `yaml:ledgerQuery,omitempty`
+	ChaincodeQuery bool `yaml:"chaincodeQuery,omitempty"`
+	EndorsingPeer  bool `yaml:"endorsingPeer,omitempty"`
+	EventSource    bool `yaml:"eventSource,omitempty"`
+	LedgerQuery    bool `yaml:"ledgerQuery,omitempty"`
 }
 
 type Channel struct {
@@ -110,15 +110,14 @@ type FabricNetworkConfig struct {
 	Version                string                    `yaml:"version,omitempty"`
 }
 
-func WriteNetworkConfig(blockchainDirectory string, outputPath string) error {
-	// blockchainDirectory := path.Join(constants.StacksDir, s.Name, "blockchain")
+func WriteNetworkConfig(outputPath string) error {
 	networkConfig := &FabricNetworkConfig{
 		CertificateAuthorities: map[string]*NetworkEntity{
-			"org1.example.com": &NetworkEntity{
+			"org1.example.com": {
 				TLSCACerts: &Path{
-					Path: path.Join(blockchainDirectory, "fabric-ca-tls-cert.pem"),
+					Path: "/fabconnect/ca-cert.pem",
 				},
-				URL: "http://fabric_ca:7054",
+				URL: "https://fabric_ca:7054",
 				Registrar: &Registrar{
 					EnrollID:     "admin",
 					EnrollSecret: "adminpw",
@@ -126,10 +125,10 @@ func WriteNetworkConfig(blockchainDirectory string, outputPath string) error {
 			},
 		},
 		Channels: map[string]*Channel{
-			"default-channel": &Channel{
+			"default-channel": {
 				Orderers: []string{"fabric_orderer"},
 				Peers: map[string]*ChannelPeer{
-					"fabric_peer": &ChannelPeer{
+					"fabric_peer": {
 						ChaincodeQuery: true,
 						EndorsingPeer:  true,
 						EventSource:    true,
@@ -152,12 +151,12 @@ func WriteNetworkConfig(blockchainDirectory string, outputPath string) error {
 			},
 			CredentialStore: &CredentialStore{
 				CryptoStore: &Path{
-					Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "msp"),
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
 				},
-				Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "msp"),
+				Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
 			},
 			CryptoConfig: &Path{
-				Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "msp"),
+				Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
 			},
 			Logging: &Logging{
 				Level: "info",
@@ -167,23 +166,23 @@ func WriteNetworkConfig(blockchainDirectory string, outputPath string) error {
 		TLSCerts: &TLSCerts{
 			Client: &TLSCertsClient{
 				Cert: &Path{
-					Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "ca", "ca.org1.example.com-cert.pem"),
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/ca.org1.example.com-cert.pem",
 				},
 				Key: &Path{
-					Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "ca", "priv_sk"),
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/priv_sk",
 				},
 			},
 		},
 		Orderers: map[string]*NetworkEntity{
-			"fabric_orderer": &NetworkEntity{
+			"fabric_orderer": {
 				TLSCACerts: &Path{
-					Path: path.Join(blockchainDirectory, "cryptogen", "ordererOrganizations", "example.com", "tlsca", "tlsca.example.com-cert.pem"),
+					Path: "/fabconnect/cryptogen/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
 				},
-				URL: "fabric_orderer:7050",
+				URL: "https://fabric_orderer:7050",
 			},
 		},
 		Organizations: map[string]*Organization{
-			"org1.example.com": &Organization{
+			"org1.example.com": {
 				CertificateAuthorities: []string{"org1.example.com"},
 				CryptoPath:             "/tmp/msp",
 				MSPID:                  "org1.example.com",
@@ -191,15 +190,15 @@ func WriteNetworkConfig(blockchainDirectory string, outputPath string) error {
 			},
 		},
 		Peers: map[string]*NetworkEntity{
-			"fabric_peer": &NetworkEntity{
+			"fabric_peer": {
 				TLSCACerts: &Path{
-					Path: path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "tlsca", "tlsca.org1.example.com-cert.pem"),
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem",
 				},
-				URL: "fabric_peer:7051",
+				URL: "https://fabric_peer:7051",
 			},
 		},
 		Version: "1.1.0%",
 	}
-	networkConfigBytes, _ := json.MarshalIndent(networkConfig, "", " ")
+	networkConfigBytes, _ := yaml.Marshal(networkConfig)
 	return ioutil.WriteFile(outputPath, networkConfigBytes, 0755)
 }

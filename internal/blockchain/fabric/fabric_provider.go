@@ -18,6 +18,7 @@ package fabric
 
 import (
 	"fmt"
+	"os"
 	"path"
 
 	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/fabric/fabconnect"
@@ -37,13 +38,31 @@ type FabricProvider struct {
 func (p *FabricProvider) WriteConfig() error {
 	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 	cryptogenDirectory := path.Join(blockchainDirectory, "cryptogen")
-	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenDirectory); err != nil {
+	cryptogenYamlPath := path.Join(cryptogenDirectory, "cryptogen.yaml")
+	if err := os.MkdirAll(cryptogenDirectory, 0755); err != nil {
 		return err
 	}
-	if err := WriteNetworkConfig(blockchainDirectory, path.Join(blockchainDirectory, "fabric.yaml")); err != nil {
+	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenYamlPath); err != nil {
 		return err
 	}
-	return fabconnect.WriteFabconnectConfig(path.Join(blockchainDirectory, "fabconnect.yaml"))
+	if err := WriteNetworkConfig(path.Join(blockchainDirectory, "fabric.yaml")); err != nil {
+		return err
+	}
+	if err := fabconnect.WriteFabconnectConfig(path.Join(blockchainDirectory, "fabconnect.yaml")); err != nil {
+		return err
+	}
+
+	// Run cryptogen to generate MSP
+	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath), "-v", fmt.Sprintf("%s:/output", cryptogenDirectory), "hyperledger/fabric-tools", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output"); err != nil {
+		return err
+	}
+
+	// Run fabric-ca-server to generate TLS cert
+	// if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server", path.Join(blockchainDirectory, "fabric-ca-server")), "--hostname", "fabric_ca", "hyperledger/fabric-ca", "fabric-ca-server", "init", "-b", "admin:adminpw"); err != nil {
+	// 	return err
+	// }
+
+	return nil
 }
 
 func (p *FabricProvider) FirstTimeSetup() error {
@@ -107,10 +126,12 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 				},
 				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedEthconnectPort)},
 				Volumes: []string{
-					fmt.Sprintf("fabconnect_receipts%s:/fabconnect/receipts", member.ID),
-					fmt.Sprintf("fabconnect_events%s:/fabconnect/events", member.ID),
+					fmt.Sprintf("fabconnect_receipts_%s:/fabconnect/receipts", member.ID),
+					fmt.Sprintf("fabconnect_events_%s:/fabconnect/events", member.ID),
 					fmt.Sprintf("%s:/fabconnect/fabconnect.yaml", path.Join(blockchainDirectory, "fabconnect.yaml")),
 					fmt.Sprintf("%s:/fabconnect/fabric.yaml", path.Join(blockchainDirectory, "fabric.yaml")),
+					fmt.Sprintf("%s:/fabconnect/cryptogen", path.Join(blockchainDirectory, "cryptogen")),
+					fmt.Sprintf("%s:/fabconnect/ca-cert.pem", path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "ca", "ca.org1.example.com-cert.pem")),
 				},
 				Logging: docker.StandardLogOptions,
 			},
