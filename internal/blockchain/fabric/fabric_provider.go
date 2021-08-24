@@ -17,7 +17,9 @@
 package fabric
 
 import (
+	_ "embed"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 
@@ -35,6 +37,12 @@ type FabricProvider struct {
 	Stack   *types.Stack
 }
 
+//go:embed configtx.yaml
+var configtxYaml string
+
+//go:embed config.yaml
+var configYaml string
+
 func (p *FabricProvider) WriteConfig() error {
 	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 	cryptogenDirectory := path.Join(blockchainDirectory, "cryptogen")
@@ -45,15 +53,28 @@ func (p *FabricProvider) WriteConfig() error {
 	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenYamlPath); err != nil {
 		return err
 	}
-	if err := WriteNetworkConfig(path.Join(blockchainDirectory, "fabric.yaml")); err != nil {
+	if err := WriteNetworkConfig(path.Join(blockchainDirectory, "core.yaml")); err != nil {
 		return err
 	}
 	if err := fabconnect.WriteFabconnectConfig(path.Join(blockchainDirectory, "fabconnect.yaml")); err != nil {
 		return err
 	}
+	if err := p.writeConfigtxYaml(); err != nil {
+		return err
+	}
 
 	// Run cryptogen to generate MSP
-	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath), "-v", fmt.Sprintf("%s:/output", cryptogenDirectory), "hyperledger/fabric-tools", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output"); err != nil {
+	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath), "-v", fmt.Sprintf("%s:/output", cryptogenDirectory), "hyperledger/fabric-tools:2.4", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output"); err != nil {
+		return err
+	}
+
+	// Generate genesis block
+	// "-configPath", "/genesis/configtx.yaml",
+	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/firefly", blockchainDirectory), "-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")), "hyperledger/fabric-tools:2.4", "configtxgen", "-outputBlock", "/firefly/firefly.block", "-profile", "SingleOrgApplicationGenesis", "-channelID", "firefly"); err != nil {
+		return err
+	}
+
+	if err := p.writeConfigYaml(); err != nil {
 		return err
 	}
 
@@ -129,7 +150,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 					fmt.Sprintf("fabconnect_receipts_%s:/fabconnect/receipts", member.ID),
 					fmt.Sprintf("fabconnect_events_%s:/fabconnect/events", member.ID),
 					fmt.Sprintf("%s:/fabconnect/fabconnect.yaml", path.Join(blockchainDirectory, "fabconnect.yaml")),
-					fmt.Sprintf("%s:/fabconnect/fabric.yaml", path.Join(blockchainDirectory, "fabric.yaml")),
+					fmt.Sprintf("%s:/fabconnect/fabric.yaml", path.Join(blockchainDirectory, "core.yaml")),
 					fmt.Sprintf("%s:/fabconnect/cryptogen", path.Join(blockchainDirectory, "cryptogen")),
 					fmt.Sprintf("%s:/fabconnect/ca-cert.pem", path.Join(blockchainDirectory, "cryptogen", "peerOrganizations", "org1.example.com", "ca", "ca.org1.example.com-cert.pem")),
 				},
@@ -150,4 +171,14 @@ func (p *FabricProvider) getFabconnectUrl(member *types.Member) string {
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
 	}
+}
+
+func (p *FabricProvider) writeConfigtxYaml() error {
+	filePath := path.Join(constants.StacksDir, p.Stack.Name, "blockchain", "configtx.yaml")
+	return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
+}
+
+func (p *FabricProvider) writeConfigYaml() error {
+	filePath := path.Join(constants.StacksDir, p.Stack.Name, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp", "config.yaml")
+	return ioutil.WriteFile(filePath, []byte(configYaml), 0755)
 }

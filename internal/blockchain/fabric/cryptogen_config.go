@@ -64,7 +64,7 @@ func WriteCryptogenConfig(memberCount int, path string) error {
 			{
 				Name:          "Orderer",
 				Domain:        "example.com",
-				EnableNodeOUs: false,
+				EnableNodeOUs: true,
 				Specs: []*Spec{
 					{Hostname: "fabric_orderer"},
 				},
@@ -74,7 +74,7 @@ func WriteCryptogenConfig(memberCount int, path string) error {
 			{
 				Name:          "Org1",
 				Domain:        "org1.example.com",
-				EnableNodeOUs: false,
+				EnableNodeOUs: true,
 				CA: &CA{
 					Hostname:           "fabric_ca",
 					Country:            "US",

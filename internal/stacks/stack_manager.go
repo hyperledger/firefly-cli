@@ -17,7 +17,6 @@
 package stacks
 
 import (
-	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"

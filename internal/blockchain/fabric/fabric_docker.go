@@ -27,12 +27,12 @@ import (
 
 func GenerateCryptoMaterial(cryptogenConfigPath string, outputPath string, verbose bool) error {
 	// Use cryptogen in the hyperledger/fabric-tools image to create the crypto material
-	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
+	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.4", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
 }
 
 func GenerateGenesisBlock(outputPath string, verbose bool) error {
 	// Use configtxgen in the hyperledger/fabric-tools image to generate the genesis config
-	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleDevModeSolo", "-channelID", "firefly")
+	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.4", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
 }
 
 func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition {
@@ -42,7 +42,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_ca",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-ca:latest",
+				Image: "hyperledger/fabric-ca:1.5",
 				Environment: map[string]string{
 					"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
 					"FABRIC_CA_SERVER_CA_NAME":                  "ca-org1",
@@ -59,7 +59,6 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 				},
 				Command: "sh -c 'fabric-ca-server start -b admin:adminpw -d'",
 				Volumes: []string{
-					// fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server", path.Join(stackDir, "blockchain", "fabric-ca-server")),
 					fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server-config", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "ca")),
 				},
 			},
@@ -70,7 +69,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_orderer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-orderer:latest",
+				Image: "hyperledger/fabric-orderer:2.4",
 				Environment: map[string]string{
 					"FABRIC_LOGGING_SPEC":                       "INFO",
 					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
@@ -99,7 +98,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 				WorkingDir: "/opt/gopath/src/github.com/hyperledger/fabric",
 				Command:    "orderer",
 				Volumes: []string{
-					fmt.Sprintf("%s:/var/hyperledger/orderer/orderer.genesis.block", path.Join(stackDir, "blockchain", "genesis_block.pb")),
+					// fmt.Sprintf("%s:/etc/hyperledger/fabric/genesisblock", path.Join(stackDir, "blockchain", "genesis_block.pb")),
 					fmt.Sprintf("%s:/var/hyperledger/orderer/msp", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "msp")),
 					fmt.Sprintf("%s:/var/hyperledger/orderer/tls", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "tls")),
 					"fabric_orderer:/var/hyperledger/production/orderer",
@@ -118,10 +117,10 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_peer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-peer:latest",
+				Image: "hyperledger/fabric-peer:2.4",
 				Environment: map[string]string{
 					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
-					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": "fabric_test",
+					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": fmt.Sprintf("%s_default", s.Name),
 					"FABRIC_LOGGING_SPEC":                   "INFO",
 					"CORE_PEER_TLS_ENABLED":                 "true",
 					"CORE_PEER_PROFILE_ENABLED":             "false",
@@ -142,6 +141,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 					fmt.Sprintf("%s:/etc/hyperledger/fabric/msp", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp")),
 					fmt.Sprintf("%s:/etc/hyperledger/fabric/tls", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "tls")),
 					"fabric_peer:/var/hyperledger/production",
+					"/var/run/docker.sock:/host/var/run/docker.sock",
 				},
 				Ports: []string{
 					"7051:7051",
