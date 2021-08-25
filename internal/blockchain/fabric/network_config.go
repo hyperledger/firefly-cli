@@ -166,7 +166,7 @@ func WriteNetworkConfig(outputPath string) error {
 		TLSCerts: &TLSCerts{
 			Client: &TLSCertsClient{
 				Cert: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/ca.org1.example.com-cert.pem",
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/fabric_ca.org1.example.com-cert.pem",
 				},
 				Key: &Path{
 					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/priv_sk",
@@ -192,7 +192,7 @@ func WriteNetworkConfig(outputPath string) error {
 		Peers: map[string]*NetworkEntity{
 			"fabric_peer": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem",
+					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
 				},
 				URL: "https://fabric_peer:7051",
 			},

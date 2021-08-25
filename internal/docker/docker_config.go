@@ -53,6 +53,7 @@ type Service struct {
 	HealthCheck *HealthCheck                 `yaml:"healthcheck,omitempty"`
 	Logging     *LoggingConfig               `yaml:"logging,omitempty"`
 	WorkingDir  string                       `yaml:"working_dir,omitempty"`
+	Hostname    string                       `yaml:"hostname,omitempty"`
 }
 
 type DockerComposeConfig struct {
@@ -71,7 +72,7 @@ var StandardLogOptions = &LoggingConfig{
 
 func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
-		Version:  "2.1",
+		Version:  "3.0",
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}
