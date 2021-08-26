@@ -52,7 +52,7 @@ This command will start a stack and run it in the background.
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 

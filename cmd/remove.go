@@ -54,7 +54,7 @@ and configuration.`,
 			}
 		}
 
-		if err := stackManager.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 		fmt.Printf("deleting FireFly stack '%s'... ", stackName)

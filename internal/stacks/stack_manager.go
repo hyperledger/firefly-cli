@@ -107,7 +107,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		TokensProvider:        options.TokensProvider.String(),
 	}
 
-	s.blockchainProvider = s.getBlockchainProvider(false)
+	s.blockchainProvider = s.getBlockchainProvider(options.Verbose)
 	s.tokensProvider = s.getTokensProvider(false)
 
 	for i := 0; i < memberCount; i++ {
@@ -154,7 +154,7 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
-func (s *StackManager) LoadStack(stackName string) error {
+func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	exists, err := CheckExists(stackName)
 	if err != nil {
 		return err
@@ -171,8 +171,8 @@ func (s *StackManager) LoadStack(stackName string) error {
 			fmt.Printf("done\n")
 		}
 		s.Stack = stack
-		s.blockchainProvider = s.getBlockchainProvider(false)
-		s.tokensProvider = s.getTokensProvider(false)
+		s.blockchainProvider = s.getBlockchainProvider(verbose)
+		s.tokensProvider = s.getTokensProvider(verbose)
 	}
 	return nil
 }

@@ -42,19 +42,34 @@ func RemoveVolume(volumeName string, verbose bool) error {
 	return RunDockerCommand(".", verbose, verbose, "volume", "remove", volumeName)
 }
 
+func CopyFromContainer(containerName string, sourcePath string, destPath string, verbose bool) error {
+	if err := RunDockerCommand(".", verbose, verbose, "cp", containerName+":"+sourcePath, destPath); err != nil {
+		return err
+	}
+	return nil
+}
+
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	return err
 }
 
 func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	return err
 }
 
-func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) error {
+func RunDockerCommandBuffered(workingDir string, showCommand bool, command ...string) (string, error) {
+	dockerCmd := exec.Command("docker", command...)
+	dockerCmd.Dir = workingDir
+	return runCommand(dockerCmd, showCommand, false, command...)
+}
+
+func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) (string, error) {
 	if showCommand {
 		fmt.Println(cmd.String())
 	}
@@ -86,15 +101,15 @@ outputCapture:
 				outputBuff.WriteString(s)
 			}
 		case err := <-errChan:
-			return err
+			return "", err
 		}
 	}
 	cmd.Wait()
 	statusCode := cmd.ProcessState.ExitCode()
 	if statusCode != 0 {
-		return fmt.Errorf("%s\nFailed [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
+		return "", fmt.Errorf("%s\nFailed [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
 	}
-	return nil
+	return outputBuff.String(), nil
 }
 
 func pipeCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, errChan chan error) {

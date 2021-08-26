@@ -53,7 +53,7 @@ Note: this will also stop the stack if it is running.
 			}
 		}
 
-		if err := stackManager.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 

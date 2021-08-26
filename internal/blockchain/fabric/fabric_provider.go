@@ -18,6 +18,8 @@ package fabric
 
 import (
 	_ "embed"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -47,6 +49,7 @@ func (p *FabricProvider) WriteConfig() error {
 	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 	cryptogenDirectory := path.Join(blockchainDirectory, "cryptogen")
 	cryptogenYamlPath := path.Join(cryptogenDirectory, "cryptogen.yaml")
+
 	if err := os.MkdirAll(cryptogenDirectory, 0755); err != nil {
 		return err
 	}
@@ -63,13 +66,20 @@ func (p *FabricProvider) WriteConfig() error {
 		return err
 	}
 
+	return nil
+}
+
+func (p *FabricProvider) FirstTimeSetup() error {
+	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+	cryptogenDirectory := path.Join(blockchainDirectory, "cryptogen")
+	cryptogenYamlPath := path.Join(cryptogenDirectory, "cryptogen.yaml")
+
 	// Run cryptogen to generate MSP
 	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath), "-v", fmt.Sprintf("%s:/output", cryptogenDirectory), "hyperledger/fabric-tools:2.4", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output"); err != nil {
 		return err
 	}
 
 	// Generate genesis block
-	// "-configPath", "/genesis/configtx.yaml",
 	if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/firefly", blockchainDirectory), "-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")), "hyperledger/fabric-tools:2.4", "configtxgen", "-outputBlock", "/firefly/firefly.block", "-profile", "SingleOrgApplicationGenesis", "-channelID", "firefly"); err != nil {
 		return err
 	}
@@ -78,29 +88,42 @@ func (p *FabricProvider) WriteConfig() error {
 		return err
 	}
 
-	// Run fabric-ca-server to generate TLS cert
-	// if err := docker.RunDockerCommand(blockchainDirectory, true, true, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server", path.Join(blockchainDirectory, "fabric-ca-server")), "--hostname", "fabric_ca", "hyperledger/fabric-ca", "fabric-ca-server", "init", "-b", "admin:adminpw"); err != nil {
-	// 	return err
-	// }
-
-	return nil
-}
-
-func (p *FabricProvider) FirstTimeSetup() error {
-	/*
-		TODO:
-		1) Start fab-ca
-		2) Generate MSP for orderer, peer
-		3) Run orderer and peer
-		4) Create signers for client POST /identities <-- this may be done by firefly and may not need to be in this file
-	*/
-
-	// docker cp cc66fbd7106f:/etc/hyperledger/fabric-ca-server/tls-cert.pem ~/Desktop/fabric/fabric-ca-tls-cert.pem
 	return nil
 }
 
 func (p *FabricProvider) DeploySmartContracts() error {
-	// TODO: figure out how to deploy fabric chaincode
+	if err := p.extractChaincode(); err != nil {
+		return err
+	}
+
+	if err := p.createChannel(); err != nil {
+		return err
+	}
+
+	if err := p.joinChannel(); err != nil {
+		return err
+	}
+
+	if err := p.installChaincode(); err != nil {
+		return err
+	}
+
+	res, err := p.queryInstalled()
+	if err != nil {
+		return err
+	}
+	if len(res.InstalledChaincodes) == 0 {
+		return fmt.Errorf("failed to find installed chaincode")
+	}
+
+	if err := p.approveChaincode(res.InstalledChaincodes[0].PackageID); err != nil {
+		return err
+	}
+
+	if err := p.commitChaincode(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -181,4 +204,74 @@ func (p *FabricProvider) writeConfigtxYaml() error {
 func (p *FabricProvider) writeConfigYaml() error {
 	filePath := path.Join(constants.StacksDir, p.Stack.Name, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp", "config.yaml")
 	return ioutil.WriteFile(filePath, []byte(configYaml), 0755)
+}
+
+func (p *FabricProvider) createChannel() error {
+	p.Log.Info("creating channel")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "osnadmin", "channel", "join", "--channelID", "firefly", "--config-block", "/firefly/firefly.block", "-o", "fabric_orderer:7053", "--ca-file", "/firefly/cryptogen/ordererOrganizations/example.com/users/Admin@example.com/tls/ca.crt", "--client-cert", "/firefly/cryptogen/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt", "--client-key", "/firefly/cryptogen/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key")
+}
+
+func (p *FabricProvider) joinChannel() error {
+	p.Log.Info("joining channel")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "channel", "join", "-b", "/firefly/firefly.block")
+}
+
+func (p *FabricProvider) extractChaincode() error {
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	contractsDir := path.Join(stackDir, "contracts")
+
+	if err := os.MkdirAll(contractsDir, 0755); err != nil {
+		return err
+	}
+
+	var containerName string
+	for _, member := range p.Stack.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_firefly_core_%s_1", p.Stack.Name, member.ID)
+			break
+		}
+	}
+	if containerName == "" {
+		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+	}
+	p.Log.Info("extracting smart contracts")
+	if err := docker.CopyFromContainer(containerName, "/firefly/contracts/firefly_fabric.tar.gz", path.Join(contractsDir, "firefly_fabric.tar.gz"), p.Verbose); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *FabricProvider) installChaincode() error {
+	p.Log.Info("installing chaincode")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", "--network=fabric_default", "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/contracts", path.Join(stackDir, "contracts")), "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "lifecycle", "chaincode", "install", "/contracts/firefly_fabric.tar.gz")
+}
+
+func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
+	p.Log.Info("querying installed chaincode")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	str, err := docker.RunDockerCommandBuffered(stackDir, p.Verbose, "run", "--rm", "--network=fabric_default", "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "lifecycle", "chaincode", "queryinstalled", "--output", "json")
+	if err != nil {
+		return nil, err
+	}
+	var res *QueryInstalledResponse
+	err = json.Unmarshal([]byte(str), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (p *FabricProvider) approveChaincode(packageId string) error {
+	p.Log.Info("approving chaincode")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", "--network=fabric_default", "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "lifecycle", "chaincode", "approveformyorg", "-o", "fabric_orderer:7050", "--ordererTLSHostnameOverride", "fabric_orderer", "--channelID", "firefly", "--name", "firefly", "--version", "1.0", "--package-id", packageId, "--sequence", "1", "--tls", "--cafile", "/firefly/cryptogen/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem")
+}
+
+func (p *FabricProvider) commitChaincode() error {
+	p.Log.Info("committing chaincode")
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", "--network=fabric_default", "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "lifecycle", "chaincode", "commit", "-o", "fabric_orderer:7050", "--ordererTLSHostnameOverride", "fabric_orderer", "--channelID", "firefly", "--name", "firefly", "--version", "1.0", "--sequence", "1", "--tls", "--cafile", "/firefly/cryptogen/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem")
 }
