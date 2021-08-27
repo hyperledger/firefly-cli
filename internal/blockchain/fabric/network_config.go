@@ -125,7 +125,7 @@ func WriteNetworkConfig(outputPath string) error {
 			},
 		},
 		Channels: map[string]*Channel{
-			"default-channel": {
+			"firefly": {
 				Orderers: []string{"fabric_orderer"},
 				Peers: map[string]*ChannelPeer{
 					"fabric_peer": {

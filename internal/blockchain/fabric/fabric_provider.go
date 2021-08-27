@@ -124,6 +124,10 @@ func (p *FabricProvider) DeploySmartContracts() error {
 		return err
 	}
 
+	if err := p.registerIdentities(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -146,9 +150,11 @@ func (p *FabricProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfi
 		Type: "fabric",
 		Fabric: &core.FabricConfig{
 			Fabconnect: &core.FabconnectConfig{
-				URL:      p.getFabconnectUrl(m),
-				Instance: "/contracts/firefly",
-				Topic:    m.ID,
+				URL:       p.getFabconnectUrl(m),
+				Chaincode: "firefly",
+				Channel:   "firefly",
+				Signer:    m.Address,
+				Topic:     m.ID,
 			},
 		},
 	}
@@ -274,4 +280,19 @@ func (p *FabricProvider) commitChaincode() error {
 	p.Log.Info("committing chaincode")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--rm", "--network=fabric_default", "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/firefly/cryptogen/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/firefly/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/firefly", path.Join(stackDir, "blockchain")), "hyperledger/fabric-tools:2.4", "peer", "lifecycle", "chaincode", "commit", "-o", "fabric_orderer:7050", "--ordererTLSHostnameOverride", "fabric_orderer", "--channelID", "firefly", "--name", "firefly", "--version", "1.0", "--sequence", "1", "--tls", "--cafile", "/firefly/cryptogen/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem")
+}
+
+func (p *FabricProvider) registerIdentities() error {
+	p.Log.Info("registering identities")
+	for _, m := range p.Stack.Members {
+		res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedEthconnectPort), m.Address)
+		if err != nil {
+			return err
+		}
+		_, err = fabconnect.EnrollIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedEthconnectPort), m.Address, res.Secret)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
