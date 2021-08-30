@@ -76,7 +76,7 @@ type Logging struct {
 
 type TLSCertsClient struct {
 	Cert *Path `yaml:"cert,omitempty"`
-	Key  *Path `yaml:"path,omitempty"`
+	Key  *Path `yaml:"key,omitempty"`
 }
 
 type TLSCerts struct {
@@ -96,6 +96,7 @@ type Client struct {
 	CryptoConfig    *Path            `yaml:"cryptoconfig,omitempty"`
 	Logging         *Logging         `yaml:"logging,omitempty"`
 	Organization    string           `yaml:"organization,omitempty"`
+	TLSCerts        *TLSCerts        `yaml:"tlsCerts,omitempty"`
 }
 
 type FabricNetworkConfig struct {
@@ -103,7 +104,6 @@ type FabricNetworkConfig struct {
 	Channels               map[string]*Channel       `yaml:"channels,omitempty"`
 	Client                 *Client                   `yaml:"client,omitempty"`
 	Organization           string                    `yaml:"organization,omitempty"`
-	TLSCerts               *TLSCerts                 `yaml:"tlsCerts,omitempty"`
 	Orderers               map[string]*NetworkEntity `yaml:"orderers,omitempty"`
 	Organizations          map[string]*Organization  `yaml:"organizations,omitempty"`
 	Peers                  map[string]*NetworkEntity `yaml:"peers,omitempty"`
@@ -162,14 +162,14 @@ func WriteNetworkConfig(outputPath string) error {
 				Level: "info",
 			},
 			Organization: "org1.example.com",
-		},
-		TLSCerts: &TLSCerts{
-			Client: &TLSCertsClient{
-				Cert: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/fabric_ca.org1.example.com-cert.pem",
-				},
-				Key: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/ca/priv_sk",
+			TLSCerts: &TLSCerts{
+				Client: &TLSCertsClient{
+					Cert: &Path{
+						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
+					},
+					Key: &Path{
+						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/priv_sk",
+					},
 				},
 			},
 		},
@@ -178,14 +178,14 @@ func WriteNetworkConfig(outputPath string) error {
 				TLSCACerts: &Path{
 					Path: "/fabconnect/cryptogen/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
 				},
-				URL: "https://fabric_orderer:7050",
+				URL: "grpcs://fabric_orderer:7050",
 			},
 		},
 		Organizations: map[string]*Organization{
 			"org1.example.com": {
 				CertificateAuthorities: []string{"org1.example.com"},
 				CryptoPath:             "/tmp/msp",
-				MSPID:                  "org1.example.com",
+				MSPID:                  "Org1MSP",
 				Peers:                  []string{"fabric_peer"},
 			},
 		},
@@ -194,7 +194,7 @@ func WriteNetworkConfig(outputPath string) error {
 				TLSCACerts: &Path{
 					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
 				},
-				URL: "https://fabric_peer:7051",
+				URL: "grpcs://fabric_peer:7051",
 			},
 		},
 		Version: "1.1.0%",

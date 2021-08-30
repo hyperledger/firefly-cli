@@ -27,12 +27,12 @@ import (
 
 func GenerateCryptoMaterial(cryptogenConfigPath string, outputPath string, verbose bool) error {
 	// Use cryptogen in the hyperledger/fabric-tools image to create the crypto material
-	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.4", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
+	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.3", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
 }
 
 func GenerateGenesisBlock(outputPath string, verbose bool) error {
 	// Use configtxgen in the hyperledger/fabric-tools image to generate the genesis config
-	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.4", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
+	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.3", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
 }
 
 func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition {
@@ -70,7 +70,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_orderer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-orderer:2.4",
+				Image: "hyperledger/fabric-orderer:2.3",
 				Environment: map[string]string{
 					"FABRIC_LOGGING_SPEC":                       "INFO",
 					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
@@ -118,7 +118,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_peer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-peer:2.4",
+				Image: "hyperledger/fabric-peer:2.3",
 				Environment: map[string]string{
 					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
 					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": fmt.Sprintf("%s_default", s.Name),
