@@ -165,10 +165,10 @@ func WriteNetworkConfig(outputPath string) error {
 			TLSCerts: &TLSCerts{
 				Client: &TLSCertsClient{
 					Cert: &Path{
-						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
+						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.crt",
 					},
 					Key: &Path{
-						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/priv_sk",
+						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.key",
 					},
 				},
 			},

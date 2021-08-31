@@ -81,7 +81,7 @@ func WriteFabconnectConfig(filePath string) error {
 			Port: 3000,
 		},
 		RPC: &RPC{
-			ConfigPath: "/fabconnect/fabric.yaml",
+			ConfigPath: "/fabconnect/ccp.yaml",
 		},
 	}
 

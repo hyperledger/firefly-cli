@@ -49,7 +49,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 					"FABRIC_CA_SERVER_TLS_ENABLED":              "true",
 					"FABRIC_CA_SERVER_PORT":                     "7054",
 					"FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS": "0.0.0.0:17054",
-					"FABRIC_CA_SERVER_CA_CERTFILE":              "/etc/hyperledger/fabric-ca-server-config/ca.org1.example.com-cert.pem",
+					"FABRIC_CA_SERVER_CA_CERTFILE":              "/etc/hyperledger/fabric-ca-server-config/fabric_ca.org1.example.com-cert.pem",
 					"FABRIC_CA_SERVER_CA_KEYFILE":               "/etc/hyperledger/fabric-ca-server-config/priv_sk",
 				},
 				// TODO: Figure out how to increment ports here
