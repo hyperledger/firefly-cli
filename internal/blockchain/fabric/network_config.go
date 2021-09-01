@@ -151,12 +151,12 @@ func WriteNetworkConfig(outputPath string) error {
 			},
 			CredentialStore: &CredentialStore{
 				CryptoStore: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
+					Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
 				},
-				Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
+				Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
 			},
 			CryptoConfig: &Path{
-				Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/msp",
+				Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
 			},
 			Logging: &Logging{
 				Level: "info",
@@ -165,10 +165,10 @@ func WriteNetworkConfig(outputPath string) error {
 			TLSCerts: &TLSCerts{
 				Client: &TLSCertsClient{
 					Cert: &Path{
-						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.crt",
+						Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.crt",
 					},
 					Key: &Path{
-						Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.key",
+						Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.key",
 					},
 				},
 			},
@@ -176,7 +176,7 @@ func WriteNetworkConfig(outputPath string) error {
 		Orderers: map[string]*NetworkEntity{
 			"fabric_orderer": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/cryptogen/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
+					Path: "/fabconnect/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
 				},
 				URL: "grpcs://fabric_orderer:7050",
 			},
@@ -192,7 +192,7 @@ func WriteNetworkConfig(outputPath string) error {
 		Peers: map[string]*NetworkEntity{
 			"fabric_peer": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/cryptogen/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
+					Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
 				},
 				URL: "grpcs://fabric_peer:7051",
 			},

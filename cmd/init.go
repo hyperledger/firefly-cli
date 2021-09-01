@@ -152,8 +152,8 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
-	initCmd.Flags().StringVarP(&tokensProviderSelection, "tokens-provider", "", "erc1155", fmt.Sprintf("Tokens provider to use. Options are: %v", stacks.TokensProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&tokensProviderSelection, "tokens-provider", "t", "erc1155", fmt.Sprintf("Tokens provider to use. Options are: %v", stacks.TokensProviderStrings))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 
 	rootCmd.AddCommand(initCmd)

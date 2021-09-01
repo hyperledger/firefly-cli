@@ -363,6 +363,9 @@ func (s *StackManager) ResetStack(verbose bool) error {
 	if err := os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name, "data")); err != nil {
 		return err
 	}
+	if err := s.blockchainProvider.Reset(); err != nil {
+		return err
+	}
 	return s.ensureDirectories()
 }
 

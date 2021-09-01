@@ -164,6 +164,10 @@ func (p *GethProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig 
 	}
 }
 
+func (p *GethProvider) Reset() error {
+	return nil
+}
+
 func (p *GethProvider) getEthconnectURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)

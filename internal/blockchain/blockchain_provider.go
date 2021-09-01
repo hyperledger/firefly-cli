@@ -30,4 +30,5 @@ type IBlockchainProvider interface {
 	PostStart() error
 	GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	GetFireflyConfig(m *types.Member) *core.BlockchainConfig
+	Reset() error
 }

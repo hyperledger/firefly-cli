@@ -25,15 +25,15 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
-func GenerateCryptoMaterial(cryptogenConfigPath string, outputPath string, verbose bool) error {
-	// Use cryptogen in the hyperledger/fabric-tools image to create the crypto material
-	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.3", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
-}
+// func GenerateCryptoMaterial(cryptogenConfigPath string, outputPath string, verbose bool) error {
+// 	// Use cryptogen in the hyperledger/fabric-tools image to create the crypto material
+// 	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.3", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
+// }
 
-func GenerateGenesisBlock(outputPath string, verbose bool) error {
-	// Use configtxgen in the hyperledger/fabric-tools image to generate the genesis config
-	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.3", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
-}
+// func GenerateGenesisBlock(outputPath string, verbose bool) error {
+// 	// Use configtxgen in the hyperledger/fabric-tools image to generate the genesis config
+// 	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.3", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
+// }
 
 func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition {
 	stackDir := path.Join(constants.StacksDir, s.Name)
@@ -59,7 +59,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 				},
 				Command: "sh -c 'fabric-ca-server start -b admin:adminpw -d'",
 				Volumes: []string{
-					fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server-config", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "ca")),
+					fmt.Sprintf("%s:/etc/hyperledger/fabric-ca-server-config", path.Join(stackDir, "blockchain", "organizations", "peerOrganizations", "org1.example.com", "ca")),
 				},
 				Hostname: "fabric_ca",
 			},
@@ -100,8 +100,8 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 				Command:    "orderer",
 				Volumes: []string{
 					// fmt.Sprintf("%s:/etc/hyperledger/fabric/genesisblock", path.Join(stackDir, "blockchain", "genesis_block.pb")),
-					fmt.Sprintf("%s:/var/hyperledger/orderer/msp", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "msp")),
-					fmt.Sprintf("%s:/var/hyperledger/orderer/tls", path.Join(stackDir, "blockchain", "cryptogen", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "tls")),
+					fmt.Sprintf("%s:/var/hyperledger/orderer/msp", path.Join(stackDir, "blockchain", "organizations", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "msp")),
+					fmt.Sprintf("%s:/var/hyperledger/orderer/tls", path.Join(stackDir, "blockchain", "organizations", "ordererOrganizations", "example.com", "orderers", "fabric_orderer.example.com", "tls")),
 					"fabric_orderer:/var/hyperledger/production/orderer",
 				},
 				// TODO: Figure out how to increment ports here
@@ -139,8 +139,8 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 					"CORE_OPERATIONS_LISTENADDRESS":         "0.0.0.0:17051",
 				},
 				Volumes: []string{
-					fmt.Sprintf("%s:/etc/hyperledger/fabric/msp", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp")),
-					fmt.Sprintf("%s:/etc/hyperledger/fabric/tls", path.Join(stackDir, "blockchain", "cryptogen", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "tls")),
+					fmt.Sprintf("%s:/etc/hyperledger/fabric/msp", path.Join(stackDir, "blockchain", "organizations", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "msp")),
+					fmt.Sprintf("%s:/etc/hyperledger/fabric/tls", path.Join(stackDir, "blockchain", "organizations", "peerOrganizations", "org1.example.com", "peers", "fabric_peer.org1.example.com", "tls")),
 					"fabric_peer:/var/hyperledger/production",
 					"/var/run/docker.sock:/host/var/run/docker.sock",
 				},
