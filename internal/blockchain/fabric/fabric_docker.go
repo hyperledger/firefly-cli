@@ -25,16 +25,6 @@ import (
 	"github.com/hyperledger-labs/firefly-cli/pkg/types"
 )
 
-// func GenerateCryptoMaterial(cryptogenConfigPath string, outputPath string, verbose bool) error {
-// 	// Use cryptogen in the hyperledger/fabric-tools image to create the crypto material
-// 	return docker.RunDockerCommand(path.Dir(cryptogenConfigPath), verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenConfigPath), "-v", fmt.Sprintf("%s:/output", outputPath), "hyperledger/fabric-tools:2.3", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/output")
-// }
-
-// func GenerateGenesisBlock(outputPath string, verbose bool) error {
-// 	// Use configtxgen in the hyperledger/fabric-tools image to generate the genesis config
-// 	return docker.RunDockerCommand(outputPath, verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/genesis", outputPath), "hyperledger/fabric-tools:2.3", "configtxgen", "-outputBlock", "/genesis/genesis_block.pb", "-profile", "SampleSingleMSPSolo", "-channelID", "firefly")
-// }
-
 func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition {
 	stackDir := path.Join(constants.StacksDir, s.Name)
 	serviceDefinitions := []*docker.ServiceDefinition{
