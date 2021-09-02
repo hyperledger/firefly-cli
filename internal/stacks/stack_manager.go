@@ -129,7 +129,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		// Add a dependency so each firefly core container won't start up until dependencies are up
 		for _, member := range s.Stack.Members {
 			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
-				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+				condition := "service_started"
+				if serviceDefinition.Service.HealthCheck != nil {
+					condition = "service_healthy"
+				}
+				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": condition}
 			}
 		}
 	}

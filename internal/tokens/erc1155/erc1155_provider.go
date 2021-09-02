@@ -64,6 +64,9 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinit
 				DependsOn: map[string]map[string]string{
 					"ethconnect_" + member.ID: {"condition": "service_started"},
 				},
+				HealthCheck: &docker.HealthCheck{
+					Test: []string{"CMD", "curl", "http://localhost:3000/api"},
+				},
 				Logging: docker.StandardLogOptions,
 			},
 		})
