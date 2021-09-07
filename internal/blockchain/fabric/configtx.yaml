@@ -24,7 +24,7 @@ Organizations:
     ID: OrdererMSP
 
     # MSPDir is the filesystem path which contains the MSP configuration
-    MSPDir: /firefly/organizations/ordererOrganizations/example.com/msp
+    MSPDir: /etc/firefly/organizations/ordererOrganizations/example.com/msp
 
     # Policies defines the set of policies at this level of the config tree
     # For organization policies, their canonical path is usually
@@ -51,7 +51,7 @@ Organizations:
     # ID to load the MSP definition as
     ID: Org1MSP
 
-    MSPDir: /firefly/organizations/peerOrganizations/org1.example.com/msp
+    MSPDir: /etc/firefly/organizations/peerOrganizations/org1.example.com/msp
 
     # Policies defines the set of policies at this level of the config tree
     # For organization policies, their canonical path is usually
@@ -183,8 +183,8 @@ Orderer: &OrdererDefaults # Orderer Type: The orderer implementation to start
     Consenters:
       - Host: fabric_orderer
         Port: 7050
-        ClientTLSCert: /firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
-        ServerTLSCert: /firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
+        ClientTLSCert: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
+        ServerTLSCert: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
 
   # Batch Timeout: The amount of time to wait before creating a batch
   BatchTimeout: 2s

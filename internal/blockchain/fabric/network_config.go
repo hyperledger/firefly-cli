@@ -115,9 +115,9 @@ func WriteNetworkConfig(outputPath string) error {
 		CertificateAuthorities: map[string]*NetworkEntity{
 			"org1.example.com": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/ca-cert.pem",
+					Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/ca/fabric_ca.org1.example.com-cert.pem",
 				},
-				URL: "https://fabric_ca:7054",
+				URL: "http://fabric_ca:7054",
 				Registrar: &Registrar{
 					EnrollID:     "admin",
 					EnrollSecret: "adminpw",
@@ -151,12 +151,12 @@ func WriteNetworkConfig(outputPath string) error {
 			},
 			CredentialStore: &CredentialStore{
 				CryptoStore: &Path{
-					Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
+					Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/msp",
 				},
-				Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
+				Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/msp",
 			},
 			CryptoConfig: &Path{
-				Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/msp",
+				Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/msp",
 			},
 			Logging: &Logging{
 				Level: "info",
@@ -165,10 +165,10 @@ func WriteNetworkConfig(outputPath string) error {
 			TLSCerts: &TLSCerts{
 				Client: &TLSCertsClient{
 					Cert: &Path{
-						Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.crt",
+						Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.crt",
 					},
 					Key: &Path{
-						Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.key",
+						Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/tls/client.key",
 					},
 				},
 			},
@@ -176,7 +176,7 @@ func WriteNetworkConfig(outputPath string) error {
 		Orderers: map[string]*NetworkEntity{
 			"fabric_orderer": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
+					Path: "/etc/firefly/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
 				},
 				URL: "grpcs://fabric_orderer:7050",
 			},
@@ -192,7 +192,7 @@ func WriteNetworkConfig(outputPath string) error {
 		Peers: map[string]*NetworkEntity{
 			"fabric_peer": {
 				TLSCACerts: &Path{
-					Path: "/fabconnect/organizations/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
+					Path: "/etc/firefly/organizations/peerOrganizations/org1.example.com/tlsca/tlsfabric_ca.org1.example.com-cert.pem",
 				},
 				URL: "grpcs://fabric_peer:7051",
 			},
