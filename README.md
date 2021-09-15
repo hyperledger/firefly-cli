@@ -1,8 +1,9 @@
 # FireFly CLI
 ![build](https://github.com/hyperledger-labs/firefly-cli/actions/workflows/build.yml/badge.svg?branch=main)
 
-
-The FireFly CLI can be used to create a local FireFly stacks for offline development of blockchain apps. This allows developers to rapidly iterate on their idea without worrying about needing to set up a bunch of infrastructure before they can write the first line of code.
+The FireFly CLI can be used to create local [FireFly](https://github.com/hyperledger-labs/firefly) stacks
+for offline development of blockchain apps. This allows developers to rapidly iterate on their idea without
+needing to set up a bunch of infrastructure before they can write the first line of code.
 
 ![FireFly CLI Screenshot](docs/firefly_screenshot.png)
 
