@@ -116,9 +116,9 @@ type FireflyIPFSConfig struct {
 }
 
 type TokenConnector struct {
-	Connector string `yaml:"connector,omitempty"`
-	Name      string `yaml:"name,omitempty"`
-	URL       string `yaml:"url,omitempty"`
+	Plugin string `yaml:"plugin,omitempty"`
+	Name   string `yaml:"name,omitempty"`
+	URL    string `yaml:"url,omitempty"`
 }
 
 type TokensConfig []*TokenConnector
