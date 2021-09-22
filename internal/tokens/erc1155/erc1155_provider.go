@@ -77,9 +77,9 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinit
 func (p *ERC1155Provider) GetFireflyConfig(m *types.Member) *core.TokensConfig {
 	return &core.TokensConfig{
 		&core.TokenConnector{
-			Connector: "https",
-			Name:      "erc1155",
-			URL:       p.getTokensURL(m),
+			Plugin: "fftokens",
+			Name:   "erc1155",
+			URL:    p.getTokensURL(m),
 		},
 	}
 }
