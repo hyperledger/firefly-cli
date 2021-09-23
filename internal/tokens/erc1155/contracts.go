@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {

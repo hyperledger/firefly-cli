@@ -1,7 +1,8 @@
 # FireFly CLI
-![build](https://github.com/hyperledger-labs/firefly-cli/actions/workflows/build.yml/badge.svg?branch=main)
 
-The FireFly CLI can be used to create local [FireFly](https://github.com/hyperledger-labs/firefly) stacks
+![build](https://github.com/hyperledger/firefly-cli/actions/workflows/build.yml/badge.svg?branch=main)
+
+The FireFly CLI can be used to create local [FireFly](https://github.com/hyperledger/firefly) stacks
 for offline development of blockchain apps. This allows developers to rapidly iterate on their idea without
 needing to set up a bunch of infrastructure before they can write the first line of code.
 
@@ -21,13 +22,13 @@ In order to run the FireFly CLI, you will need a few things installed on your de
 On Go 1.16 and newer:
 
 ```
-$ go install github.com/hyperledger-labs/firefly-cli/ff@latest
+$ go install github.com/hyperledger/firefly-cli/ff@latest
 ```
 
 On earlier versions of Go:
 
 ```
-$ go get github.com/hyperledger-labs/firefly-cli/ff
+$ go get github.com/hyperledger/firefly-cli/ff
 ```
 
 > **NOTE**: For Linux users, it is recommended that you add your user to the `docker` group so that you do not have to run `ff` or `docker` as `root` or with `sudo`. For more information about Docker permissions on Linux, please see [Docker's documentation on the topic](https://docs.docker.com/engine/install/linux-postinstall/).

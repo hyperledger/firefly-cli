@@ -19,7 +19,7 @@ package docker
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type DependsOn map[string]map[string]string

@@ -32,21 +32,21 @@ import (
 	"time"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/geth"
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens/erc1155"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens/niltokens"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/tokens"
+	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
+	"github.com/hyperledger/firefly-cli/internal/tokens/niltokens"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
 type StackManager struct {
