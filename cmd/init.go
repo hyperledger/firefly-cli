@@ -25,8 +25,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/stacks"
 )
 
 var initOptions stacks.InitOptions

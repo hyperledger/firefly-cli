@@ -28,7 +28,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type PublishAbiResponseBody struct {

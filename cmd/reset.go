@@ -19,7 +19,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/stacks"
+	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 

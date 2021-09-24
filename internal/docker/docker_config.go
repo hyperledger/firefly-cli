@@ -19,7 +19,7 @@ package docker
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type DependsOn map[string]map[string]string
@@ -79,7 +79,7 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 
 		if !member.External {
 			compose.Services["firefly_core_"+member.ID] = &Service{
-				Image: "ghcr.io/hyperledger-labs/firefly:latest",
+				Image: "ghcr.io/hyperledger/firefly:latest",
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
@@ -140,7 +140,7 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 		compose.Volumes["ipfs_data_"+member.ID] = struct{}{}
 
 		compose.Services["dataexchange_"+member.ID] = &Service{
-			Image:   "ghcr.io/hyperledger-labs/firefly-dataexchange-https:latest",
+			Image:   "ghcr.io/hyperledger/firefly-dataexchange-https:latest",
 			Ports:   []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
 			Volumes: []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging: StandardLogOptions,

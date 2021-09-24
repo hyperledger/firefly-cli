@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"gopkg.in/yaml.v2"
 )
 
