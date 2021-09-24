@@ -53,7 +53,7 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinit
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: "tokens_" + member.ID,
 			Service: &docker.Service{
-				Image: "ghcr.io/hyperledger-labs/firefly-tokens-erc1155:latest",
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155:latest",
 				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedTokensPort)},
 				Environment: map[string]string{
 					"ETHCONNECT_URL":      p.getEthconnectURL(member),
