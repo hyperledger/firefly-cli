@@ -17,10 +17,10 @@
 package niltokens
 
 import (
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type NilTokensProvider struct {

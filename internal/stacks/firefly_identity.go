@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/core"
 )
 
 func (s *StackManager) registerFireflyIdentities(verbose bool) error {

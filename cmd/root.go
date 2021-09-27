@@ -26,7 +26,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
 var cfgFile string

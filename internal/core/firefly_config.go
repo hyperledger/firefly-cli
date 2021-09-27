@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"gopkg.in/yaml.v2"
 )
 
@@ -116,9 +116,9 @@ type FireflyIPFSConfig struct {
 }
 
 type TokenConnector struct {
-	Connector string `yaml:"connector,omitempty"`
-	Name      string `yaml:"name,omitempty"`
-	URL       string `yaml:"url,omitempty"`
+	Plugin string `yaml:"plugin,omitempty"`
+	Name   string `yaml:"name,omitempty"`
+	URL    string `yaml:"url,omitempty"`
 }
 
 type TokensConfig []*TokenConnector

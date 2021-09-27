@@ -23,13 +23,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/ethconnect"
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type GethProvider struct {
