@@ -215,15 +215,13 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 func (s *StackManager) writeConfigs(verbose bool) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	fireflyConfigs := core.NewFireflyConfigs(s.Stack)
-	i := 0
-	for memberId, config := range fireflyConfigs {
-		config.Blockchain = s.blockchainProvider.GetFireflyConfig(s.Stack.Members[i])
-		config.Tokens = s.tokensProvider.GetFireflyConfig(s.Stack.Members[i])
-		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
+	for _, member := range s.Stack.Members {
+		config := core.NewFireflyConfig(s.Stack, member)
+		config.Blockchain = s.blockchainProvider.GetFireflyConfig(member)
+		config.Tokens = s.tokensProvider.GetFireflyConfig(member)
+		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
 			return err
 		}
-		i++
 	}
 
 	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
