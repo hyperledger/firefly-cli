@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -35,11 +36,17 @@ var removeCmd = &cobra.Command{
 This command will completely delete a stack, including all of its data
 and configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+<<<<<<< HEAD
 		dockerStatus := checkDockerConfig()
 		if dockerStatus != nil {
 			return dockerStatus
 		}
 
+=======
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
+		}
+>>>>>>> Changes to check for docker and docker compose status on the host machine
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
