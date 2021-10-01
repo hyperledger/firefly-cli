@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
@@ -46,9 +47,8 @@ This command will start a stack and run it in the background.
 			}
 		}
 
-		dockerStatus := checkDockerConfig()
-		if dockerStatus != nil {
-			return dockerStatus
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
 		}
 
 		stackManager := stacks.NewStackManager(logger)

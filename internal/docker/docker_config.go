@@ -82,8 +82,13 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 
 		if !member.External {
 			compose.Services["firefly_core_"+member.ID] = &Service{
+<<<<<<< HEAD
 				Image:         s.VersionManifest.FireFly.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
+=======
+				Image:         "ghcr.io/hyperledger/firefly:latest",
+				ContainerName: fmt.Sprintf("%s_firefly_core_%s", stack.Name, member.ID),
+>>>>>>> Changes to check for docker and docker compose status on the host machine
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
@@ -101,7 +106,11 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
 				Image:         "postgres",
+<<<<<<< HEAD
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
+=======
+				ContainerName: fmt.Sprintf("%s_postgres_%s", stack.Name, member.ID),
+>>>>>>> Changes to check for docker and docker compose status on the host machine
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 				Environment: map[string]string{
 					"POSTGRES_PASSWORD": "f1refly",
@@ -126,7 +135,11 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image:         "ipfs/go-ipfs",
+<<<<<<< HEAD
 			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
+=======
+			ContainerName: fmt.Sprintf("%s_ipfs_%s", stack.Name, member.ID),
+>>>>>>> Changes to check for docker and docker compose status on the host machine
 			Ports: []string{
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
 				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
@@ -146,8 +159,13 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
 
 		compose.Services["dataexchange_"+member.ID] = &Service{
+<<<<<<< HEAD
 			Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
 			ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
+=======
+			Image:         "ghcr.io/hyperledger/firefly-dataexchange-https:latest",
+			ContainerName: fmt.Sprintf("%s_dataexchange_%s", stack.Name, member.ID),
+>>>>>>> Changes to check for docker and docker compose status on the host machine
 			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
 			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging:       StandardLogOptions,

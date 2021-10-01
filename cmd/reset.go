@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -35,9 +36,8 @@ Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		dockerStatus := checkDockerConfig()
-		if dockerStatus != nil {
-			return dockerStatus
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
 		}
 
 		stackManager := stacks.NewStackManager(logger)

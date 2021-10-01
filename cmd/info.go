@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -29,11 +30,9 @@ var infoCmd = &cobra.Command{
 	Long: `Get info about a stack such as each container name
 	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dockerStatus := checkDockerConfig()
-		if dockerStatus != nil {
-			return dockerStatus
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
 		}
-
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
