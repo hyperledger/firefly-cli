@@ -29,6 +29,11 @@ var stopCmd = &cobra.Command{
 	Short: "Stop a stack",
 	Long:  `Stop a stack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dockerStatus := checkDockerConfig()
+		if dockerStatus != nil {
+			return dockerStatus
+		}
+
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")

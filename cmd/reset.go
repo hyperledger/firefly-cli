@@ -34,6 +34,12 @@ but don't want to actually recreate the resources in the stack itself.
 Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		dockerStatus := checkDockerConfig()
+		if dockerStatus != nil {
+			return dockerStatus
+		}
+
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")

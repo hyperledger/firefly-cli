@@ -35,6 +35,11 @@ var removeCmd = &cobra.Command{
 This command will completely delete a stack, including all of its data
 and configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dockerStatus := checkDockerConfig()
+		if dockerStatus != nil {
+			return dockerStatus
+		}
+
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
