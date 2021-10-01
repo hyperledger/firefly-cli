@@ -14,8 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+VGO=go
+GOBIN := $(shell $(VGO) env GOPATH)/bin
+LINT := $(GOBIN)/golangci-lint
+
 all: build
 build:
 		cd ff && go build
 install:
 		cd ff && go install
+
+lint: ${LINT}
+		GOGC=20 $(LINT) run -v --timeout 5m
+
+${LINT}:
+		$(VGO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
