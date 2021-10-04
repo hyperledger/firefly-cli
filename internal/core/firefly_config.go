@@ -162,10 +162,10 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			Path: "./frontend",
 		},
 		Node: &NodeConfig{
-			Name: fmt.Sprintf("node_%s", member.ID),
+			Name: member.NodeName,
 		},
 		Org: &OrgConfig{
-			Name:     fmt.Sprintf("org_%s", member.ID),
+			Name:     member.OrgName,
 			Identity: member.Address,
 		},
 		P2PFS: &PublicStorageConfig{

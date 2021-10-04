@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,9 @@ var initOptions stacks.InitOptions
 var databaseSelection string
 var blockchainProviderSelection string
 var tokensProviderSelection string
+var promptNames bool
+
+var ffNameValidator = regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z._-]{0,62}[0-9a-zA-Z])?$`)
 
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
@@ -57,12 +61,12 @@ var initCmd = &cobra.Command{
 
 		if len(args) > 0 {
 			stackName = args[0]
-			err := validateName(stackName)
+			err := validateStackName(stackName)
 			if err != nil {
 				return err
 			}
 		} else {
-			stackName, _ = prompt("stack name: ", validateName)
+			stackName, _ = prompt("stack name: ", validateStackName)
 			fmt.Println("You selected " + stackName)
 		}
 
@@ -76,6 +80,22 @@ var initCmd = &cobra.Command{
 			memberCountInput, _ = prompt("number of members: ", validateCount)
 		}
 		memberCount, _ := strconv.Atoi(memberCountInput)
+
+		initOptions.OrgNames = make([]string, 0, memberCount)
+		initOptions.NodeNames = make([]string, 0, memberCount)
+		if promptNames {
+			for i := 0; i < memberCount; i++ {
+				name, _ := prompt(fmt.Sprintf("name for org %d: ", i), validateFFName)
+				initOptions.OrgNames = append(initOptions.OrgNames, name)
+				name, _ = prompt(fmt.Sprintf("name for node %d: ", i), validateFFName)
+				initOptions.NodeNames = append(initOptions.NodeNames, name)
+			}
+		} else {
+			for i := 0; i < memberCount; i++ {
+				initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%d", i))
+				initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%d", i))
+			}
+		}
 
 		initOptions.Verbose = verbose
 		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
@@ -91,7 +111,7 @@ var initCmd = &cobra.Command{
 	},
 }
 
-func validateName(stackName string) error {
+func validateStackName(stackName string) error {
 	if strings.TrimSpace(stackName) == "" {
 		return errors.New("stack name must not be empty")
 	}
@@ -109,6 +129,13 @@ func validateCount(input string) error {
 		return errors.New("number of members must be greater than zero")
 	} else if initOptions.ExternalProcesses >= i {
 		return errors.New("number of external processes should not be equal to or greater than the number of members in the network - at least one FireFly core container must exist to be able to extrat and deploy smart contracts")
+	}
+	return nil
+}
+
+func validateFFName(input string) error {
+	if !ffNameValidator.MatchString(input) {
+		return fmt.Errorf("name must be 1-64 characters, including alphanumerics (a-zA-Z0-9), dot (.), dash (-) and underscore (_), and must start/end in an alphanumeric")
 	}
 	return nil
 }
@@ -148,6 +175,7 @@ func init() {
 	initCmd.Flags().StringVarP(&blockchainProviderSelection, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
 	initCmd.Flags().StringVarP(&tokensProviderSelection, "tokens-provider", "", "erc1155", fmt.Sprintf("Tokens provider to use. Options are: %v", stacks.TokensProviderStrings))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
+	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 
 	rootCmd.AddCommand(initCmd)
 }

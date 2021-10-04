@@ -41,4 +41,6 @@ type Member struct {
 	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
 	ExposedTokensPort       int    `json:"exposedTokensPort,omitempty"`
 	External                bool   `json:"external,omitempty"`
+	OrgName                 string `json:"orgName,omitempty"`
+	NodeName                string `json:"nodeName,omitempty"`
 }

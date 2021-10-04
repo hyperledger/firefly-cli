@@ -67,6 +67,8 @@ type InitOptions struct {
 	DatabaseSelection  DatabaseSelection
 	Verbose            bool
 	ExternalProcesses  int
+	OrgNames           []string
+	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
 }
@@ -294,6 +296,8 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		ExposedIPFSGWPort:       serviceBase + 7,
 		ExposedTokensPort:       serviceBase + 8,
 		External:                external,
+		OrgName:                 options.OrgNames[index],
+		NodeName:                options.NodeNames[index],
 	}
 }
 
