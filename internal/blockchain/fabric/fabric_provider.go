@@ -25,12 +25,12 @@ import (
 	"os"
 	"path"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/fabric/fabconnect"
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type FabricProvider struct {
@@ -164,7 +164,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "fabconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:   "ghcr.io/hyperledger-labs/firefly-fabconnect:latest",
+				Image:   "ghcr.io/hyperledger/firefly-fabconnect:latest",
 				Command: "-f /fabconnect/fabconnect.yaml",
 				DependsOn: map[string]map[string]string{
 					"fabric_ca":      {"condition": "service_started"},

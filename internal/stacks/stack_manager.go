@@ -31,22 +31,22 @@ import (
 	"time"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/besu"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/ethereum/geth"
-	"github.com/hyperledger-labs/firefly-cli/internal/blockchain/fabric"
-	"github.com/hyperledger-labs/firefly-cli/internal/constants"
-	"github.com/hyperledger-labs/firefly-cli/internal/core"
-	"github.com/hyperledger-labs/firefly-cli/internal/docker"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens/erc1155"
-	"github.com/hyperledger-labs/firefly-cli/internal/tokens/niltokens"
-	"github.com/hyperledger-labs/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/tokens"
+	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
+	"github.com/hyperledger/firefly-cli/internal/tokens/niltokens"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/hyperledger-labs/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
 type StackManager struct {
@@ -67,6 +67,8 @@ type InitOptions struct {
 	DatabaseSelection  DatabaseSelection
 	Verbose            bool
 	ExternalProcesses  int
+	OrgNames           []string
+	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
 }
@@ -129,7 +131,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		// Add a dependency so each firefly core container won't start up until dependencies are up
 		for _, member := range s.Stack.Members {
 			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
-				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": "service_started"}
+				condition := "service_started"
+				if serviceDefinition.Service.HealthCheck != nil {
+					condition = "service_healthy"
+				}
+				service.DependsOn[serviceDefinition.ServiceName] = map[string]string{"condition": condition}
 			}
 		}
 	}
@@ -211,15 +217,13 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 func (s *StackManager) writeConfigs(verbose bool) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
-	fireflyConfigs := core.NewFireflyConfigs(s.Stack)
-	i := 0
-	for memberId, config := range fireflyConfigs {
-		config.Blockchain = s.blockchainProvider.GetFireflyConfig(s.Stack.Members[i])
-		config.Tokens = s.tokensProvider.GetFireflyConfig(s.Stack.Members[i])
-		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", memberId))); err != nil {
+	for _, member := range s.Stack.Members {
+		config := core.NewFireflyConfig(s.Stack, member)
+		config.Blockchain = s.blockchainProvider.GetFireflyConfig(member)
+		config.Tokens = s.tokensProvider.GetFireflyConfig(member)
+		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
 			return err
 		}
-		i++
 	}
 
 	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
@@ -292,6 +296,8 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		ExposedIPFSGWPort:       serviceBase + 7,
 		ExposedTokensPort:       serviceBase + 8,
 		External:                external,
+		OrgName:                 options.OrgNames[index],
+		NodeName:                options.NodeNames[index],
 	}
 }
 

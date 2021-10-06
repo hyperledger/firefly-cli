@@ -14,8 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+VGO=go
+GOBIN := $(shell $(VGO) env GOPATH)/bin
+LINT := $(GOBIN)/golangci-lint
+
 all: build
-build:
+build: ## Builds all go code
 		cd ff && go build
-install:
+install: ## Installs the package
 		cd ff && go install
+
+lint: ${LINT} ## Checks and reports lint errors
+		GOGC=20 $(LINT) run -v --timeout 5m
+
+${LINT}:
+		$(VGO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+
+help:   ## Show this help
+	@echo 'usage: make [target] ...'
+	@echo ''
+	@echo 'targets:'
+	@egrep '^(.+)\:\ .*##\ (.+)' ${MAKEFILE_LIST} | sed 's/:.*##/#/' | column -t -c 2 -s '#'
