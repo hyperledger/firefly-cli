@@ -40,7 +40,7 @@ func GetEthconnectServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition
 				},
 				Logging: docker.StandardLogOptions,
 			},
-			VolumeNames: []string{"ethconnect_abis_" + member.ID, "ethconnect_events_" + member.ID},
+			VolumeNames: []string{fmt.Sprintf("ethconnect_abis_%v", member.ID), fmt.Sprintf("ethconnect_events_%v", member.ID)},
 		}
 	}
 	return serviceDefinitions
