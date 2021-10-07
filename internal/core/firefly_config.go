@@ -138,81 +138,76 @@ type FireflyConfig struct {
 	Tokens       *TokensConfig        `yaml:"tokens,omitempty"`
 }
 
-func NewFireflyConfigs(stack *types.Stack) map[string]*FireflyConfig {
-	configs := make(map[string]*FireflyConfig)
-
-	for _, member := range stack.Members {
-		memberConfig := &FireflyConfig{
-			Log: &LogConfig{
-				Level: "debug",
-			},
-			Debug: &HttpServerConfig{
-				Port: 6060,
-			},
-			HTTP: &HttpServerConfig{
-				Port:      member.ExposedFireflyPort,
-				Address:   "0.0.0.0",
-				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
-			},
-			Admin: &AdminServerConfig{
-				Enabled:   true,
-				Port:      member.ExposedFireflyAdminPort,
-				Address:   "0.0.0.0",
-				PreInit:   true,
-				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
-			},
-			UI: &UIConfig{
-				Path: "./frontend",
-			},
-			Node: &NodeConfig{
-				Name: fmt.Sprintf("node_%s", member.ID),
-			},
-			Org: &OrgConfig{
-				Name:     fmt.Sprintf("org_%s", member.ID),
-				Identity: member.Address,
-			},
-			P2PFS: &PublicStorageConfig{
-				Type: "ipfs",
-				IPFS: &FireflyIPFSConfig{
-					API: &HttpEndpointConfig{
-						URL: getIPFSAPIURL(member),
-					},
-					Gateway: &HttpEndpointConfig{
-						URL: getIPFSGatewayURL(member),
-					},
+func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
+	memberConfig := &FireflyConfig{
+		Log: &LogConfig{
+			Level: "debug",
+		},
+		Debug: &HttpServerConfig{
+			Port: 6060,
+		},
+		HTTP: &HttpServerConfig{
+			Port:      member.ExposedFireflyPort,
+			Address:   "0.0.0.0",
+			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
+		},
+		Admin: &AdminServerConfig{
+			Enabled:   true,
+			Port:      member.ExposedFireflyAdminPort,
+			Address:   "0.0.0.0",
+			PreInit:   true,
+			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
+		},
+		UI: &UIConfig{
+			Path: "./frontend",
+		},
+		Node: &NodeConfig{
+			Name: member.NodeName,
+		},
+		Org: &OrgConfig{
+			Name:     member.OrgName,
+			Identity: member.Address,
+		},
+		P2PFS: &PublicStorageConfig{
+			Type: "ipfs",
+			IPFS: &FireflyIPFSConfig{
+				API: &HttpEndpointConfig{
+					URL: getIPFSAPIURL(member),
+				},
+				Gateway: &HttpEndpointConfig{
+					URL: getIPFSGatewayURL(member),
 				},
 			},
-			DataExchange: &DataExchangeConfig{
-				HTTPS: &HttpEndpointConfig{
-					URL: getDataExchangeURL(member),
-				},
+		},
+		DataExchange: &DataExchangeConfig{
+			HTTPS: &HttpEndpointConfig{
+				URL: getDataExchangeURL(member),
 			},
-		}
-		switch stack.Database {
-		case "postgres":
-			memberConfig.Database = &DatabaseConfig{
-				Type: "postgres",
-				PostgreSQL: &CommonDBConfig{
-					URL: getPostgresURL(member),
-					Migrations: &MigrationsConfig{
-						Auto: true,
-					},
-				},
-			}
-		case "sqlite3":
-			memberConfig.Database = &DatabaseConfig{
-				Type: stack.Database,
-				SQLite3: &CommonDBConfig{
-					URL: getSQLitePath(member, stack.Name),
-					Migrations: &MigrationsConfig{
-						Auto: true,
-					},
-				},
-			}
-		}
-		configs[member.ID] = memberConfig
+		},
 	}
-	return configs
+	switch stack.Database {
+	case "postgres":
+		memberConfig.Database = &DatabaseConfig{
+			Type: "postgres",
+			PostgreSQL: &CommonDBConfig{
+				URL: getPostgresURL(member),
+				Migrations: &MigrationsConfig{
+					Auto: true,
+				},
+			},
+		}
+	case "sqlite3":
+		memberConfig.Database = &DatabaseConfig{
+			Type: stack.Database,
+			SQLite3: &CommonDBConfig{
+				URL: getSQLitePath(member, stack.Name),
+				Migrations: &MigrationsConfig{
+					Auto: true,
+				},
+			},
+		}
+	}
+	return memberConfig
 }
 
 func getIPFSAPIURL(member *types.Member) string {

@@ -43,15 +43,16 @@ type ServiceDefinition struct {
 }
 
 type Service struct {
-	Image       string                       `yaml:"image,omitempty"`
-	Build       string                       `yaml:"build,omitempty"`
-	Command     string                       `yaml:"command,omitempty"`
-	Environment map[string]string            `yaml:"environment,omitempty"`
-	Volumes     []string                     `yaml:"volumes,omitempty"`
-	Ports       []string                     `yaml:"ports,omitempty"`
-	DependsOn   map[string]map[string]string `yaml:"depends_on,omitempty"`
-	HealthCheck *HealthCheck                 `yaml:"healthcheck,omitempty"`
-	Logging     *LoggingConfig               `yaml:"logging,omitempty"`
+	ContainerName string                       `yaml:"container_name,omitempty"`
+	Image         string                       `yaml:"image,omitempty"`
+	Build         string                       `yaml:"build,omitempty"`
+	Command       string                       `yaml:"command,omitempty"`
+	Environment   map[string]string            `yaml:"environment,omitempty"`
+	Volumes       []string                     `yaml:"volumes,omitempty"`
+	Ports         []string                     `yaml:"ports,omitempty"`
+	DependsOn     map[string]map[string]string `yaml:"depends_on,omitempty"`
+	HealthCheck   *HealthCheck                 `yaml:"healthcheck,omitempty"`
+	Logging       *LoggingConfig               `yaml:"logging,omitempty"`
 }
 
 type DockerComposeConfig struct {
@@ -79,7 +80,8 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 
 		if !member.External {
 			compose.Services["firefly_core_"+member.ID] = &Service{
-				Image: "ghcr.io/hyperledger/firefly:latest",
+				Image:         "ghcr.io/hyperledger/firefly:latest",
+				ContainerName: fmt.Sprintf("%s_firefly_core_%s", stack.Name, member.ID),
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
@@ -91,13 +93,14 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 				Logging: StandardLogOptions,
 			}
 
-			compose.Volumes["firefly_core_"+member.ID] = struct{}{}
+			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
 
 		if stack.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
-				Image: "postgres",
-				Ports: []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
+				Image:         "postgres",
+				ContainerName: fmt.Sprintf("%s_postgres_%s", stack.Name, member.ID),
+				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 				Environment: map[string]string{
 					"POSTGRES_PASSWORD": "f1refly",
 					"PGDATA":            "/var/lib/postgresql/data/pgdata",
@@ -112,15 +115,16 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 				Logging: StandardLogOptions,
 			}
 
-			compose.Volumes["postgres_"+member.ID] = struct{}{}
+			compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
 
-			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)]; ok {
+			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
 				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 			}
 		}
 
 		compose.Services["ipfs_"+member.ID] = &Service{
-			Image: "ipfs/go-ipfs",
+			Image:         "ipfs/go-ipfs",
+			ContainerName: fmt.Sprintf("%s_ipfs_%s", stack.Name, member.ID),
 			Ports: []string{
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
 				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
@@ -136,17 +140,18 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 			Logging: StandardLogOptions,
 		}
 
-		compose.Volumes["ipfs_staging_"+member.ID] = struct{}{}
-		compose.Volumes["ipfs_data_"+member.ID] = struct{}{}
+		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
+		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
 
 		compose.Services["dataexchange_"+member.ID] = &Service{
-			Image:   "ghcr.io/hyperledger/firefly-dataexchange-https:latest",
-			Ports:   []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
-			Volumes: []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
-			Logging: StandardLogOptions,
+			Image:         "ghcr.io/hyperledger/firefly-dataexchange-https:latest",
+			ContainerName: fmt.Sprintf("%s_dataexchange_%s", stack.Name, member.ID),
+			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
+			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
+			Logging:       StandardLogOptions,
 		}
 
-		compose.Volumes["dataexchange_"+member.ID] = struct{}{}
+		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 
 	}
 

@@ -27,10 +27,8 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 	emptyObject := make(map[string]interface{})
 
 	for _, member := range s.Stack.Members {
-		orgName := fmt.Sprintf("org_%s", member.ID)
-		nodeName := fmt.Sprintf("node_%s", member.ID)
 		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)
-		s.Log.Info(fmt.Sprintf("registering %s and %s", orgName, nodeName))
+		s.Log.Info(fmt.Sprintf("registering org and node for member %s", member.ID))
 
 		registerOrgURL := fmt.Sprintf("%s/network/organizations/self?confirm=true", ffURL)
 		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)

@@ -31,7 +31,7 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_tokens_%s_1", s.Name, member.ID)
+			containerName = fmt.Sprintf("%s_tokens_%s", s.Name, member.ID)
 			break
 		}
 	}
