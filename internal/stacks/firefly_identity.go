@@ -19,7 +19,6 @@ package stacks
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/core"
 )
@@ -31,37 +30,13 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)
 		s.Log.Info(fmt.Sprintf("registering org and node for member %s", member.ID))
 
-		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
+		registerOrgURL := fmt.Sprintf("%s/network/organizations/self?confirm=true", ffURL)
 		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
 		if err != nil {
 			return err
 		}
 
-		foundOrg := false
-		retries := 60
-		for !foundOrg {
-			type establishedOrg struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			}
-			orgURL := fmt.Sprintf("%s/network/organizations", ffURL)
-			var orgs []establishedOrg
-			err := core.RequestWithRetry(http.MethodGet, orgURL, nil, &orgs)
-			if err != nil {
-				return nil
-			}
-			for _, o := range orgs {
-				foundOrg = foundOrg || o.Name == member.OrgName
-			}
-			if !foundOrg && retries > 0 {
-				time.Sleep(1 * time.Second)
-				retries--
-			} else if !foundOrg && retries == 0 {
-				return fmt.Errorf("timeout error waiting to register member %s", member.ID)
-			}
-		}
-
-		registerNodeURL := fmt.Sprintf("%s/network/register/node", ffURL)
+		registerNodeURL := fmt.Sprintf("%s/network/nodes/self?confirm=true", ffURL)
 		err = core.RequestWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil)
 		if err != nil {
 			return nil
