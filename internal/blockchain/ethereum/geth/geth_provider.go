@@ -139,15 +139,16 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	serviceDefinitions[0] = &docker.ServiceDefinition{
 		ServiceName: "geth",
 		Service: &docker.Service{
-			Image:   "ethereum/client-go:release-1.9",
-			Command: gethCommand,
-			Volumes: []string{"geth:/data"},
-			Logging: docker.StandardLogOptions,
-			Ports:   []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
+			Image:         "ethereum/client-go:release-1.9",
+			ContainerName: fmt.Sprintf("%s_geth", p.Stack.Name),
+			Command:       gethCommand,
+			Volumes:       []string{"geth:/data"},
+			Logging:       docker.StandardLogOptions,
+			Ports:         []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
 		},
 		VolumeNames: []string{"geth"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack.Members)...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack)...)
 	return serviceDefinitions
 }
 
