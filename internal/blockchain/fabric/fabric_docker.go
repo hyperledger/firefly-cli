@@ -29,7 +29,8 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_ca",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-ca:1.5",
+				Image:         "hyperledger/fabric-ca:1.5",
+				ContainerName: fmt.Sprintf("%s_fabric_ca", s.Name),
 				Environment: map[string]string{
 					"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
 					"FABRIC_CA_SERVER_CA_NAME":                  "fabric_ca",
@@ -54,7 +55,8 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_orderer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-orderer:2.3",
+				Image:         "hyperledger/fabric-orderer:2.3",
+				ContainerName: fmt.Sprintf("%s_fabric_orderer", s.Name),
 				Environment: map[string]string{
 					"FABRIC_LOGGING_SPEC":                       "INFO",
 					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
@@ -99,7 +101,8 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 		{
 			ServiceName: "fabric_peer",
 			Service: &docker.Service{
-				Image: "hyperledger/fabric-peer:2.3",
+				Image:         "hyperledger/fabric-peer:2.3",
+				ContainerName: fmt.Sprintf("%s_fabric_peer", s.Name),
 				Environment: map[string]string{
 					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
 					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": fmt.Sprintf("%s_default", s.Name),

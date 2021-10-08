@@ -164,8 +164,9 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "fabconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:   "ghcr.io/hyperledger/firefly-fabconnect:latest",
-				Command: "-f /fabconnect/fabconnect.yaml",
+				Image:         "ghcr.io/hyperledger/firefly-fabconnect:latest",
+				ContainerName: fmt.Sprintf("%s_fabconnect_%s", p.Stack.Name, member.ID),
+				Command:       "-f /fabconnect/fabconnect.yaml",
 				DependsOn: map[string]map[string]string{
 					"fabric_ca":      {"condition": "service_started"},
 					"fabric_peer":    {"condition": "service_started"},
@@ -229,7 +230,7 @@ func (p *FabricProvider) extractChaincode() error {
 	var containerName string
 	for _, member := range p.Stack.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_firefly_core_%s_1", p.Stack.Name, member.ID)
+			containerName = fmt.Sprintf("%s_firefly_core_%s", p.Stack.Name, member.ID)
 			break
 		}
 	}
