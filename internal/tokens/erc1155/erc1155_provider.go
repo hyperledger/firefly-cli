@@ -49,12 +49,13 @@ func (p *ERC1155Provider) FirstTimeSetup() error {
 
 func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
-	for _, member := range p.Stack.Members {
+	for i, member := range p.Stack.Members {
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: "tokens_" + member.ID,
 			Service: &docker.Service{
-				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155:latest",
-				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedTokensPort)},
+				Image:         "ghcr.io/hyperledger/firefly-tokens-erc1155:latest",
+				ContainerName: fmt.Sprintf("%s_tokens_%v", p.Stack.Name, i),
+				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPort)},
 				Environment: map[string]string{
 					"ETHCONNECT_URL":      p.getEthconnectURL(member),
 					"ETHCONNECT_INSTANCE": "/contracts/erc1155",

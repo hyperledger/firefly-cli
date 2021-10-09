@@ -28,10 +28,8 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 	emptyObject := make(map[string]interface{})
 
 	for _, member := range s.Stack.Members {
-		orgName := fmt.Sprintf("org_%s", member.ID)
-		nodeName := fmt.Sprintf("node_%s", member.ID)
 		ffURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1", member.ExposedFireflyPort)
-		s.Log.Info(fmt.Sprintf("registering %s and %s", orgName, nodeName))
+		s.Log.Info(fmt.Sprintf("registering org and node for member %s", member.ID))
 
 		registerOrgURL := fmt.Sprintf("%s/network/register/node/organization", ffURL)
 		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
@@ -53,13 +51,13 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 				return nil
 			}
 			for _, o := range orgs {
-				foundOrg = foundOrg || o.Name == orgName
+				foundOrg = foundOrg || o.Name == member.OrgName
 			}
 			if !foundOrg && retries > 0 {
 				time.Sleep(1 * time.Second)
 				retries--
 			} else if !foundOrg && retries == 0 {
-				return fmt.Errorf("timeout error waiting to register %s and %s", orgName, nodeName)
+				return fmt.Errorf("timeout error waiting to register member %s", member.ID)
 			}
 		}
 

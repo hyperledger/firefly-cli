@@ -67,6 +67,8 @@ type InitOptions struct {
 	DatabaseSelection  DatabaseSelection
 	Verbose            bool
 	ExternalProcesses  int
+	OrgNames           []string
+	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
 }
@@ -294,6 +296,8 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		ExposedIPFSGWPort:       serviceBase + 7,
 		ExposedTokensPort:       serviceBase + 8,
 		External:                external,
+		OrgName:                 options.OrgNames[index],
+		NodeName:                options.NodeNames[index],
 	}
 }
 
@@ -334,6 +338,22 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 	}
 }
 
+func (s *StackManager) removeVolumes(verbose bool) {
+	var volumes []string
+	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
+		volumes = append(volumes, service.VolumeNames...)
+	}
+	for _, service := range s.tokensProvider.GetDockerServiceDefinitions() {
+		volumes = append(volumes, service.VolumeNames...)
+	}
+	for volumeName := range docker.CreateDockerCompose(s.Stack).Volumes {
+		volumes = append(volumes, volumeName)
+	}
+	for _, volumeName := range volumes {
+		docker.RunDockerCommand("", verbose, verbose, "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName))
+	}
+}
+
 func (s *StackManager) runStartupSequence(workingDir string, verbose bool, firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
@@ -359,12 +379,13 @@ func (s *StackManager) StopStack(verbose bool) error {
 }
 
 func (s *StackManager) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "down", "--volumes"); err != nil {
+	if err := docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "down"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name, "data")); err != nil {
 		return err
 	}
+	s.removeVolumes(verbose)
 	return s.ensureDirectories()
 }
 
