@@ -48,6 +48,13 @@ func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, comm
 	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
 }
 
+func RunDockerComposeCommandWithRetry(workingDir string, showCommand bool, pipeStdout bool, command ...string) (err error) {
+	for i := 0; err != nil && i < 3; i++ {
+		err = RunDockerComposeCommand(workingDir, showCommand, pipeStdout, command...)
+	}
+	return err
+}
+
 func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir

@@ -360,6 +360,11 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 	}
 
 	s.Log.Info("starting FireFly dependencies")
+
+	if err := docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull"); err != nil {
+		return err
+	}
+
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
