@@ -81,7 +81,6 @@ This command will start a stack and run it in the background.
 }
 
 func init() {
-	startCmd.Flags().BoolVarP(&startOptions.NoPull, "no-pull", "n", false, "Do not pull latest images when starting")
 	startCmd.Flags().BoolVarP(&startOptions.NoRollback, "no-rollback", "b", false, "Do not automatically rollback changes if first time setup fails")
 
 	rootCmd.AddCommand(startCmd)

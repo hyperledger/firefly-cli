@@ -175,6 +175,8 @@ func init() {
 	initCmd.Flags().StringVarP(&blockchainProviderSelection, "blockchain-provider", "", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
 	initCmd.Flags().StringVarP(&tokensProviderSelection, "tokens-provider", "", "erc1155", fmt.Sprintf("Tokens provider to use. Options are: %v", stacks.TokensProviderStrings))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
+	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
+	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
 	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 
 	rootCmd.AddCommand(initCmd)

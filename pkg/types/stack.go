@@ -17,13 +17,14 @@
 package types
 
 type Stack struct {
-	Name                  string    `json:"name,omitempty"`
-	Members               []*Member `json:"members,omitempty"`
-	SwarmKey              string    `json:"swarmKey,omitempty"`
-	ExposedBlockchainPort int       `json:"exposedGethPort,omitempty"`
-	Database              string    `json:"database"`
-	BlockchainProvider    string    `json:"blockchainProvider"`
-	TokensProvider        string    `json:"tokensProvider"`
+	Name                  string           `json:"name,omitempty"`
+	Members               []*Member        `json:"members,omitempty"`
+	SwarmKey              string           `json:"swarmKey,omitempty"`
+	ExposedBlockchainPort int              `json:"exposedGethPort,omitempty"`
+	Database              string           `json:"database"`
+	BlockchainProvider    string           `json:"blockchainProvider"`
+	TokensProvider        string           `json:"tokensProvider"`
+	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
 }
 
 type Member struct {

@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -57,7 +58,6 @@ type StackManager struct {
 }
 
 type StartOptions struct {
-	NoPull     bool
 	NoRollback bool
 }
 
@@ -71,6 +71,8 @@ type InitOptions struct {
 	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
+	FireFlyVersion     string
+	ManifestPath       string
 }
 
 func ListStacks() ([]string, error) {
@@ -98,7 +100,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) error {
+func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                  stackName,
 		Members:               make([]*types.Member, memberCount),
@@ -109,6 +111,30 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		TokensProvider:        options.TokensProvider.String(),
 	}
 
+	var manifest *types.VersionManifest
+
+	if options.ManifestPath != "" {
+		// If a path to a manifest file is set, read the existing file
+		manifest, err = core.ReadManifestFile(options.ManifestPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Otherwise, fetch the manifest file from GitHub for the specified version
+		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
+			manifest, err = core.GetLatestReleaseManifest()
+			if err != nil {
+				return err
+			}
+		} else {
+			manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	s.Stack.VersionManifest = manifest
 	s.blockchainProvider = s.getBlockchainProvider(false)
 	s.tokensProvider = s.getTokensProvider(false)
 
@@ -481,13 +507,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
-		}
-	}
-
-	if !options.NoPull {
-		s.Log.Info("pulling latest versions")
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
-			return err
 		}
 	}
 
