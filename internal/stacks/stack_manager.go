@@ -58,6 +58,7 @@ type StackManager struct {
 }
 
 type StartOptions struct {
+	NoPull     bool
 	NoRollback bool
 }
 
@@ -507,6 +508,13 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
+		}
+	}
+
+	if !options.NoPull {
+		s.Log.Info("pulling latest versions")
+		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
+			return err
 		}
 	}
 

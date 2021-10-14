@@ -62,10 +62,11 @@ func ReadManifestFile(p string) (*types.VersionManifest, error) {
 	}
 	var manifest *types.VersionManifest
 	err = json.Unmarshal(d, &manifest)
+
+	// If core is not specified in the manifest, use a locally built image called "firefly"
 	if manifest.FireFly == nil {
-		// Fill in the FireFly version number
 		manifest.FireFly = &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly",
+			Image: "firefly",
 		}
 	}
 	return manifest, err
