@@ -66,7 +66,7 @@ func ReadManifestFile(p string) (*types.VersionManifest, error) {
 	// If core is not specified in the manifest, use a locally built image called "firefly"
 	if manifest.FireFly == nil {
 		manifest.FireFly = &types.ManifestEntry{
-			Image: "firefly",
+			Image: "hyperledger/firefly",
 		}
 	}
 	return manifest, err

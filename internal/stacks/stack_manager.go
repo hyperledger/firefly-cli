@@ -207,6 +207,32 @@ func (s *StackManager) LoadStack(stackName string) error {
 		s.blockchainProvider = s.getBlockchainProvider(false)
 		s.tokensProvider = s.getTokensProvider(false)
 	}
+	// For backwards compatability, add a "default" VersionManifest
+	// in memory for stacks that were created with old CLI versions
+	if s.Stack.VersionManifest == nil {
+		s.Stack.VersionManifest = &types.VersionManifest{
+			FireFly: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly",
+				Tag:   "latest",
+			},
+			Ethconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-ethconnect",
+				Tag:   "latest",
+			},
+			Fabconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-fabconnect",
+				Tag:   "latest",
+			},
+			DataExchange: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-dataexchange-https",
+				Tag:   "latest",
+			},
+			Tokens: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155",
+				Tag:   "latest",
+			},
+		}
+	}
 	return nil
 }
 
