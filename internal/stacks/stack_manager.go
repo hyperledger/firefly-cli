@@ -360,11 +360,6 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 	}
 
 	s.Log.Info("starting FireFly dependencies")
-
-	if err := docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull"); err != nil {
-		return err
-	}
-
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
@@ -491,7 +486,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 
 	if !options.NoPull {
 		s.Log.Info("pulling latest versions")
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
+		if err := docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull"); err != nil {
 			return err
 		}
 	}
@@ -572,7 +567,7 @@ func (s *StackManager) UpgradeStack(verbose bool) error {
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "down"); err != nil {
 		return err
 	}
-	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
+	return docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull")
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
