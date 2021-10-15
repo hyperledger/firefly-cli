@@ -67,6 +67,7 @@ func ReadManifestFile(p string) (*types.VersionManifest, error) {
 	if manifest.FireFly == nil {
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "hyperledger/firefly",
+			Local: true,
 		}
 	}
 	return manifest, err

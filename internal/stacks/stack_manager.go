@@ -58,7 +58,6 @@ type StackManager struct {
 }
 
 type StartOptions struct {
-	NoPull     bool
 	NoRollback bool
 }
 
@@ -354,7 +353,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	}
 }
 
-func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
@@ -389,6 +388,24 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 	} else {
 		return err
 	}
+}
+
+func (s *StackManager) PullStack(verbose bool) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	for _, entry := range s.Stack.VersionManifest.Entries() {
+		if entry.Local {
+			continue
+		}
+		fullImage := fmt.Sprintf("%s@sha256:%s", entry.Image, entry.SHA)
+		if entry.SHA == "" {
+			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
+		}
+		s.Log.Info(fmt.Sprintf("pulling '%s", fullImage))
+		if err := docker.RunDockerCommand(workingDir, verbose, verbose, "pull", fullImage); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *StackManager) removeVolumes(verbose bool) {
@@ -537,13 +554,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 		}
 	}
 
-	if !options.NoPull {
-		s.Log.Info("pulling latest versions")
-		if err := docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull"); err != nil {
-			return err
-		}
-	}
-
 	if err := s.runStartupSequence(workingDir, verbose, true); err != nil {
 		return err
 	}
@@ -620,7 +630,7 @@ func (s *StackManager) UpgradeStack(verbose bool) error {
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "down"); err != nil {
 		return err
 	}
-	return docker.RunDockerComposeCommandWithRetry(workingDir, verbose, verbose, "pull")
+	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {

@@ -27,14 +27,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var startOptions stacks.StartOptions
+var pullCmd = &cobra.Command{
+	Use:   "pull <stack_name>",
+	Short: "Pull a stack",
+	Long: `Pull a stack
 
-var startCmd = &cobra.Command{
-	Use:   "start <stack_name>",
-	Short: "Start a stack",
-	Long: `Start a stack
-
-This command will start a stack and run it in the background.
+Pull the images for a stack .
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var spin *spinner.Spinner
@@ -65,7 +63,7 @@ This command will start a stack and run it in the background.
 		if spin != nil {
 			spin.Start()
 		}
-		if err := stackManager.StartStack(verbose, &startOptions); err != nil {
+		if err := stackManager.PullStack(verbose); err != nil {
 			return err
 		}
 		if spin != nil {
@@ -81,7 +79,5 @@ This command will start a stack and run it in the background.
 }
 
 func init() {
-	startCmd.Flags().BoolVarP(&startOptions.NoRollback, "no-rollback", "b", false, "Do not automatically rollback changes if first time setup fails")
-
-	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(pullCmd)
 }
