@@ -30,8 +30,22 @@ type VersionManifest struct {
 	Tokens       *ManifestEntry `json:"tokens-erc1155"`
 }
 
+func (m *VersionManifest) Entries() []*ManifestEntry {
+	if m == nil {
+		return []*ManifestEntry{}
+	}
+	return []*ManifestEntry{
+		m.FireFly,
+		m.Ethconnect,
+		m.Fabconnect,
+		m.DataExchange,
+		m.Tokens,
+	}
+}
+
 type ManifestEntry struct {
 	Image string `json:"image,omitempty"`
+	Local bool   `json:"local,omitempty"`
 	Tag   string `json:"tag,omitempty"`
 	SHA   string `json:"sha,omitempty"`
 }

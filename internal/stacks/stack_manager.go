@@ -57,8 +57,11 @@ type StackManager struct {
 	tokensProvider     tokens.ITokensProvider
 }
 
+type PullOptions struct {
+	Retries int
+}
+
 type StartOptions struct {
-	NoPull     bool
 	NoRollback bool
 }
 
@@ -354,7 +357,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	}
 }
 
-func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
@@ -389,6 +392,24 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 	} else {
 		return err
 	}
+}
+
+func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	for _, entry := range s.Stack.VersionManifest.Entries() {
+		if entry.Local {
+			continue
+		}
+		fullImage := fmt.Sprintf("%s@sha256:%s", entry.Image, entry.SHA)
+		if entry.SHA == "" {
+			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
+		}
+		s.Log.Info(fmt.Sprintf("pulling '%s", fullImage))
+		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", fullImage); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *StackManager) removeVolumes(verbose bool) {
@@ -534,13 +555,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
-		}
-	}
-
-	if !options.NoPull {
-		s.Log.Info("pulling latest versions")
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
-			return err
 		}
 	}
 
