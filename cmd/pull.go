@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -27,14 +26,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var startOptions stacks.StartOptions
+var pullOptions stacks.PullOptions
 
-var startCmd = &cobra.Command{
-	Use:   "start <stack_name>",
-	Short: "Start a stack",
-	Long: `Start a stack
+var pullCmd = &cobra.Command{
+	Use:   "pull <stack_name>",
+	Short: "Pull a stack",
+	Long: `Pull a stack
 
-This command will start a stack and run it in the background.
+Pull the images for a stack .
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var spin *spinner.Spinner
@@ -46,11 +45,6 @@ This command will start a stack and run it in the background.
 			}
 		}
 
-		dockerStatus := checkDockerConfig()
-		if dockerStatus != nil {
-			return dockerStatus
-		}
-
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return errors.New("no stack specified")
@@ -60,32 +54,21 @@ This command will start a stack and run it in the background.
 		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
-
-		if runBefore, err := stackManager.StackHasRunBefore(); err != nil {
-			return err
-		} else if !runBefore {
-			fmt.Println("this will take a few seconds longer since this is the first time you're running this stack...")
-		}
-
 		if spin != nil {
 			spin.Start()
 		}
-		if err := stackManager.StartStack(verbose, &startOptions); err != nil {
+		if err := stackManager.PullStack(verbose, &pullOptions); err != nil {
 			return err
 		}
 		if spin != nil {
 			spin.Stop()
 		}
-		fmt.Print("\n\n")
-		for _, member := range stackManager.Stack.Members {
-			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
-		}
-		fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		return nil
 	},
 }
 
 func init() {
-	startCmd.Flags().BoolVarP(&startOptions.NoRollback, "no-rollback", "b", false, "Do not automatically rollback changes if first time setup fails")
-	rootCmd.AddCommand(startCmd)
+	pullCmd.Flags().IntVarP(&pullOptions.Retries, "retries", "r", 0, "Retry attempts to perform on image pull failure")
+
+	rootCmd.AddCommand(pullCmd)
 }

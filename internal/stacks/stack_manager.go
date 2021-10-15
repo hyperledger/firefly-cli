@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,8 +57,11 @@ type StackManager struct {
 	tokensProvider     tokens.ITokensProvider
 }
 
+type PullOptions struct {
+	Retries int
+}
+
 type StartOptions struct {
-	NoPull     bool
 	NoRollback bool
 }
 
@@ -71,6 +75,8 @@ type InitOptions struct {
 	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
+	FireFlyVersion     string
+	ManifestPath       string
 }
 
 func ListStacks() ([]string, error) {
@@ -98,7 +104,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) error {
+func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                  stackName,
 		Members:               make([]*types.Member, memberCount),
@@ -109,6 +115,30 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		TokensProvider:        options.TokensProvider.String(),
 	}
 
+	var manifest *types.VersionManifest
+
+	if options.ManifestPath != "" {
+		// If a path to a manifest file is set, read the existing file
+		manifest, err = core.ReadManifestFile(options.ManifestPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Otherwise, fetch the manifest file from GitHub for the specified version
+		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
+			manifest, err = core.GetLatestReleaseManifest()
+			if err != nil {
+				return err
+			}
+		} else {
+			manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	s.Stack.VersionManifest = manifest
 	s.blockchainProvider = s.getBlockchainProvider(false)
 	s.tokensProvider = s.getTokensProvider(false)
 
@@ -179,6 +209,32 @@ func (s *StackManager) LoadStack(stackName string) error {
 		s.Stack = stack
 		s.blockchainProvider = s.getBlockchainProvider(false)
 		s.tokensProvider = s.getTokensProvider(false)
+	}
+	// For backwards compatability, add a "default" VersionManifest
+	// in memory for stacks that were created with old CLI versions
+	if s.Stack.VersionManifest == nil {
+		s.Stack.VersionManifest = &types.VersionManifest{
+			FireFly: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly",
+				Tag:   "latest",
+			},
+			Ethconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-ethconnect",
+				Tag:   "latest",
+			},
+			Fabconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-fabconnect",
+				Tag:   "latest",
+			},
+			DataExchange: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-dataexchange-https",
+				Tag:   "latest",
+			},
+			Tokens: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155",
+				Tag:   "latest",
+			},
+		}
 	}
 	return nil
 }
@@ -301,7 +357,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	}
 }
 
-func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
@@ -336,6 +392,24 @@ func (s *StackManager) StartStack(fancyFeatures bool, verbose bool, options *Sta
 	} else {
 		return err
 	}
+}
+
+func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
+	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	for _, entry := range s.Stack.VersionManifest.Entries() {
+		if entry.Local {
+			continue
+		}
+		fullImage := fmt.Sprintf("%s@sha256:%s", entry.Image, entry.SHA)
+		if entry.SHA == "" {
+			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
+		}
+		s.Log.Info(fmt.Sprintf("pulling '%s", fullImage))
+		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", fullImage); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *StackManager) removeVolumes(verbose bool) {
@@ -481,13 +555,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
-		}
-	}
-
-	if !options.NoPull {
-		s.Log.Info("pulling latest versions")
-		if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull"); err != nil {
-			return err
 		}
 	}
 

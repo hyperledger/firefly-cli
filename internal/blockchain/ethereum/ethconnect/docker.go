@@ -29,7 +29,7 @@ func GetEthconnectServiceDefinitions(s *types.Stack) []*docker.ServiceDefinition
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "ethconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:         "ghcr.io/hyperledger/firefly-ethconnect:latest",
+				Image:         s.VersionManifest.Ethconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_ethconnect_%v", s.Name, i),
 				Command:       "rest -U http://127.0.0.1:8080 -I ./abis -r http://geth:8545 -E ./events -d 3",
 				DependsOn:     map[string]map[string]string{"geth": {"condition": "service_started"}},
