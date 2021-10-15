@@ -44,7 +44,7 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 		return err
 	}
 
-	tokenContract, err := ethereum.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "ERC1155MixedFungibleMintable.json"))
+	tokenContract, err := ethereum.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "ERC1155MixedFungible.json"))
 	if err != nil {
 		return err
 	}
