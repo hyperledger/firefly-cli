@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -71,6 +72,8 @@ type InitOptions struct {
 	NodeNames          []string
 	BlockchainProvider BlockchainProvider
 	TokensProvider     TokensProvider
+	FireFlyVersion     string
+	ManifestPath       string
 }
 
 func ListStacks() ([]string, error) {
@@ -98,7 +101,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) error {
+func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                  stackName,
 		Members:               make([]*types.Member, memberCount),
@@ -109,6 +112,30 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		TokensProvider:        options.TokensProvider.String(),
 	}
 
+	var manifest *types.VersionManifest
+
+	if options.ManifestPath != "" {
+		// If a path to a manifest file is set, read the existing file
+		manifest, err = core.ReadManifestFile(options.ManifestPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Otherwise, fetch the manifest file from GitHub for the specified version
+		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
+			manifest, err = core.GetLatestReleaseManifest()
+			if err != nil {
+				return err
+			}
+		} else {
+			manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	s.Stack.VersionManifest = manifest
 	s.blockchainProvider = s.getBlockchainProvider(false)
 	s.tokensProvider = s.getTokensProvider(false)
 
@@ -179,6 +206,32 @@ func (s *StackManager) LoadStack(stackName string) error {
 		s.Stack = stack
 		s.blockchainProvider = s.getBlockchainProvider(false)
 		s.tokensProvider = s.getTokensProvider(false)
+	}
+	// For backwards compatability, add a "default" VersionManifest
+	// in memory for stacks that were created with old CLI versions
+	if s.Stack.VersionManifest == nil {
+		s.Stack.VersionManifest = &types.VersionManifest{
+			FireFly: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly",
+				Tag:   "latest",
+			},
+			Ethconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-ethconnect",
+				Tag:   "latest",
+			},
+			Fabconnect: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-fabconnect",
+				Tag:   "latest",
+			},
+			DataExchange: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-dataexchange-https",
+				Tag:   "latest",
+			},
+			Tokens: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155",
+				Tag:   "latest",
+			},
+		}
 	}
 	return nil
 }
