@@ -27,6 +27,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pullOptions stacks.PullOptions
+
 var pullCmd = &cobra.Command{
 	Use:   "pull <stack_name>",
 	Short: "Pull a stack",
@@ -63,7 +65,7 @@ Pull the images for a stack .
 		if spin != nil {
 			spin.Start()
 		}
-		if err := stackManager.PullStack(verbose); err != nil {
+		if err := stackManager.PullStack(verbose, &pullOptions); err != nil {
 			return err
 		}
 		if spin != nil {
@@ -79,5 +81,7 @@ Pull the images for a stack .
 }
 
 func init() {
+	pullCmd.Flags().IntVarP(&pullOptions.Retries, "retries", "r", 0, "Retry attempts to perform on image pull failure")
+
 	rootCmd.AddCommand(pullCmd)
 }

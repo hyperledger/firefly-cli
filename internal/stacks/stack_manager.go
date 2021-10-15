@@ -57,6 +57,10 @@ type StackManager struct {
 	tokensProvider     tokens.ITokensProvider
 }
 
+type PullOptions struct {
+	Retries int
+}
+
 type StartOptions struct {
 	NoRollback bool
 }
@@ -390,7 +394,7 @@ func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 	}
 }
 
-func (s *StackManager) PullStack(verbose bool) error {
+func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	for _, entry := range s.Stack.VersionManifest.Entries() {
 		if entry.Local {
@@ -401,7 +405,7 @@ func (s *StackManager) PullStack(verbose bool) error {
 			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
 		}
 		s.Log.Info(fmt.Sprintf("pulling '%s", fullImage))
-		if err := docker.RunDockerCommand(workingDir, verbose, verbose, "pull", fullImage); err != nil {
+		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", fullImage); err != nil {
 			return err
 		}
 	}
