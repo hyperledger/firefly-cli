@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -55,13 +54,6 @@ Pull the images for a stack .
 		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
-
-		if runBefore, err := stackManager.StackHasRunBefore(); err != nil {
-			return err
-		} else if !runBefore {
-			fmt.Println("this will take a few seconds longer since this is the first time you're running this stack...")
-		}
-
 		if spin != nil {
 			spin.Start()
 		}
@@ -71,11 +63,6 @@ Pull the images for a stack .
 		if spin != nil {
 			spin.Stop()
 		}
-		fmt.Print("\n\n")
-		for _, member := range stackManager.Stack.Members {
-			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
-		}
-		fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		return nil
 	},
 }
