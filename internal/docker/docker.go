@@ -49,6 +49,21 @@ func CopyFromContainer(containerName string, sourcePath string, destPath string,
 	return nil
 }
 
+func RunDockerCommandRetry(workingDir string, showCommand bool, pipeStdout bool, retries int, command ...string) error {
+	attempt := 0
+	for {
+		err := RunDockerCommand(workingDir, showCommand, pipeStdout, command...)
+		if err != nil && attempt < retries {
+			attempt++
+			continue
+		} else if err != nil {
+			return err
+		}
+		break
+	}
+	return nil
+}
+
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir

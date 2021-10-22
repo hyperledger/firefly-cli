@@ -70,19 +70,21 @@ var StandardLogOptions = &LoggingConfig{
 	},
 }
 
-func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
+func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}
 
-	for _, member := range stack.Members {
+	for _, member := range s.Members {
+
+		// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
 
 		if !member.External {
 			compose.Services["firefly_core_"+member.ID] = &Service{
-				Image:         "ghcr.io/hyperledger/firefly:latest",
-				ContainerName: fmt.Sprintf("%s_firefly_core_%s", stack.Name, member.ID),
+				Image:         s.VersionManifest.FireFly.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
@@ -97,10 +99,10 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
 
-		if stack.Database == "postgres" {
+		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
 				Image:         "postgres",
-				ContainerName: fmt.Sprintf("%s_postgres_%s", stack.Name, member.ID),
+				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 				Environment: map[string]string{
 					"POSTGRES_PASSWORD": "f1refly",
@@ -125,13 +127,13 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image:         "ipfs/go-ipfs",
-			ContainerName: fmt.Sprintf("%s_ipfs_%s", stack.Name, member.ID),
+			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
 			Ports: []string{
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
 				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
 			},
 			Environment: map[string]string{
-				"IPFS_SWARM_KEY":    stack.SwarmKey,
+				"IPFS_SWARM_KEY":    s.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
 			Volumes: []string{
@@ -145,8 +147,8 @@ func CreateDockerCompose(stack *types.Stack) *DockerComposeConfig {
 		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
 
 		compose.Services["dataexchange_"+member.ID] = &Service{
-			Image:         "ghcr.io/hyperledger/firefly-dataexchange-https:latest",
-			ContainerName: fmt.Sprintf("%s_dataexchange_%s", stack.Name, member.ID),
+			Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
+			ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
 			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
 			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging:       StandardLogOptions,
