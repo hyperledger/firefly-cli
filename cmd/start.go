@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
@@ -44,6 +45,10 @@ This command will start a stack and run it in the background.
 			logger = &log.SpinnerLogger{
 				Spinner: spin,
 			}
+		}
+
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
 		}
 
 		stackManager := stacks.NewStackManager(logger)
@@ -82,6 +87,5 @@ This command will start a stack and run it in the background.
 
 func init() {
 	startCmd.Flags().BoolVarP(&startOptions.NoRollback, "no-rollback", "b", false, "Do not automatically rollback changes if first time setup fails")
-
 	rootCmd.AddCommand(startCmd)
 }

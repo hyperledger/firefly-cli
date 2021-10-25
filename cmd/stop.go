@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -29,6 +30,9 @@ var stopCmd = &cobra.Command{
 	Short: "Stop a stack",
 	Long:  `Stop a stack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
+		}
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")

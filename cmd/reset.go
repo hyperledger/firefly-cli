@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -34,6 +35,11 @@ but don't want to actually recreate the resources in the stack itself.
 Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
+		}
+
 		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")

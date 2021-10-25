@@ -36,6 +36,10 @@ var logsCmd = &cobra.Command{
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := docker.CheckDockerConfig(); err != nil {
+			return err
+		}
+
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
