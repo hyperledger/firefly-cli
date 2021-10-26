@@ -152,8 +152,13 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *GethProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig {
-	return &core.BlockchainConfig{
+func (p *GethProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	orgConfig = &core.OrgConfig{
+		Name:     m.OrgName,
+		Identity: m.Address,
+	}
+
+	blockchainConfig = &core.BlockchainConfig{
 		Type: "ethereum",
 		Ethereum: &core.EthereumConfig{
 			Ethconnect: &core.EthconnectConfig{
@@ -163,6 +168,7 @@ func (p *GethProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig 
 			},
 		},
 	}
+	return
 }
 
 func (p *GethProvider) Reset() error {
@@ -173,6 +179,6 @@ func (p *GethProvider) getEthconnectURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	}
 }

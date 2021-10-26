@@ -34,7 +34,7 @@ type Member struct {
 	PrivateKey              string `json:"privateKey,omitempty"`
 	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
 	ExposedFireflyAdminPort int    `json:"exposedFireflyAdminPort,omitempty"`
-	ExposedEthconnectPort   int    `json:"exposedEthconnectPort,omitempty"`
+	ExposedConnectorPort    int    `json:"exposedConnectorPort,omitempty"`
 	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
 	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
 	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`

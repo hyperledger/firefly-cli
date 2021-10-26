@@ -138,19 +138,25 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig {
-	return &core.BlockchainConfig{
+func (p *FabricProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	orgConfig = &core.OrgConfig{
+		Name:     m.OrgName,
+		Identity: m.OrgName,
+	}
+
+	blockchainConfig = &core.BlockchainConfig{
 		Type: "fabric",
 		Fabric: &core.FabricConfig{
 			Fabconnect: &core.FabconnectConfig{
 				URL:       p.getFabconnectUrl(m),
 				Chaincode: "firefly",
 				Channel:   "firefly",
-				Signer:    m.Address,
+				Signer:    m.OrgName,
 				Topic:     m.ID,
 			},
 		},
 	}
+	return
 }
 
 func (p *FabricProvider) Reset() error {
@@ -172,7 +178,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 					"fabric_peer":    {"condition": "service_started"},
 					"fabric_orderer": {"condition": "service_started"},
 				},
-				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedEthconnectPort)},
+				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedConnectorPort)},
 				Volumes: []string{
 					fmt.Sprintf("fabconnect_receipts_%s:/fabconnect/receipts", member.ID),
 					fmt.Sprintf("fabconnect_events_%s:/fabconnect/events", member.ID),
@@ -196,7 +202,7 @@ func (p *FabricProvider) getFabconnectUrl(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("http://fabconnect_%s:3000", member.ID)
 	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	}
 }
 
@@ -284,11 +290,11 @@ func (p *FabricProvider) commitChaincode() error {
 func (p *FabricProvider) registerIdentities() error {
 	p.Log.Info("registering identities")
 	for _, m := range p.Stack.Members {
-		res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedEthconnectPort), m.Address)
+		res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedConnectorPort), m.OrgName)
 		if err != nil {
 			return err
 		}
-		_, err = fabconnect.EnrollIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedEthconnectPort), m.Address, res.Secret)
+		_, err = fabconnect.EnrollIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedConnectorPort), m.OrgName, res.Secret)
 		if err != nil {
 			return err
 		}

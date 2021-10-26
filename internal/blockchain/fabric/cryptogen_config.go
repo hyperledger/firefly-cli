@@ -78,9 +78,9 @@ func WriteCryptogenConfig(memberCount int, path string) error {
 				CA: &CA{
 					Hostname:           "fabric_ca",
 					Country:            "US",
-					Province:           "California",
-					Locality:           "San Francisco",
-					OrganizationalUnit: "Hyperledger Fabric",
+					Province:           "North Carolina",
+					Locality:           "Raleigh",
+					OrganizationalUnit: "Hyperledger FireFly",
 				},
 				Template: &Template{
 					Count:    1,

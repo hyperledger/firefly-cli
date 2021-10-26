@@ -178,10 +178,6 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		Node: &NodeConfig{
 			Name: member.NodeName,
 		},
-		Org: &OrgConfig{
-			Name:     member.OrgName,
-			Identity: member.Address,
-		},
 		P2PFS: &PublicStorageConfig{
 			Type: "ipfs",
 			IPFS: &FireflyIPFSConfig{

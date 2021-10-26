@@ -92,7 +92,7 @@ func ExtractContracts(stackName string, containerName string, dirName string, ve
 }
 
 func DeployContract(member *types.Member, contract *types.Contract, name string, args map[string]string) (string, error) {
-	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := ethconnect.PublishABI(ethconnectUrl, contract)
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func DeployContract(member *types.Member, contract *types.Contract, name string,
 }
 
 func RegisterContract(member *types.Member, contract *types.Contract, contractAddress string, name string, args map[string]string) error {
-	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedEthconnectPort)
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := ethconnect.PublishABI(ethconnectUrl, contract)
 	if err != nil {
 		return err

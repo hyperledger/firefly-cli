@@ -275,7 +275,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
-		config.Blockchain = s.blockchainProvider.GetFireflyConfig(member)
+		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(member)
 		config.Tokens = s.tokensProvider.GetFireflyConfig(member)
 		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
 			return err
@@ -344,7 +344,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		PrivateKey:              encodedPrivateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
 		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
-		ExposedEthconnectPort:   serviceBase + 2,
+		ExposedConnectorPort:    serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
 		ExposedPostgresPort:     serviceBase + 4,
 		ExposedDataexchangePort: serviceBase + 5,
@@ -478,7 +478,7 @@ func (s *StackManager) checkPortsAvailable() error {
 	ports[0] = s.Stack.ExposedBlockchainPort
 	for _, member := range s.Stack.Members {
 		ports = append(ports, member.ExposedDataexchangePort)
-		ports = append(ports, member.ExposedEthconnectPort)
+		ports = append(ports, member.ExposedConnectorPort)
 		if !member.External {
 			ports = append(ports, member.ExposedFireflyAdminPort)
 			ports = append(ports, member.ExposedFireflyPort)
