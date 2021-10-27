@@ -51,7 +51,7 @@ Pull the images for a stack .
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 		if spin != nil {

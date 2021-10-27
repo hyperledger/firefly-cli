@@ -59,6 +59,10 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *BesuProvider) GetFireflyConfig(m *types.Member) *core.BlockchainConfig {
-	return &core.BlockchainConfig{}
+func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	return
+}
+
+func (p *BesuProvider) Reset() error {
+	return nil
 }

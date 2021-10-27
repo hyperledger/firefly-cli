@@ -75,13 +75,27 @@ type EthconnectConfig struct {
 	Auth                *BasicAuth `yaml:"auth,omitempty"`
 }
 
+type FabconnectConfig struct {
+	URL                 string `yaml:"url,omitempty"`
+	Channel             string `yaml:"channel,omitempty"`
+	Chaincode           string `yaml:"chaincode,omitempty"`
+	Topic               string `yaml:"topic,omitempty"`
+	Signer              string `yaml:"signer,omitempty"`
+	SkipEventStreamInit bool   `yaml:"skipEventstreamInit,omitempty"`
+}
+
 type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
+}
+
+type FabricConfig struct {
+	Fabconnect *FabconnectConfig `yaml:"fabconnect,omitempty"`
 }
 
 type BlockchainConfig struct {
 	Type     string          `yaml:"type,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
+	Fabric   *FabricConfig   `yaml:"fabric,omitempty"`
 }
 
 type DataExchangeConfig struct {
@@ -163,10 +177,6 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		},
 		Node: &NodeConfig{
 			Name: member.NodeName,
-		},
-		Org: &OrgConfig{
-			Name:     member.OrgName,
-			Identity: member.Address,
 		},
 		P2PFS: &PublicStorageConfig{
 			Type: "ipfs",

@@ -53,6 +53,7 @@ type Service struct {
 	DependsOn     map[string]map[string]string `yaml:"depends_on,omitempty"`
 	HealthCheck   *HealthCheck                 `yaml:"healthcheck,omitempty"`
 	Logging       *LoggingConfig               `yaml:"logging,omitempty"`
+	WorkingDir    string                       `yaml:"working_dir,omitempty"`
 }
 
 type DockerComposeConfig struct {

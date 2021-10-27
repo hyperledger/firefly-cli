@@ -14,21 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package blockchain
+package fabric
 
-import (
-	"github.com/hyperledger/firefly-cli/internal/core"
-	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/pkg/types"
-)
+type QueryInstalledResponse struct {
+	InstalledChaincodes []*InstalledChaincode `json:"installed_chaincodes"`
+}
 
-type IBlockchainProvider interface {
-	WriteConfig() error
-	FirstTimeSetup() error
-	DeploySmartContracts() error
-	PreStart() error
-	PostStart() error
-	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, coreConfig *core.OrgConfig)
-	Reset() error
+type InstalledChaincode struct {
+	PackageID string `json:"package_id,omitempty"`
+	Label     string `json:"label,omitempty"`
 }

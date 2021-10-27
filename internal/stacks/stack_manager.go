@@ -17,7 +17,6 @@
 package stacks
 
 import (
-	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -36,6 +35,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -190,7 +190,7 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
-func (s *StackManager) LoadStack(stackName string) error {
+func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	exists, err := CheckExists(stackName)
 	if err != nil {
 		return err
@@ -207,8 +207,8 @@ func (s *StackManager) LoadStack(stackName string) error {
 			fmt.Printf("done\n")
 		}
 		s.Stack = stack
-		s.blockchainProvider = s.getBlockchainProvider(false)
-		s.tokensProvider = s.getTokensProvider(false)
+		s.blockchainProvider = s.getBlockchainProvider(verbose)
+		s.tokensProvider = s.getTokensProvider(verbose)
 	}
 	// For backwards compatability, add a "default" VersionManifest
 	// in memory for stacks that were created with old CLI versions
@@ -275,7 +275,7 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
-		config.Blockchain = s.blockchainProvider.GetFireflyConfig(member)
+		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(member)
 		config.Tokens = s.tokensProvider.GetFireflyConfig(member)
 		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
 			return err
@@ -344,7 +344,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		PrivateKey:              encodedPrivateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
 		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
-		ExposedEthconnectPort:   serviceBase + 2,
+		ExposedConnectorPort:    serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
 		ExposedPostgresPort:     serviceBase + 4,
 		ExposedDataexchangePort: serviceBase + 5,
@@ -459,6 +459,9 @@ func (s *StackManager) ResetStack(verbose bool) error {
 	if err := os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name, "data")); err != nil {
 		return err
 	}
+	if err := s.blockchainProvider.Reset(); err != nil {
+		return err
+	}
 	s.removeVolumes(verbose)
 	return s.ensureDirectories()
 }
@@ -475,7 +478,7 @@ func (s *StackManager) checkPortsAvailable() error {
 	ports[0] = s.Stack.ExposedBlockchainPort
 	for _, member := range s.Stack.Members {
 		ports = append(ports, member.ExposedDataexchangePort)
-		ports = append(ports, member.ExposedEthconnectPort)
+		ports = append(ports, member.ExposedConnectorPort)
 		if !member.External {
 			ports = append(ports, member.ExposedFireflyAdminPort)
 			ports = append(ports, member.ExposedFireflyPort)
@@ -688,6 +691,12 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 		}
 	case HyperledgerBesu.String():
 		return &besu.BesuProvider{
+			Verbose: verbose,
+			Log:     s.Log,
+			Stack:   s.Stack,
+		}
+	case HyperledgerFabric.String():
+		return &fabric.FabricProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,

@@ -44,7 +44,7 @@ var stopCmd = &cobra.Command{
 			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		if err := stackManager.LoadStack(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 
