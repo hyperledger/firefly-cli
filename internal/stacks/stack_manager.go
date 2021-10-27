@@ -396,6 +396,10 @@ func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 
 func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+
+	var images []string
+
+	// Collect FireFly docker image names
 	for _, entry := range s.Stack.VersionManifest.Entries() {
 		if entry.Local {
 			continue
@@ -404,8 +408,31 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 		if entry.SHA == "" {
 			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
 		}
-		s.Log.Info(fmt.Sprintf("pulling '%s", fullImage))
-		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", fullImage); err != nil {
+		images = append(images, fullImage)
+	}
+
+	// IPFS is the only one that we always use in every stack
+	images = append(images, constants.IPFSImageName)
+
+	// Also pull postgres if we're using it
+	if s.Stack.Database == PostgreSQL.String() {
+		images = append(images, constants.PostgresImageName)
+	}
+
+	// Iterate over all images used by the blockchain provider
+	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
+		images = append(images, service.Service.Image)
+	}
+
+	// Iterate over all images used by the tokens provider
+	for _, service := range s.tokensProvider.GetDockerServiceDefinitions() {
+		images = append(images, service.Service.Image)
+	}
+
+	// Use docker to pull every image - retry on failure
+	for _, image := range images {
+		s.Log.Info(fmt.Sprintf("pulling '%s", image))
+		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", image); err != nil {
 			return err
 		}
 	}
