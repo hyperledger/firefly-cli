@@ -19,6 +19,7 @@ package docker
 import (
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
@@ -101,7 +102,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
-				Image:         "postgres",
+				Image:         constants.PostgresImageName,
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 				Environment: map[string]string{
@@ -126,7 +127,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		}
 
 		compose.Services["ipfs_"+member.ID] = &Service{
-			Image:         "ipfs/go-ipfs",
+			Image:         constants.IPFSImageName,
 			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
 			Ports: []string{
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),

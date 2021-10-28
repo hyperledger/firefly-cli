@@ -23,3 +23,6 @@ import (
 
 var homeDir, _ = os.UserHomeDir()
 var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
+
+var IPFSImageName = "ipfs/go-ipfs"
+var PostgresImageName = "postgres"
