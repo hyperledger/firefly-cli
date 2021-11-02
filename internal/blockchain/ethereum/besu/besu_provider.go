@@ -167,9 +167,6 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 			EntryPoint: []string{"/config/bootnode_def.sh"},
 			Networks: &docker.Network{
-				// NetworkName: &docker.IPMapping{
-				// 	IPAddress: "172.16.239.11",
-				// },
 				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
 					IPAddress: "172.16.239.11",
 				},
