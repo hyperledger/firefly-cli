@@ -62,9 +62,6 @@ type Service struct {
 	Networks      *Network                     `yaml:"networks,omitempty"`
 }
 
-// type Network struct {
-// 	NetworkName *IPMapping `yaml:"ff-on-besu,omitempty"`
-// }
 type Network map[string]*IPMapping
 
 type IPMapping struct {
@@ -176,10 +173,10 @@ func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerCompo
 		}
 		return compose
 	} else if blockchainProvider == "besu" {
-		netId0 := 45
-		netId1 := 65
-		netId2 := 85
-		netId3 := 105
+		netId0 := constants.NetID
+		netId1 := netId0 + len(s.Members)
+		netId2 := netId1 + len(s.Members)
+		netId3 := netId2 + len(s.Members)
 		for i, member := range s.Members {
 			if !member.External {
 				compose.Services["firefly_core_"+member.ID] = &Service{
@@ -195,7 +192,8 @@ func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerCompo
 					},
 					Logging: StandardLogOptions,
 					Networks: &Network{
-						fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId0+i)},
+						fmt.Sprintf("%s_default", s.Name): &IPMapping{
+							IPAddress: fmt.Sprintf("172.16.239.%v", netId0+i)},
 					},
 				}
 				compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
@@ -218,7 +216,8 @@ func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerCompo
 					},
 					Logging: StandardLogOptions,
 					Networks: &Network{
-						fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId1+i)},
+						fmt.Sprintf("%s_default", s.Name): &IPMapping{
+							IPAddress: fmt.Sprintf("172.16.239.%v", netId1+i)},
 					},
 				}
 				compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
@@ -243,7 +242,8 @@ func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerCompo
 				},
 				Logging: StandardLogOptions,
 				Networks: &Network{
-					fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId2+i)},
+					fmt.Sprintf("%s_default", s.Name): &IPMapping{
+						IPAddress: fmt.Sprintf("172.16.239.%v", netId2+i)},
 				},
 			}
 			compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
@@ -255,7 +255,8 @@ func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerCompo
 				Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 				Logging:       StandardLogOptions,
 				Networks: &Network{
-					fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId3+i)},
+					fmt.Sprintf("%s_default", s.Name): &IPMapping{
+						IPAddress: fmt.Sprintf("172.16.239.%v", netId3+i)},
 				},
 			}
 			compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}

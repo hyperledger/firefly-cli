@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -49,7 +50,7 @@ func (p *ERC1155Provider) FirstTimeSetup() error {
 
 func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
-	netId := 145
+	netId := constants.NetID * 5
 	for i, member := range p.Stack.Members {
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: "tokens_" + member.ID,
