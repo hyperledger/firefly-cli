@@ -146,7 +146,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
 	}
-	compose := docker.CreateDockerCompose(s.Stack)
+	compose := docker.CreateDockerCompose(s.Stack, s.Stack.BlockchainProvider)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
 	extraServices = append(extraServices, s.tokensProvider.GetDockerServiceDefinitions()...)
 
@@ -447,7 +447,7 @@ func (s *StackManager) removeVolumes(verbose bool) {
 	for _, service := range s.tokensProvider.GetDockerServiceDefinitions() {
 		volumes = append(volumes, service.VolumeNames...)
 	}
-	for volumeName := range docker.CreateDockerCompose(s.Stack).Volumes {
+	for volumeName := range docker.CreateDockerCompose(s.Stack, s.Stack.BlockchainProvider).Volumes {
 		volumes = append(volumes, volumeName)
 	}
 	for _, volumeName := range volumes {

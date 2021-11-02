@@ -55,12 +55,37 @@ type Service struct {
 	HealthCheck   *HealthCheck                 `yaml:"healthcheck,omitempty"`
 	Logging       *LoggingConfig               `yaml:"logging,omitempty"`
 	WorkingDir    string                       `yaml:"working_dir,omitempty"`
+	EntryPoint    []string                     `yaml:"entrypoint,omitempty"`
+	Restart       string                       `yaml:"restart,omitempty"`
+	EnvFile       string                       `yaml:"env_file,omitempty"`
+	Expose        []int                        `yaml:"expose,omitempty"`
+	Networks      *Network                     `yaml:"networks,omitempty"`
+}
+
+// type Network struct {
+// 	NetworkName *IPMapping `yaml:"ff-on-besu,omitempty"`
+// }
+type Network map[string]*IPMapping
+
+type IPMapping struct {
+	IPAddress string `yaml:"ipv4_address,omitempty"`
+	Driver    string `yaml:"driver,omitempty"`
+	IPAM      *ipam  `yaml:"ipam,omitempty"`
+}
+
+type ipam struct {
+	Config []*Subnet `yaml:"config,omitempty"`
+}
+
+type Subnet struct {
+	SubNet string `yaml:"subnet,omitempty"`
 }
 
 type DockerComposeConfig struct {
 	Version  string              `yaml:"version,omitempty"`
 	Services map[string]*Service `yaml:"services,omitempty"`
 	Volumes  map[string]struct{} `yaml:"volumes,omitempty"`
+	Networks *Network            `yaml:"networks,omitempty"`
 }
 
 var StandardLogOptions = &LoggingConfig{
@@ -71,93 +96,185 @@ var StandardLogOptions = &LoggingConfig{
 	},
 }
 
-func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
+func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}
+	if blockchainProvider == "geth" {
+		for _, member := range s.Members {
 
-	for _, member := range s.Members {
+			// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
 
-		// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
-
-		if !member.External {
-			compose.Services["firefly_core_"+member.ID] = &Service{
-				Image:         s.VersionManifest.FireFly.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
+			if !member.External {
+				compose.Services["firefly_core_"+member.ID] = &Service{
+					Image:         s.VersionManifest.FireFly.GetDockerImageString(),
+					ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
+					Ports: []string{
+						fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+						fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+					},
+					Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+					DependsOn: map[string]map[string]string{
+						"dataexchange_" + member.ID: {"condition": "service_started"},
+					},
+					Logging: StandardLogOptions,
+				}
+				compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
+			}
+			if s.Database == "postgres" {
+				compose.Services["postgres_"+member.ID] = &Service{
+					Image:         constants.PostgresImageName,
+					ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
+					Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
+					Environment: map[string]string{
+						"POSTGRES_PASSWORD": "f1refly",
+						"PGDATA":            "/var/lib/postgresql/data/pgdata",
+					},
+					Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
+					HealthCheck: &HealthCheck{
+						Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
+						Interval: "5s",
+						Timeout:  "3s",
+						Retries:  12,
+					},
+					Logging: StandardLogOptions,
+				}
+				compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
+				if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
+					service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
+				}
+			}
+			compose.Services["ipfs_"+member.ID] = &Service{
+				Image:         constants.IPFSImageName,
+				ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
 				Ports: []string{
-					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
-					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+					fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
+					fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
 				},
-				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
-				DependsOn: map[string]map[string]string{
-					"dataexchange_" + member.ID: {"condition": "service_started"},
-				},
-				Logging: StandardLogOptions,
-			}
-
-			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
-		}
-
-		if s.Database == "postgres" {
-			compose.Services["postgres_"+member.ID] = &Service{
-				Image:         constants.PostgresImageName,
-				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
-				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
 				Environment: map[string]string{
-					"POSTGRES_PASSWORD": "f1refly",
-					"PGDATA":            "/var/lib/postgresql/data/pgdata",
+					"IPFS_SWARM_KEY":    s.SwarmKey,
+					"LIBP2P_FORCE_PNET": "1",
 				},
-				Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
-				HealthCheck: &HealthCheck{
-					Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
-					Interval: "5s",
-					Timeout:  "3s",
-					Retries:  12,
+				Volumes: []string{
+					fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
+					fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
 				},
 				Logging: StandardLogOptions,
 			}
-
-			compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
-
-			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
-				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
+			compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
+			compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
+			compose.Services["dataexchange_"+member.ID] = &Service{
+				Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
+				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
+				Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
+				Logging:       StandardLogOptions,
 			}
+			compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 		}
-
-		compose.Services["ipfs_"+member.ID] = &Service{
-			Image:         constants.IPFSImageName,
-			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
-			Ports: []string{
-				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
-				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
-			},
-			Environment: map[string]string{
-				"IPFS_SWARM_KEY":    s.SwarmKey,
-				"LIBP2P_FORCE_PNET": "1",
-			},
-			Volumes: []string{
-				fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
-				fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
-			},
-			Logging: StandardLogOptions,
+		return compose
+	} else if blockchainProvider == "besu" {
+		netId0 := 45
+		netId1 := 65
+		netId2 := 85
+		netId3 := 105
+		for i, member := range s.Members {
+			if !member.External {
+				compose.Services["firefly_core_"+member.ID] = &Service{
+					Image:         s.VersionManifest.FireFly.GetDockerImageString(),
+					ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
+					Ports: []string{
+						fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
+						fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+					},
+					Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+					DependsOn: map[string]map[string]string{
+						"dataexchange_" + member.ID: {"condition": "service_started"},
+					},
+					Logging: StandardLogOptions,
+					Networks: &Network{
+						fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId0+i)},
+					},
+				}
+				compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
+			}
+			if s.Database == "postgres" {
+				compose.Services["postgres_"+member.ID] = &Service{
+					Image:         constants.PostgresImageName,
+					ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
+					Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
+					Environment: map[string]string{
+						"POSTGRES_PASSWORD": "f1refly",
+						"PGDATA":            "/var/lib/postgresql/data/pgdata",
+					},
+					Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
+					HealthCheck: &HealthCheck{
+						Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
+						Interval: "5s",
+						Timeout:  "3s",
+						Retries:  12,
+					},
+					Logging: StandardLogOptions,
+					Networks: &Network{
+						fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId1+i)},
+					},
+				}
+				compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
+				if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
+					service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
+				}
+			}
+			compose.Services["ipfs_"+member.ID] = &Service{
+				Image:         constants.IPFSImageName,
+				ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
+				Ports: []string{
+					fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
+					fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
+				},
+				Environment: map[string]string{
+					"IPFS_SWARM_KEY":    s.SwarmKey,
+					"LIBP2P_FORCE_PNET": "1",
+				},
+				Volumes: []string{
+					fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
+					fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
+				},
+				Logging: StandardLogOptions,
+				Networks: &Network{
+					fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId2+i)},
+				},
+			}
+			compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
+			compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
+			compose.Services["dataexchange_"+member.ID] = &Service{
+				Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
+				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
+				Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
+				Logging:       StandardLogOptions,
+				Networks: &Network{
+					fmt.Sprintf("%s_default", s.Name): &IPMapping{IPAddress: fmt.Sprintf("172.16.239.%v", netId3+i)},
+				},
+			}
+			compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 		}
-
-		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
-		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
-
-		compose.Services["dataexchange_"+member.ID] = &Service{
-			Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
-			ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
-			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
-			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
-			Logging:       StandardLogOptions,
+		compose.Volumes["public-keys"] = struct{}{}
+		num := 1
+		for num <= 3 {
+			compose.Volumes["member"+fmt.Sprint(num)+"tessera"] = struct{}{}
+			num = num + 1
 		}
-
-		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
-
+		compose.Networks = &Network{
+			fmt.Sprintf("%s_default", s.Name): &IPMapping{
+				Driver: "bridge",
+				IPAM: &ipam{
+					Config: []*Subnet{{SubNet: "172.16.239.0/24"}},
+				},
+			},
+		}
+		return compose
 	}
-
-	return compose
+	return nil
 }
