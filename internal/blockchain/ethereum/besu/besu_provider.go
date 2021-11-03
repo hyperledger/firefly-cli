@@ -17,6 +17,7 @@
 package besu
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -59,40 +60,255 @@ func NewBesuClient(rpcUrl string) *BesuClient {
 func (p *BesuProvider) WriteConfig() error {
 
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
-	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir}, elem...)...) }
+	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir, "config"}, elem...)...) }
+	if err := os.Mkdir(GetPath("besu"), 0755); err != nil {
+		return err
+	}
+	if err := os.Mkdir(GetPath("besu", "networkFiles"), 0755); err != nil {
+		return err
+	}
+	member_directories := []string{"member1", "member2", "member3", "rpcnode", "validator1", "validator2", "validator3", "validator4"}
+	for _, file := range member_directories {
+		if err := os.Mkdir(GetPath("besu", "networkFiles", file), 0755); err != nil {
+			return err
+		}
+		if err := os.Mkdir(GetPath("besu", "networkFiles", file, "keys"), 0755); err != nil {
+			return err
+		}
+	}
+	//go:embed besuConfig/besu/networkFiles/member1/keys/key.pub
+	var mem1key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key.pub"), mem1key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/member1/keys/key
+	var mem1key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key"), mem1key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/member2/keys/key.pub
+	var mem2key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member2", "keys", "key.pub"), mem2key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/member2/keys/key
+	var mem2key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key"), mem2key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/member3/keys/key.pub
+	var mem3key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member3", "keys", "key.pub"), mem3key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/member3/keys/key
+	var mem3key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member3", "keys", "key"), mem3key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator1/keys/key.pub
+	var val1key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator1", "keys", "key.pub"), val1key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator1/keys/key
+	var val1key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator1", "keys", "key"), val1key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator2/keys/key.pub
+	var val2key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator2", "keys", "key.pub"), val2key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator2/keys/key
+	var val2key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator2", "keys", "key"), val2key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator3/keys/key.pub
+	var val3key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator3", "keys", "key.pub"), val3key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator3/keys/key
+	var val3key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator3", "keys", "key"), val3key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator4/keys/key.pub
+	var val4key_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator4", "keys", "key.pub"), val4key_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/validator4/keys/key
+	var val4key_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator4", "keys", "keyb"), val4key_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/rpcnode/keys/key.pub
+	var rpckey_pub []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "rpcnode", "keys", "key.pub"), rpckey_pub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/networkFiles/rpcnode/keys/key
+	var rpckey_priv []byte
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "rpcnode", "keys", "key"), rpckey_priv, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/.env
+	var besu_env []byte
+	if err := ioutil.WriteFile(GetPath("besu", ".env"), besu_env, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/config.toml
+	var besu_config []byte
+	if err := ioutil.WriteFile(GetPath("besu", "config.toml"), besu_config, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/permissions_config.toml
+	var besu_perm_config []byte
+	if err := ioutil.WriteFile(GetPath("besu", "permissions_config.toml"), besu_perm_config, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/static-nodes.json
+	var static_nodes []byte
+	if err := ioutil.WriteFile(GetPath("besu", "static-nodes.json"), static_nodes, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/log-config-splunk.xml
+	var log_config_splunk []byte
+	if err := ioutil.WriteFile(GetPath("besu", "log-config-splunk.xml"), log_config_splunk, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu/log-config.xml
+	var log_config []byte
+	if err := ioutil.WriteFile(GetPath("besu", "log-config.xml"), log_config, 0755); err != nil {
+		return err
+	}
+	if err := os.Mkdir(GetPath("EthConnect"), 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/EthConnect/eth_connect.sh
+	var eth_connect_sh []byte
+	if err := ioutil.WriteFile(GetPath("EthConnect", "eth_connect.sh"), eth_connect_sh, 0755); err != nil {
+		return err
+	}
+	if err := os.Mkdir(GetPath("ethsigner"), 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/ethsigner/createKeyFile.js
+	var createKeyFile []byte
+	if err := ioutil.WriteFile(GetPath("ethsigner", "createKeyFile.js"), createKeyFile, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/ethsigner/ethsigner.sh
+	var ethsigner_sh []byte
+	if err := ioutil.WriteFile(GetPath("ethsigner", "ethsigner.sh"), ethsigner_sh, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/ethsigner/Nodejs.sh
+	var nodejs_sh []byte
+	if err := ioutil.WriteFile(GetPath("ethsigner", "Nodejs.sh"), nodejs_sh, 0755); err != nil {
+		return err
+	}
+	if err := os.Mkdir(GetPath("tessera"), 0755); err != nil {
+		return err
+	}
+	if err := os.Mkdir(GetPath("tessera", "networkFiles"), 0755); err != nil {
+		return err
+	}
+	tessera_members := []string{"member1", "member2", "member3"}
+	for _, member := range tessera_members {
+		if err := os.Mkdir(GetPath("tessera", "networkFiles", member), 0755); err != nil {
+			return err
+		}
+	}
+	//go:embed besuConfig/tessera/networkFiles/member1/tm.key
+	var tessera_mem1_tmkey []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member1", "tm.key"), tessera_mem1_tmkey, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera/networkFiles/member1/tm.pub
+	var tessera_mem1_tmpub []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member1", "tm.pub"), tessera_mem1_tmpub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera/networkFiles/member2/tm.key
+	var tessera_mem2_tmkey []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member2", "tm.key"), tessera_mem2_tmkey, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera/networkFiles/member2/tm.pub
+	var tessera_mem2_tmpub []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member2", "tm.pub"), tessera_mem2_tmpub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera/networkFiles/member3/tm.key
+	var tessera_mem3_tmkey []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member3", "tm.key"), tessera_mem3_tmkey, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera/networkFiles/member3/tm.pub
+	var tessera_mem3_tmpub []byte
+	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member3", "tm.pub"), tessera_mem3_tmpub, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu_mem1_def.sh
+	var mem1_entrypt_sh []byte
+	if err := ioutil.WriteFile(GetPath("besu_mem1_def.sh"), mem1_entrypt_sh, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu_mem2_def.sh
+	var mem2_entrypt_sh []byte
+	if err := ioutil.WriteFile(GetPath("besu_mem2_def.sh"), mem2_entrypt_sh, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/besu_mem3_def.sh
+	var mem3_entrypt_sh []byte
+	if err := ioutil.WriteFile(GetPath("besu_mem3_def.sh"), mem3_entrypt_sh, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/bootnode_def.sh
+	var bootnode_def []byte
+	if err := ioutil.WriteFile(GetPath("bootnode_def.sh"), bootnode_def, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/validator_node_def.sh
+	var validator_def []byte
+	if err := ioutil.WriteFile(GetPath("validator_node_def.sh"), validator_def, 0755); err != nil {
+		return err
+	}
+	//go:embed besuConfig/tessera_def.sh
+	var tessera_def []byte
+	if err := ioutil.WriteFile(GetPath("tessera_def.sh"), tessera_def, 0755); err != nil {
+		return err
+	}
 
-	source, err := filepath.Abs("internal/blockchain/ethereum/besu/besuConfig")
-	if err != nil {
-		return err
-	}
-	if err := CopyDir(source, GetPath("config")); err != nil {
-		return err
-	}
-	// try to make a simplified version by reusing code snippets if possible
 	file_names := []string{"accounts", "SignerConfig"}
 	for _, file := range file_names {
-		if err := os.Mkdir(GetPath("config", "ethsigner", file), 0755); err != nil {
+		if err := os.Mkdir(GetPath("ethsigner", file), 0755); err != nil {
 			return err
 		}
 	}
 
 	addresses := make([]string, len(p.Stack.Members))
-	if err := os.Mkdir(GetPath("config", "ethsigner", "PassFile"), 0755); err != nil {
+	if err := os.Mkdir(GetPath("ethsigner", "PassFile"), 0755); err != nil {
 		return err
 	}
 	for i, member := range p.Stack.Members {
 		addresses[i] = member.Address[2:]
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := os.Mkdir(GetPath("config", "ethsigner", "accounts", member.ID), 0755); err != nil {
+		if err := os.Mkdir(GetPath("ethsigner", "accounts", member.ID), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "accounts", member.ID, "privateKey"), []byte(member.PrivateKey), 0755); err != nil {
+		if err := ioutil.WriteFile(GetPath("ethsigner", "accounts", member.ID, "privateKey"), []byte(member.PrivateKey), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "accounts", member.ID, "address"), []byte(member.Address[2:]), 0755); err != nil {
+		if err := ioutil.WriteFile(GetPath("ethsigner", "accounts", member.ID, "address"), []byte(member.Address[2:]), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "SignerConfig", fmt.Sprintf("%s.toml", member.Address[2:])), []byte(fmt.Sprintf(
+		if err := ioutil.WriteFile(GetPath("ethsigner", "SignerConfig", fmt.Sprintf("%s.toml", member.Address[2:])), []byte(fmt.Sprintf(
 			`[metadata]
 description = "File based configuration"
 [signing]
@@ -103,14 +319,14 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 		}
 	}
 
-	if err := ioutil.WriteFile(GetPath("config", "ethsigner", "PassFile", "passwordFile"), []byte(`SomeSüper$trÖngPäs$worD!`), 0755); err != nil {
+	if err := ioutil.WriteFile(GetPath("ethsigner", "PassFile", "passwordFile"), []byte(`SomeSüper$trÖngPäs$worD!`), 0755); err != nil {
 		return err
 	}
 
 	// Create genesis.json
 	genesis := ethereum.CreateIBFTGenesis(addresses)
 
-	if err := genesis.WriteIBFTGenesisJson(GetPath("config", "besu", "ibft2Genesis.json")); err != nil {
+	if err := genesis.WriteIBFTGenesisJson(GetPath("besu", "ibft2Genesis.json")); err != nil {
 		return err
 	}
 
