@@ -61,7 +61,7 @@ func (p *BesuProvider) WriteConfig() error {
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
 	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir}, elem...)...) }
 
-	source, err := filepath.Abs("internal/blockchain/ethereum/besu/besuConfig")
+	source, err := filepath.Abs("internal/blockchain/ethereum/besu/besuCliqueConfig")
 	if err != nil {
 		return err
 	}
@@ -108,9 +108,9 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 	}
 
 	// Create genesis.json
-	genesis := ethereum.CreateIBFTGenesis(addresses)
+	genesis := ethereum.CreateBesuCliqueGenesis(addresses)
 
-	if err := genesis.WriteIBFTGenesisJson(GetPath("config", "besu", "ibft2Genesis.json")); err != nil {
+	if err := genesis.WriteBesuCliqueGenesisJson(GetPath("config", "besu", "CliqueGenesis.json")); err != nil {
 		return err
 	}
 
@@ -149,8 +149,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 
 	ethConnectConfig := filepath.Join(constants.StacksDir, p.Stack.Name, "config", "EthConnect")
 
-	serviceDefinitions := make([]*docker.ServiceDefinition, 12)
-
+	serviceDefinitions := make([]*docker.ServiceDefinition, 5)
+	// Define bootNode validator container
 	serviceDefinitions[0] = &docker.ServiceDefinition{
 		ServiceName: "validator1",
 		Service: &docker.Service{
@@ -173,78 +173,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 		},
 	}
+	// RPC Node Definition, this container is the JSON-RPC endpoint for Besu
 	serviceDefinitions[1] = &docker.ServiceDefinition{
-		ServiceName: "validator2",
-		Service: &docker.Service{
-			Restart: "on-failure",
-			Image:   "hyperledger/besu:latest",
-			EnvFile: "./config/besu/.env",
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=validator2,service.version=${BESU_VERSION:-latest}",
-			},
-			Volumes: []string{"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/validator2/keys:/opt/besu/keys",
-			},
-			EntryPoint: []string{"/config/validator_node_def.sh"},
-			DependsOn:  map[string]map[string]string{"validator1": {"condition": "service_started"}},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.12",
-				},
-			},
-		},
-	}
-	serviceDefinitions[2] = &docker.ServiceDefinition{
-		ServiceName: "validator3",
-		Service: &docker.Service{
-			Restart: "on-failure",
-			Image:   "hyperledger/besu:latest",
-			EnvFile: "./config/besu/.env",
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=validator3,service.version=${BESU_VERSION:-latest}",
-			},
-			Volumes: []string{
-				"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/validator3/keys:/opt/besu/keys",
-			},
-			EntryPoint: []string{"/config/validator_node_def.sh"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.13",
-				},
-			},
-			DependsOn: map[string]map[string]string{"validator1": {"condition": "service_started"}},
-		},
-	}
-	serviceDefinitions[3] = &docker.ServiceDefinition{
-		ServiceName: "validator4",
-		Service: &docker.Service{
-			Restart: "on-failure",
-			Image:   "hyperledger/besu:latest",
-			EnvFile: "./config/besu/.env",
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=validator4,service.version=${BESU_VERSION:-latest}",
-			},
-			Volumes: []string{
-				"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/validator4/keys:/opt/besu/keys",
-			},
-			EntryPoint: []string{"/config/validator_node_def.sh"},
-			DependsOn:  map[string]map[string]string{"validator1": {"condition": "service_started"}},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.14",
-				},
-			},
-		},
-	}
-	serviceDefinitions[4] = &docker.ServiceDefinition{
 		ServiceName: "rpcnode",
 		Service: &docker.Service{
 			Restart: "on-failure",
@@ -275,7 +205,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 		},
 	}
-	serviceDefinitions[5] = &docker.ServiceDefinition{
+	// Tessera Container for enabling Private Transaction Support
+	serviceDefinitions[2] = &docker.ServiceDefinition{
 		ServiceName: "member1tessera",
 		Service: &docker.Service{
 			Image:   "quorumengineering/tessera:21.7.0",
@@ -303,7 +234,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 		},
 	}
-	serviceDefinitions[6] = &docker.ServiceDefinition{
+	// Besu Container depends on Tessera
+	serviceDefinitions[3] = &docker.ServiceDefinition{
 		ServiceName: "member1besu",
 		Service: &docker.Service{
 			Image:   "hyperledger/besu:latest",
@@ -327,121 +259,9 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 		},
 	}
-	serviceDefinitions[7] = &docker.ServiceDefinition{
-		ServiceName: "member2tessera",
-		Service: &docker.Service{
-			Image:   "quorumengineering/tessera:21.7.0",
-			Expose:  []int{9000, 9080, 9101},
-			Restart: "no",
-			HealthCheck: &docker.HealthCheck{
-				Test: []string{
-					"CMD", "wget", "--spider", "--proxy", "off", "http://localhost:9000/upcheck"},
-				Interval: "3s",
-				Timeout:  "3s",
-				Retries:  20,
-			},
-			Environment: map[string]string{"TESSERA_CONFIG_TYPE": `"-09"`},
-			Ports:       []string{"9082:9080"},
-			Volumes: []string{
-				"./config:/config",
-				"./config/tessera/networkFiles/member2:/config/keys",
-				"member2tessera:/data",
-				"./logs/tessera:/var/log/tessera/"},
-			EntryPoint: []string{"/config/tessera_def.sh"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.27",
-				},
-			},
-		},
-	}
-	serviceDefinitions[8] = &docker.ServiceDefinition{
-		ServiceName: "member2besu",
-		Service: &docker.Service{
-			Image:   "hyperledger/besu:latest",
-			Restart: "on-failure",
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=member2besu,service.version=${BESU_VERSION:-latest}",
-				"NODE_ID":                  "7",
-			},
-			Volumes: []string{
-				"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/member2/keys:/opt/besu/keys",
-				"./config/tessera/networkFiles/member2/tm.pub:/config/tessera/tm.pub"},
-			EntryPoint: []string{"/config/besu_mem2_def.sh"},
-			DependsOn: map[string]map[string]string{
-				"validator1":     {"condition": "service_started"},
-				"member2tessera": {"condition": "service_started"}},
-			Ports: []string{
-				"20002:8555/tcp",
-				"20003:8556/tcp"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.17",
-				},
-			},
-		},
-	}
-	serviceDefinitions[9] = &docker.ServiceDefinition{
-		ServiceName: "member3tessera",
-		Service: &docker.Service{
-			Image:   "quorumengineering/tessera:21.7.0",
-			Expose:  []int{9000, 9080, 9101},
-			Restart: "no",
-			HealthCheck: &docker.HealthCheck{
-				Test: []string{
-					"CMD", "wget", "--spider", "--proxy", "off", "http://localhost:9000/upcheck"},
-				Interval: "3s",
-				Timeout:  "3s",
-				Retries:  20,
-			},
-			Environment: map[string]string{"TESSERA_CONFIG_TYPE": `"-09"`},
-			Ports:       []string{"9083:9080"},
-			Volumes: []string{
-				"./config:/config",
-				"./config/tessera/networkFiles/member3:/config/keys",
-				"member3tessera:/data",
-				"./logs/tessera:/var/log/tessera/"},
-			EntryPoint: []string{"/config/tessera_def.sh"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.28",
-				},
-			},
-		},
-	}
-	serviceDefinitions[10] = &docker.ServiceDefinition{
-		ServiceName: "member3besu",
-		Service: &docker.Service{
-			Image:   "hyperledger/besu:latest",
-			Restart: "on-failure",
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=member3besu,service.version=${BESU_VERSION:-latest}",
-				"NODE_ID":                  "8",
-			},
-			Volumes: []string{
-				"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/member3/keys:/opt/besu/keys",
-				"./config/tessera/networkFiles/member3/tm.pub:/config/tessera/tm.pub"},
-			EntryPoint: []string{"/config/besu_mem3_def.sh"},
-			DependsOn: map[string]map[string]string{
-				"validator1":     {"condition": "service_started"},
-				"member3tessera": {"condition": "service_started"}},
-			Ports: []string{
-				"20004:8555/tcp",
-				"20005:8556/tcp"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.18",
-				},
-			},
-		},
-	}
-	serviceDefinitions[11] = &docker.ServiceDefinition{
+	// EthSigner Container needs to be defined as,
+	// eth_sendTransaction cannot be used to send Transactions on Besu (Besu only accepts raw Transactions)
+	serviceDefinitions[4] = &docker.ServiceDefinition{
 		ServiceName: "ethsigner",
 		Service: &docker.Service{
 			Image: "consensys/ethsigner:develop",

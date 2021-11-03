@@ -62,6 +62,27 @@ type IBFT2 struct {
 	RequestTimeoutSeconds int `json:"requesttimeoutseconds"`
 }
 
+type CliqueGeneis struct {
+	Config     *BesuCliqueConfig `json:"config"`
+	Nonce      string            `json:"nonce"`
+	Timestamp  string            `json:"timestamp"`
+	ExtraData  string            `json:"extraData"`
+	GasLimit   string            `json:"gasLimit"`
+	Difficulty string            `json:"difficulty"`
+	MixHash    string            `json:"mixHash"`
+	Coinbase   string            `json:"coinbase"`
+	Alloc      map[string]*Alloc `json:"alloc"`
+	Number     string            `json:"number"`
+	GasUsed    string            `json:"gasUsed"`
+	ParentHash string            `json:"parentHash"`
+}
+
+type BesuCliqueConfig struct {
+	ChainId                int           `json:"chainId,omitempty"`
+	ConstantinopleFixBlock int           `json:"constantinoplefixblock"`
+	Clique                 *CliqueConfig `json:"clique"`
+}
+
 type Genesis struct {
 	Config     *GenesisConfig    `json:"config"`
 	Nonce      string            `json:"nonce"`
@@ -92,8 +113,10 @@ type GenesisConfig struct {
 }
 
 type CliqueConfig struct {
-	Period int `json:"period"`
-	Epoch  int `json:"epoch"`
+	Period             int `json:"period,omitempty"`
+	Epoch              int `json:"epoch,omitempty"`
+	EpochLength        int `json:"epochlength,omitempty"`
+	Blockperiodseconds int `json:"blockperiodseconds,omitempty"`
 }
 
 type Alloc struct {
@@ -146,6 +169,47 @@ func CreateGenesisJson(addresses []string) *Genesis {
 }
 
 func (g *Genesis) WriteGenesisJson(filename string) error {
+	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
+	if err := ioutil.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateBesuCliqueGenesis(addresses []string) *CliqueGeneis {
+	alloc := make(map[string]*Alloc)
+
+	for _, address := range addresses {
+		alloc[address] = &Alloc{
+			Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
+		}
+
+	}
+	return &CliqueGeneis{
+		Config: &BesuCliqueConfig{
+			ChainId:                1337,
+			ConstantinopleFixBlock: 0,
+			Clique: &CliqueConfig{
+				Blockperiodseconds: 15,
+				EpochLength:        30000,
+			},
+		},
+		Coinbase:   "0x0000000000000000000000000000000000000000",
+		Difficulty: "0x1",
+		ExtraData:  "0x00000000000000000000000000000000000000000000000000000000000000004592c8e45706cc08b8f44b11e43cba0cfc5892cb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		GasLimit:   "0xffffffff",
+		MixHash:    "0x0000000000000000000000000000000000000000000000000000000000000000",
+		Nonce:      "0x0",
+		Timestamp:  "0x5c51a607",
+		Alloc:      alloc,
+		Number:     "0x0",
+		GasUsed:    "0x0",
+		ParentHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+	}
+
+}
+
+func (g *CliqueGeneis) WriteBesuCliqueGenesisJson(filename string) error {
 	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
 	if err := ioutil.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
 		return err

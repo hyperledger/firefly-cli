@@ -20,7 +20,7 @@ while [ ! -f "/opt/besu/public-keys/bootnode_pubkey" ]; do sleep 5; done ;
 /opt/besu/bin/besu \
 --config-file=/config/besu/config.toml \
 --p2p-host=$ip \
---genesis-file=/config/besu/ibft2Genesis.json \
+--genesis-file=/config/besu/CliqueGenesis.json \
 --node-private-key-file=/opt/besu/keys/key \
 --min-gas-price=0 \
 --privacy-enabled \
