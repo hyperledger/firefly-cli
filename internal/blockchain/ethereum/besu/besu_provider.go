@@ -318,7 +318,7 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 	// Create genesis.json
 	genesis := ethereum.CreateBesuCliqueGenesis(addresses)
 
-	if err := genesis.WriteBesuCliqueGenesisJson(GetPath("config", "besu", "CliqueGenesis.json")); err != nil {
+	if err := genesis.WriteBesuCliqueGenesisJson(GetPath("besu", "CliqueGenesis.json")); err != nil {
 		return err
 	}
 
