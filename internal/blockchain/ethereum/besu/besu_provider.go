@@ -206,7 +206,7 @@ func (p *BesuProvider) WriteConfig() error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key"), mem2key_priv, 0755); err != nil {
+	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member2", "keys", "key"), mem2key_priv, 0755); err != nil {
 		return err
 	}
 
