@@ -181,6 +181,15 @@ func (p *BesuProvider) WriteConfig() error {
 	if err := os.Mkdir(GetPath("besu"), 0755); err != nil {
 		return err
 	}
+	if err := os.Mkdir(filepath.Join(stackDir, "logs"), 0755); err != nil {
+		return err
+	}
+	log_mems := []string{"besu", "tessera"}
+	for _, mems := range log_mems {
+		if err := os.Mkdir(filepath.Join(stackDir, "logs", mems), 0755); err != nil {
+			return err
+		}
+	}
 	if err := os.Mkdir(GetPath("besu", "networkFiles"), 0755); err != nil {
 		return err
 	}
