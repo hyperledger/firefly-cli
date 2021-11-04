@@ -279,28 +279,28 @@ func (p *BesuProvider) WriteConfig() error {
 	// try to make a simplified version by reusing code snippets if possible
 	file_names := []string{"accounts", "SignerConfig"}
 	for _, file := range file_names {
-		if err := os.Mkdir(GetPath("config", "ethsigner", file), 0755); err != nil {
+		if err := os.Mkdir(GetPath("ethsigner", file), 0755); err != nil {
 			return err
 		}
 	}
 
 	addresses := make([]string, len(p.Stack.Members))
-	if err := os.Mkdir(GetPath("config", "ethsigner", "PassFile"), 0755); err != nil {
+	if err := os.Mkdir(GetPath("ethsigner", "PassFile"), 0755); err != nil {
 		return err
 	}
 	for i, member := range p.Stack.Members {
 		addresses[i] = member.Address[2:]
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := os.Mkdir(GetPath("config", "ethsigner", "accounts", member.ID), 0755); err != nil {
+		if err := os.Mkdir(GetPath("ethsigner", "accounts", member.ID), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "accounts", member.ID, "privateKey"), []byte(member.PrivateKey), 0755); err != nil {
+		if err := ioutil.WriteFile(GetPath("ethsigner", "accounts", member.ID, "privateKey"), []byte(member.PrivateKey), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "accounts", member.ID, "address"), []byte(member.Address[2:]), 0755); err != nil {
+		if err := ioutil.WriteFile(GetPath("ethsigner", "accounts", member.ID, "address"), []byte(member.Address[2:]), 0755); err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(GetPath("config", "ethsigner", "SignerConfig", fmt.Sprintf("%s.toml", member.Address[2:])), []byte(fmt.Sprintf(
+		if err := ioutil.WriteFile(GetPath("ethsigner", "SignerConfig", fmt.Sprintf("%s.toml", member.Address[2:])), []byte(fmt.Sprintf(
 			`[metadata]
 description = "File based configuration"
 [signing]
@@ -311,7 +311,7 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 		}
 	}
 
-	if err := ioutil.WriteFile(GetPath("config", "ethsigner", "PassFile", "passwordFile"), []byte(`SomeSüper$trÖngPäs$worD!`), 0755); err != nil {
+	if err := ioutil.WriteFile(GetPath("ethsigner", "PassFile", "passwordFile"), []byte(`SomeSüper$trÖngPäs$worD!`), 0755); err != nil {
 		return err
 	}
 
