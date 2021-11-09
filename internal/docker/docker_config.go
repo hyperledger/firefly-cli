@@ -56,33 +56,14 @@ type Service struct {
 	Logging       *LoggingConfig               `yaml:"logging,omitempty"`
 	WorkingDir    string                       `yaml:"working_dir,omitempty"`
 	EntryPoint    []string                     `yaml:"entrypoint,omitempty"`
-	Restart       string                       `yaml:"restart,omitempty"`
 	EnvFile       string                       `yaml:"env_file,omitempty"`
 	Expose        []int                        `yaml:"expose,omitempty"`
-	Networks      *Network                     `yaml:"networks,omitempty"`
-}
-
-type Network map[string]*IPMapping
-
-type IPMapping struct {
-	IPAddress string `yaml:"ipv4_address,omitempty"`
-	Driver    string `yaml:"driver,omitempty"`
-	IPAM      *ipam  `yaml:"ipam,omitempty"`
-}
-
-type ipam struct {
-	Config []*Subnet `yaml:"config,omitempty"`
-}
-
-type Subnet struct {
-	SubNet string `yaml:"subnet,omitempty"`
 }
 
 type DockerComposeConfig struct {
 	Version  string              `yaml:"version,omitempty"`
 	Services map[string]*Service `yaml:"services,omitempty"`
 	Volumes  map[string]struct{} `yaml:"volumes,omitempty"`
-	Networks *Network            `yaml:"networks,omitempty"`
 }
 
 var StandardLogOptions = &LoggingConfig{
@@ -93,7 +74,7 @@ var StandardLogOptions = &LoggingConfig{
 	},
 }
 
-func CreateDockerCompose(s *types.Stack, blockchainProvider string) *DockerComposeConfig {
+func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
 		Version:  "2.1",
 		Services: make(map[string]*Service),

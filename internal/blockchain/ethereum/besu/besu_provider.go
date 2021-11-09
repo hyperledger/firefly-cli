@@ -31,27 +31,10 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-type BesuClient struct {
-	rpcUrl string
-}
-
 type BesuProvider struct {
 	Verbose bool
 	Log     log.Logger
 	Stack   *types.Stack
-}
-
-type RpcRequest struct {
-	JsonRPC string   `json:"jsonrpc"`
-	ID      int      `json:"id"`
-	Method  string   `json:"method"`
-	Params  []string `json:"params"`
-}
-
-func NewBesuClient(rpcUrl string) *BesuClient {
-	return &BesuClient{
-		rpcUrl: rpcUrl,
-	}
 }
 
 func (p *BesuProvider) WriteConfig() error {
@@ -146,8 +129,6 @@ func (p *BesuProvider) PostStart() error {
 }
 
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-
-	ethConnectConfig := filepath.Join(constants.StacksDir, p.Stack.Name, "config", "EthConnect")
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 5)
 	// Define bootNode validator container
@@ -272,7 +253,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 		},
 		VolumeNames: []string{"ethsigner_keys"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "besu", ethConnectConfig)...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "http://ethsigner:8545")...)
 	return serviceDefinitions
 }
 

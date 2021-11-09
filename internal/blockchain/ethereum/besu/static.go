@@ -61,9 +61,6 @@ var log_config_splunk []byte
 //go:embed besuCliqueConfig/besu/log-config.xml
 var log_config []byte
 
-//go:embed besuCliqueConfig/EthConnect/eth_connect.sh
-var eth_connect_sh []byte
-
 //go:embed besuCliqueConfig/ethsigner/createKeyFile.js
 var createKeyFile []byte
 
@@ -179,9 +176,6 @@ func (p *BesuProvider) writeStaticFiles() error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(GetPath("EthConnect", "eth_connect.sh"), eth_connect_sh, 0755); err != nil {
-		return err
-	}
 	if err := os.Mkdir(GetPath("ethsigner"), 0755); err != nil {
 		return err
 	}
