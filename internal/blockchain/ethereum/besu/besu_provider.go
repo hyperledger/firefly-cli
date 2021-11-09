@@ -17,12 +17,9 @@
 package besu
 
 import (
-	_ "embed"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
@@ -33,84 +30,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
-
-//go:embed besuCliqueConfig/besu/networkFiles/member1/keys/key.pub
-var mem1key_pub []byte
-
-//go:embed besuCliqueConfig/besu/networkFiles/member1/keys/key
-var mem1key_priv []byte
-
-//go:embed besuCliqueConfig/besu/networkFiles/validator1/keys/key.pub
-var val1key_pub []byte
-
-//go:embed besuCliqueConfig/besu/networkFiles/validator1/keys/key
-var val1key_priv []byte
-
-//go:embed besuCliqueConfig/besu/networkFiles/rpcnode/keys/key.pub
-var rpckey_pub []byte
-
-//go:embed besuCliqueConfig/besu/networkFiles/rpcnode/keys/key
-var rpckey_priv []byte
-
-//go:embed besuCliqueConfig/besu/.env
-var besu_env []byte
-
-//go:embed besuCliqueConfig/besu/config.toml
-var besu_config []byte
-
-//go:embed besuCliqueConfig/besu/permissions_config.toml
-var besu_perm_config []byte
-
-//go:embed besuCliqueConfig/besu/static-nodes.json
-var static_nodes []byte
-
-//go:embed besuCliqueConfig/besu/log-config-splunk.xml
-var log_config_splunk []byte
-
-//go:embed besuCliqueConfig/besu/log-config.xml
-var log_config []byte
-
-//go:embed besuCliqueConfig/EthConnect/eth_connect.sh
-var eth_connect_sh []byte
-
-//go:embed besuCliqueConfig/ethsigner/createKeyFile.js
-var createKeyFile []byte
-
-//go:embed besuCliqueConfig/ethsigner/ethsigner.sh
-var ethsigner_sh []byte
-
-//go:embed besuCliqueConfig/ethsigner/Nodejs.sh
-var nodejs_sh []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member1/tm.key
-var tessera_mem1_tmkey []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member1/tm.pub
-var tessera_mem1_tmpub []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member2/tm.key
-var tessera_mem2_tmkey []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member2/tm.pub
-var tessera_mem2_tmpub []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member3/tm.key
-var tessera_mem3_tmkey []byte
-
-//go:embed besuCliqueConfig/tessera/networkFiles/member3/tm.pub
-var tessera_mem3_tmpub []byte
-
-//go:embed besuCliqueConfig/besu_mem1_def.sh
-var mem1_entrypt_sh []byte
-
-//go:embed besuCliqueConfig/bootnode_def.sh
-var bootnode_def []byte
-
-//go:embed besuCliqueConfig/validator_node_def.sh
-var validator_def []byte
-
-//go:embed besuCliqueConfig/tessera_def.sh
-var tessera_def []byte
 
 type BesuClient struct {
 	rpcUrl string
@@ -142,146 +61,8 @@ func (p *BesuProvider) WriteConfig() error {
 	if err := os.Mkdir(filepath.Join(stackDir, "config"), 0755); err != nil {
 		return err
 	}
-	if err := os.Mkdir(filepath.Join(stackDir, "logs"), 0755); err != nil {
-		return err
-	}
-	log_members := []string{"besu", "tessera"}
-	for _, members := range log_members {
-		if err := os.Mkdir(filepath.Join(stackDir, "logs", members), 0755); err != nil {
-			return err
-		}
-	}
-	if err := os.Mkdir(GetPath("besu"), 0755); err != nil {
-		return err
-	}
-	if err := os.Mkdir(GetPath("besu", "networkFiles"), 0755); err != nil {
-		return err
-	}
-	member_directories := []string{"member1", "rpcnode", "validator1"}
-	for _, file := range member_directories {
-		if err := os.Mkdir(GetPath("besu", "networkFiles", file), 0755); err != nil {
-			return err
-		}
-		if err := os.Mkdir(GetPath("besu", "networkFiles", file, "keys"), 0755); err != nil {
-			return err
-		}
-	}
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key.pub"), mem1key_pub, 0755); err != nil {
-		return err
-	}
 
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "member1", "keys", "key"), mem1key_priv, 0755); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator1", "keys", "key.pub"), val1key_pub, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "validator1", "keys", "key"), val1key_priv, 0755); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "rpcnode", "keys", "key.pub"), rpckey_pub, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "networkFiles", "rpcnode", "keys", "key"), rpckey_priv, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", ".env"), besu_env, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "config.toml"), besu_config, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "permissions_config.toml"), besu_perm_config, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "static-nodes.json"), static_nodes, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "log-config-splunk.xml"), log_config_splunk, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu", "log-config.xml"), log_config, 0755); err != nil {
-		return err
-	}
-	if err := os.Mkdir(GetPath("EthConnect"), 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("EthConnect", "eth_connect.sh"), eth_connect_sh, 0755); err != nil {
-		return err
-	}
-	if err := os.Mkdir(GetPath("ethsigner"), 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("ethsigner", "createKeyFile.js"), createKeyFile, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("ethsigner", "ethsigner.sh"), ethsigner_sh, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("ethsigner", "Nodejs.sh"), nodejs_sh, 0755); err != nil {
-		return err
-	}
-	if err := os.Mkdir(GetPath("tessera"), 0755); err != nil {
-		return err
-	}
-	if err := os.Mkdir(GetPath("tessera", "networkFiles"), 0755); err != nil {
-		return err
-	}
-	tessera_members := []string{"member1", "member2", "member3"}
-	for _, member := range tessera_members {
-		if err := os.Mkdir(GetPath("tessera", "networkFiles", member), 0755); err != nil {
-			return err
-		}
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member1", "tm.key"), tessera_mem1_tmkey, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member1", "tm.pub"), tessera_mem1_tmpub, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member2", "tm.key"), tessera_mem2_tmkey, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member2", "tm.pub"), tessera_mem2_tmpub, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member3", "tm.key"), tessera_mem3_tmkey, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera", "networkFiles", "member3", "tm.pub"), tessera_mem3_tmpub, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("besu_mem1_def.sh"), mem1_entrypt_sh, 0755); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(GetPath("bootnode_def.sh"), bootnode_def, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("validator_node_def.sh"), validator_def, 0755); err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(GetPath("tessera_def.sh"), tessera_def, 0755); err != nil {
+	if err := p.writeStaticFiles(); err != nil {
 		return err
 	}
 
@@ -320,29 +101,31 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 		}
 	}
 
+	// Write the password that will be used to encrypt the private key
+	// TODO: Probably randomize this and make it differnet per member?
 	if err := ioutil.WriteFile(GetPath("ethsigner", "PassFile", "passwordFile"), []byte(`SomeSüper$trÖngPäs$worD!`), 0755); err != nil {
 		return err
 	}
 
 	// Create genesis.json
-	genesis := ethereum.CreateBesuCliqueGenesis(addresses)
+	genesis := CreateGenesis(addresses)
 
-	if err := genesis.WriteBesuCliqueGenesisJson(GetPath("besu", "CliqueGenesis.json")); err != nil {
+	if err := genesis.WriteGenesisJson(GetPath("besu", "CliqueGenesis.json")); err != nil {
 		return err
 	}
-
-	// Write the password that will be used to encrypt the private key
-	// TODO: Probably randomize this and make it differnet per member?
 
 	return nil
 }
+
 func (p *BesuProvider) FirstTimeSetup() error {
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
 	EthSignerConfigPath := filepath.Join(stackDir, "config", "ethsigner")
-	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--name", "NodeEthSign", "-v", EthSignerConfigPath+":/ethSigner", "--entrypoint", "/ethSigner/Nodejs.sh", "node:latest"); err != nil {
-		return err
-	}
-	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "cp", "NodeEthSign:/usr/local/bin/keyFiles", EthSignerConfigPath+"/keyFiles"); err != nil {
+
+	ethSignerKeysVolume := fmt.Sprintf("%s_ethsigner_keys", p.Stack.Name)
+	docker.CreateVolume(ethSignerKeysVolume, p.Verbose)
+
+	// TODO: rm this container and write the keys to a volume instead
+	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/ethSigner", EthSignerConfigPath), "-v", fmt.Sprintf("%s:/usr/local/bin/keyFiles", ethSignerKeysVolume), "--entrypoint", "/ethSigner/Nodejs.sh", "node:latest"); err != nil {
 		return err
 	}
 
@@ -371,9 +154,14 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	serviceDefinitions[0] = &docker.ServiceDefinition{
 		ServiceName: "validator1",
 		Service: &docker.Service{
-			Restart: "on-failure",
 			Image:   "hyperledger/besu:latest",
 			EnvFile: "./config/besu/.env",
+			HealthCheck: &docker.HealthCheck{
+				Test:     []string{"CMD", "curl", "http://localhost:8555/liveness"},
+				Interval: "2s",
+				Retries:  25,
+				Timeout:  "2s",
+			},
 			Environment: map[string]string{
 				"OTEL_RESOURCE_ATTRIBUTES": "service.name=validator1,service.version=${BESU_VERSION:-latest}",
 			},
@@ -383,18 +171,13 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				"./config/besu/networkFiles/validator1/keys:/opt/besu/keys",
 			},
 			EntryPoint: []string{"/config/bootnode_def.sh"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.11",
-				},
-			},
 		},
+		VolumeNames: []string{"public-keys"},
 	}
 	// RPC Node Definition, this container is the JSON-RPC endpoint for Besu
 	serviceDefinitions[1] = &docker.ServiceDefinition{
 		ServiceName: "rpcnode",
 		Service: &docker.Service{
-			Restart: "on-failure",
 			Image:   "hyperledger/besu:latest",
 			EnvFile: "./config/besu/.env",
 			HealthCheck: &docker.HealthCheck{
@@ -415,20 +198,14 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			EntryPoint: []string{"/config/validator_node_def.sh"},
 			DependsOn:  map[string]map[string]string{"validator1": {"condition": "service_started"}},
 			Ports:      []string{"8555:8555/tcp", "8556:8556/tcp"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.15",
-				},
-			},
 		},
 	}
 	// Tessera Container for enabling Private Transaction Support
 	serviceDefinitions[2] = &docker.ServiceDefinition{
 		ServiceName: "member1tessera",
 		Service: &docker.Service{
-			Image:   "quorumengineering/tessera:21.7.0",
-			Expose:  []int{9000, 9080, 9101},
-			Restart: "no",
+			Image:  "quorumengineering/tessera:21.7.0",
+			Expose: []int{9000, 9080, 9101},
 			HealthCheck: &docker.HealthCheck{
 				Test: []string{
 					"CMD", "wget", "--spider", "--proxy", "off", "http://localhost:9000/upcheck"},
@@ -444,19 +221,14 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				"member1tessera:/data",
 				"./logs/tessera:/var/log/tessera/"},
 			EntryPoint: []string{"/config/tessera_def.sh"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.26",
-				},
-			},
 		},
+		VolumeNames: []string{"member1tessera"},
 	}
 	// Besu Container depends on Tessera
 	serviceDefinitions[3] = &docker.ServiceDefinition{
 		ServiceName: "member1besu",
 		Service: &docker.Service{
-			Image:   "hyperledger/besu:latest",
-			Restart: "on-failure",
+			Image: "hyperledger/besu:latest",
 			Environment: map[string]string{"OTEL_RESOURCE_ATTRIBUTES": "service.name=member1besu,service.version=${BESU_VERSION:-latest}",
 				"NODE_ID": "6"},
 			Volumes: []string{
@@ -466,14 +238,9 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				"./config/tessera/networkFiles/member1/tm.pub:/config/tessera/tm.pub"},
 			EntryPoint: []string{"/config/besu_mem1_def.sh"},
 			DependsOn: map[string]map[string]string{
-				"validator1":     {"condition": "service_started"},
-				"member1tessera": {"condition": "service_started"}},
+				"validator1":     {"condition": "service_healthy"},
+				"member1tessera": {"condition": "service_healthy"}},
 			Ports: []string{"20000:8545/tcp", "20001:8546/tcp"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.16",
-				},
-			},
 		},
 	}
 	// EthSigner Container needs to be defined as,
@@ -487,20 +254,15 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 			Expose: []int{8545},
 			Volumes: []string{
-				"./config/ethsigner/keyFiles:/keyFiles",
+				"ethsigner_keys:/keyFiles",
 				"./config/ethsigner/PassFile:/PassFile",
 				"./config/ethsigner/SignerConfig:/SignerConfig",
 				"./config/ethsigner/ethsigner.sh:/entryPoint/ethsigner.sh",
 			},
 			DependsOn: map[string]map[string]string{
-				"validator1": {"condition": "service_started"},
+				"validator1": {"condition": "service_healthy"},
 				"rpcnode":    {"condition": "service_healthy"}},
 			Ports: []string{"18545:8545/tcp"},
-			Networks: &docker.Network{
-				fmt.Sprintf("%s_default", p.Stack.Name): &docker.IPMapping{
-					IPAddress: "172.16.239.40",
-				},
-			},
 			HealthCheck: &docker.HealthCheck{
 				Test:     []string{"CMD", "curl", "http://localhost:8545/upcheck"},
 				Interval: "5s",
@@ -508,6 +270,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				Timeout:  "5s",
 			},
 		},
+		VolumeNames: []string{"ethsigner_keys"},
 	}
 	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "besu", ethConnectConfig)...)
 	return serviceDefinitions
@@ -540,63 +303,5 @@ func (p *BesuProvider) getEthconnectURL(member *types.Member) string {
 }
 
 func (p *BesuProvider) Reset() error {
-	return nil
-}
-
-func CopyFile(src, dst string) error {
-	var err error
-	var srcfd *os.File
-	var dstfd *os.File
-	var srcinfo os.FileInfo
-
-	if srcfd, err = os.Open(src); err != nil {
-		return err
-	}
-	defer srcfd.Close()
-
-	if dstfd, err = os.Create(dst); err != nil {
-		return err
-	}
-	defer dstfd.Close()
-
-	if _, err = io.Copy(dstfd, srcfd); err != nil {
-		return err
-	}
-	if srcinfo, err = os.Stat(src); err != nil {
-		return err
-	}
-	return os.Chmod(dst, srcinfo.Mode())
-}
-
-func CopyDir(src string, dst string) error {
-	var err error
-	var fds []os.FileInfo
-	var srcinfo os.FileInfo
-
-	if srcinfo, err = os.Stat(src); err != nil {
-		return err
-	}
-
-	if err = os.MkdirAll(dst, srcinfo.Mode()); err != nil {
-		return err
-	}
-
-	if fds, err = ioutil.ReadDir(src); err != nil {
-		return err
-	}
-	for _, fd := range fds {
-		srcfp := path.Join(src, fd.Name())
-		dstfp := path.Join(dst, fd.Name())
-
-		if fd.IsDir() {
-			if err = CopyDir(srcfp, dstfp); err != nil {
-				fmt.Println(err)
-			}
-		} else {
-			if err = CopyFile(srcfp, dstfp); err != nil {
-				fmt.Println(err)
-			}
-		}
-	}
 	return nil
 }

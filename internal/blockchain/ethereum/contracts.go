@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/constants"
@@ -57,7 +56,6 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 	for _, member := range s.Members {
 		if fireflyContractAddress == "" {
 			// TODO: version the registered name
-			time.Sleep(6 * time.Second)
 			log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
 			fireflyContractAddress, err = DeployContract(member, fireflyContract, "firefly", map[string]string{})
 			if err != nil {

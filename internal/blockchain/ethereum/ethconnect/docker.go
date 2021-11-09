@@ -19,7 +19,6 @@ package ethconnect
 import (
 	"fmt"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -47,7 +46,6 @@ func GetEthconnectServiceDefinitions(s *types.Stack, blockchainProvider string, 
 		}
 		return serviceDefinitions
 	} else if blockchainProvider == "besu" {
-		netId := constants.NetID * 4
 		for i, member := range s.Members {
 			serviceDefinitions[i] = &docker.ServiceDefinition{
 				ServiceName: "ethconnect_" + member.ID,
@@ -63,11 +61,6 @@ func GetEthconnectServiceDefinitions(s *types.Stack, blockchainProvider string, 
 						fmt.Sprintf("%s:/ethconnect/config", ethConnectConfig),
 					},
 					Logging: docker.StandardLogOptions,
-					Networks: &docker.Network{
-						fmt.Sprintf("%s_default", s.Name): &docker.IPMapping{
-							IPAddress: fmt.Sprintf("172.16.239.%v", netId+i),
-						},
-					},
 				},
 				VolumeNames: []string{
 					fmt.Sprintf("ethconnect_abis_%v", member.ID), fmt.Sprintf("ethconnect_events_%v", member.ID)},

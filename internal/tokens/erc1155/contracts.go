@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/constants"
@@ -54,7 +53,6 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 	for _, member := range s.Members {
 		if tokenContractAddress == "" {
 			// TODO: version the registered name
-			time.Sleep(9 * time.Second)
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
 			tokenContractAddress, err = ethereum.DeployContract(member, tokenContract, "erc1155", map[string]string{"uri": ""})
 			if err != nil {

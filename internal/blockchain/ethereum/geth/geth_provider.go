@@ -53,7 +53,7 @@ func (p *GethProvider) WriteConfig() error {
 		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
 		addresses[i] = member.Address[2:]
 	}
-	genesis := ethereum.CreateGenesisJson(addresses)
+	genesis := CreateGenesis(addresses)
 	if err := genesis.WriteGenesisJson(filepath.Join(stackDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
