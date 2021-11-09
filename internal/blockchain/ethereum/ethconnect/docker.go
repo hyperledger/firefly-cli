@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func GetEthconnectServiceDefinitions(s *types.Stack, blockchainNodeUrl string) []*docker.ServiceDefinition {
+func GetEthconnectServiceDefinitions(s *types.Stack, blockchainServiceName string) []*docker.ServiceDefinition {
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
 	for i, member := range s.Members {
 		serviceDefinitions[i] = &docker.ServiceDefinition{
@@ -31,8 +31,8 @@ func GetEthconnectServiceDefinitions(s *types.Stack, blockchainNodeUrl string) [
 			Service: &docker.Service{
 				Image:         s.VersionManifest.Ethconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_ethconnect_%v", s.Name, i),
-				Command:       fmt.Sprintf("rest -U http://127.0.0.1:8080 -I ./abis -r %s -E ./events -d 3", blockchainNodeUrl),
-				DependsOn:     map[string]map[string]string{"geth": {"condition": "service_started"}},
+				Command:       fmt.Sprintf("rest -U http://127.0.0.1:8080 -I ./abis -r http://%s:8545 -E ./events -d 3", blockchainServiceName),
+				DependsOn:     map[string]map[string]string{blockchainServiceName: {"condition": "service_started"}},
 				Ports:         []string{fmt.Sprintf("%d:8080", member.ExposedConnectorPort)},
 				Volumes: []string{
 					fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),

@@ -253,7 +253,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 		},
 		VolumeNames: []string{"ethsigner_keys"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "http://ethsigner:8545")...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "ethsigner")...)
 	return serviceDefinitions
 }
 
