@@ -55,6 +55,9 @@ type Service struct {
 	HealthCheck   *HealthCheck                 `yaml:"healthcheck,omitempty"`
 	Logging       *LoggingConfig               `yaml:"logging,omitempty"`
 	WorkingDir    string                       `yaml:"working_dir,omitempty"`
+	EntryPoint    []string                     `yaml:"entrypoint,omitempty"`
+	EnvFile       string                       `yaml:"env_file,omitempty"`
+	Expose        []int                        `yaml:"expose,omitempty"`
 }
 
 type DockerComposeConfig struct {
@@ -77,7 +80,6 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}
-
 	for _, member := range s.Members {
 
 		// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
@@ -96,10 +98,8 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				},
 				Logging: StandardLogOptions,
 			}
-
 			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
-
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
 				Image:         constants.PostgresImageName,
@@ -118,14 +118,11 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				},
 				Logging: StandardLogOptions,
 			}
-
 			compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
-
 			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
 				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 			}
 		}
-
 		compose.Services["ipfs_"+member.ID] = &Service{
 			Image:         constants.IPFSImageName,
 			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
@@ -143,10 +140,8 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			},
 			Logging: StandardLogOptions,
 		}
-
 		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
 		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
-
 		compose.Services["dataexchange_"+member.ID] = &Service{
 			Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
 			ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
@@ -154,10 +149,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging:       StandardLogOptions,
 		}
-
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
-
 	}
-
 	return compose
 }

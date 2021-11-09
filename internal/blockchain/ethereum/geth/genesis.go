@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ethereum
+package geth
 
 import (
 	"encoding/json"
@@ -62,11 +62,9 @@ type Alloc struct {
 	Balance string `json:"balance"`
 }
 
-func CreateGenesisJson(addresses []string) *Genesis {
-
+func CreateGenesis(addresses []string) *Genesis {
 	extraData := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	alloc := make(map[string]*Alloc)
-
 	for _, address := range addresses {
 		alloc[address] = &Alloc{
 			Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
