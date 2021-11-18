@@ -82,6 +82,12 @@ key-file = "%s_keyFile"
 password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/PassFile", "passwordFile"))), 0755); err != nil {
 			return err
 		}
+
+		// Generate the ethconnect config for each member
+		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath); err != nil {
+			return nil
+		}
 	}
 
 	// Write the password that will be used to encrypt the private key
@@ -107,9 +113,15 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	ethSignerKeysVolume := fmt.Sprintf("%s_ethsigner_keys", p.Stack.Name)
 	docker.CreateVolume(ethSignerKeysVolume, p.Verbose)
 
-	// TODO: rm this container and write the keys to a volume instead
 	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/ethSigner", EthSignerConfigPath), "-v", fmt.Sprintf("%s:/usr/local/bin/keyFiles", ethSignerKeysVolume), "--entrypoint", "/ethSigner/Nodejs.sh", "node:latest"); err != nil {
 		return err
+	}
+
+	for i := range p.Stack.Members {
+		// Copy ethconnect config to each member's volume
+		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
+		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
 	}
 
 	return nil
