@@ -68,20 +68,18 @@ type OrgConfig struct {
 }
 
 type EthconnectConfig struct {
-	URL                 string     `yaml:"url,omitempty"`
-	Instance            string     `yaml:"instance,omitempty"`
-	Topic               string     `yaml:"topic,omitempty"`
-	SkipEventStreamInit bool       `yaml:"skipEventstreamInit,omitempty"`
-	Auth                *BasicAuth `yaml:"auth,omitempty"`
+	URL      string     `yaml:"url,omitempty"`
+	Instance string     `yaml:"instance,omitempty"`
+	Topic    string     `yaml:"topic,omitempty"`
+	Auth     *BasicAuth `yaml:"auth,omitempty"`
 }
 
 type FabconnectConfig struct {
-	URL                 string `yaml:"url,omitempty"`
-	Channel             string `yaml:"channel,omitempty"`
-	Chaincode           string `yaml:"chaincode,omitempty"`
-	Topic               string `yaml:"topic,omitempty"`
-	Signer              string `yaml:"signer,omitempty"`
-	SkipEventStreamInit bool   `yaml:"skipEventstreamInit,omitempty"`
+	URL       string `yaml:"url,omitempty"`
+	Channel   string `yaml:"channel,omitempty"`
+	Chaincode string `yaml:"chaincode,omitempty"`
+	Topic     string `yaml:"topic,omitempty"`
+	Signer    string `yaml:"signer,omitempty"`
 }
 
 type EthereumConfig struct {
