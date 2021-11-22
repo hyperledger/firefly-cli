@@ -25,6 +25,8 @@ type Stack struct {
 	BlockchainProvider    string           `json:"blockchainProvider"`
 	TokensProvider        string           `json:"tokensProvider"`
 	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
+	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
+	ExposedPrometheusPort int               `json:"exposedPrometheusPort,omitempty"`
 }
 
 type Member struct {
@@ -34,6 +36,7 @@ type Member struct {
 	PrivateKey              string `json:"privateKey,omitempty"`
 	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
 	ExposedFireflyAdminPort int    `json:"exposedFireflyAdminPort,omitempty"`
+	ExposedFireflyMetricsPort int `json:"exposedFireflyMetricsPort,omitempty"`
 	ExposedConnectorPort    int    `json:"exposedConnectorPort,omitempty"`
 	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
 	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`

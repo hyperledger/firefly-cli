@@ -98,6 +98,11 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				},
 				Logging: StandardLogOptions,
 			}
+
+			if s.PrometheusEnabled {
+				compose.Services["firefly_core_"+member.ID].Ports = append(compose.Services["firefly_core_"+member.ID].Ports, fmt.Sprintf("%d:%d", member.ExposedFireflyMetricsPort, member.ExposedFireflyMetricsPort))
+			}
+
 			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
 		if s.Database == "postgres" {
@@ -151,5 +156,18 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		}
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 	}
+
+	if s.PrometheusEnabled {
+		compose.Services["prometheus"] = &Service{
+			Image: constants.PrometheusImageName,
+			ContainerName: "prometheus",
+			Ports: 		[]string{fmt.Sprintf("%d:9090", s.ExposedPrometheusPort)},
+			Volumes:    []string{"prometheus_data:/prometheus","prometheus_config:/etc/prometheus"},
+			Logging:       StandardLogOptions,
+		}
+		compose.Volumes["prometheus_data"] = struct{}{}
+		compose.Volumes["prometheus_config"] = struct{}{}
+	}
+
 	return compose
 }

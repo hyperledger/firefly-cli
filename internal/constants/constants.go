@@ -26,3 +26,4 @@ var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
 
 var IPFSImageName = "ipfs/go-ipfs"
 var PostgresImageName = "postgres"
+var PrometheusImageName = "prom/prometheus"

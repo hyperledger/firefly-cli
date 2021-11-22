@@ -77,6 +77,8 @@ type InitOptions struct {
 	TokensProvider     TokensProvider
 	FireFlyVersion     string
 	ManifestPath       string
+	PrometheusEnabled  bool
+	PrometheusPort int
 }
 
 func ListStacks() ([]string, error) {
@@ -113,6 +115,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
 		TokensProvider:        options.TokensProvider.String(),
+	}
+
+	if options.PrometheusEnabled {
+		s.Stack.PrometheusEnabled = true
+		s.Stack.ExposedPrometheusPort = options.PrometheusPort
 	}
 
 	var manifest *types.VersionManifest
@@ -256,6 +263,11 @@ func (s *StackManager) ensureDirectories() error {
 			return err
 		}
 	}
+
+	if err := os.MkdirAll(filepath.Join(dataDir, "prometheus_config"), 0755); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -289,6 +301,17 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 
 	if err := s.blockchainProvider.WriteConfig(); err != nil {
 		return err
+	}
+
+	if s.Stack.PrometheusEnabled {
+		promConfig := s.GeneratePrometheusConfig()
+		configBytes, err := yaml.Marshal(promConfig)
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(path.Join(stackDir, "configs", "prometheus.yml"), configBytes, 0755); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -337,7 +360,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	serviceBase := options.ServicesBasePort + (index * 100)
-	return &types.Member{
+	member := &types.Member{
 		ID:                      id,
 		Index:                   &index,
 		Address:                 encodedAddress,
@@ -355,6 +378,11 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		OrgName:                 options.OrgNames[index],
 		NodeName:                options.NodeNames[index],
 	}
+
+	if options.PrometheusEnabled {
+		member.ExposedFireflyMetricsPort = serviceBase + 9
+	}
+	return member
 }
 
 func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
@@ -509,6 +537,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		if !member.External {
 			ports = append(ports, member.ExposedFireflyAdminPort)
 			ports = append(ports, member.ExposedFireflyPort)
+			ports = append(ports, member.ExposedFireflyMetricsPort)
 		}
 		ports = append(ports, member.ExposedIPFSApiPort)
 		ports = append(ports, member.ExposedIPFSGWPort)
@@ -516,6 +545,11 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPort)
 	}
+
+	if s.Stack.PrometheusEnabled {
+		ports = append(ports, s.Stack.ExposedPrometheusPort)
+	}
+
 	for _, port := range ports {
 		available, err := checkPortAvailable(port)
 		if err != nil {
@@ -585,6 +619,12 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
 				return err
 			}
+		}
+	}
+
+	if s.Stack.PrometheusEnabled {
+		if err := docker.CopyFileToVolume("prometheus_config", path.Join(workingDir, "configs", "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
+			return err
 		}
 	}
 
