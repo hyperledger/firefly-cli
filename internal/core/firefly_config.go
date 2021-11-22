@@ -37,13 +37,13 @@ type HttpServerConfig struct {
 }
 
 type AdminServerConfig struct {
-	HttpServerConfig
+	HttpServerConfig `yaml:",inline"`
 	Enabled   bool   `yaml:"enabled,omitempty"`
 	PreInit   bool   `yaml:"preinit,omitempty"`
 }
 
 type MetricsServerConfig struct {
-	HttpServerConfig
+	HttpServerConfig `yaml:",inline"`
 	Enabled bool `yaml:"enabled,omitempty"`
 	Path    string `yaml:"path,omitempty"`
 }

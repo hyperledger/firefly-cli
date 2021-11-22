@@ -623,7 +623,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 	}
 
 	if s.Stack.PrometheusEnabled {
-		if err := docker.CopyFileToVolume("prometheus_config", path.Join(workingDir, "configs", "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
+		s.Log.Info("copying prometheus.yml to prometheus_config")
+		volumeName := fmt.Sprintf("%s_prometheus_config", s.Stack.Name)
+		if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
 			return err
 		}
 	}
