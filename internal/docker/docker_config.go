@@ -159,10 +159,10 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 
 	if s.PrometheusEnabled {
 		compose.Services["prometheus"] = &Service{
-			Image: constants.PrometheusImageName,
+			Image:         constants.PrometheusImageName,
 			ContainerName: "prometheus",
-			Ports: 		[]string{fmt.Sprintf("%d:9090", s.ExposedPrometheusPort)},
-			Volumes:    []string{"prometheus_data:/prometheus","prometheus_config:/etc/prometheus"},
+			Ports:         []string{fmt.Sprintf("%d:9090", s.ExposedPrometheusPort)},
+			Volumes:       []string{"prometheus_data:/prometheus", "prometheus_config:/etc/prometheus"},
 			Logging:       StandardLogOptions,
 		}
 		compose.Volumes["prometheus_data"] = struct{}{}

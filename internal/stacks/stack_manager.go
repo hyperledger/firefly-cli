@@ -78,7 +78,7 @@ type InitOptions struct {
 	FireFlyVersion     string
 	ManifestPath       string
 	PrometheusEnabled  bool
-	PrometheusPort int
+	PrometheusPort     int
 }
 
 func ListStacks() ([]string, error) {

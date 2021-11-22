@@ -4,12 +4,12 @@ import "fmt"
 
 type GlobalConfig struct {
 	ScrapeInterval string `yaml:"scrape_interval,omitempty"`
-	ScrapeTimeout string `yaml:"scrape_timeout,omitempty"`
+	ScrapeTimeout  string `yaml:"scrape_timeout,omitempty"`
 }
 
 type ScrapeConfig struct {
-	JobName string `yaml:"job_name,omitempty"`
-	MetricsPath string `yaml:"metrics_path,omitempty"`
+	JobName       string          `yaml:"job_name,omitempty"`
+	MetricsPath   string          `yaml:"metrics_path,omitempty"`
 	StaticConfigs []*StaticConfig `yaml:"static_configs,omitempty"`
 }
 
@@ -18,7 +18,7 @@ type StaticConfig struct {
 }
 
 type PrometheusConfig struct {
-	Global *GlobalConfig  `yaml:"global,omitempty"`
+	Global        *GlobalConfig   `yaml:"global,omitempty"`
 	ScrapeConfigs []*ScrapeConfig `yaml:"scrape_configs,omitempty"`
 }
 
@@ -26,11 +26,11 @@ func (s *StackManager) GeneratePrometheusConfig() *PrometheusConfig {
 	config := &PrometheusConfig{
 		Global: &GlobalConfig{
 			ScrapeInterval: "5s",
-			ScrapeTimeout: "5s",
+			ScrapeTimeout:  "5s",
 		},
 		ScrapeConfigs: []*ScrapeConfig{
 			{
-				JobName: "fireflies",
+				JobName:     "fireflies",
 				MetricsPath: "/metrics",
 				StaticConfigs: []*StaticConfig{
 					{

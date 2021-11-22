@@ -38,14 +38,14 @@ type HttpServerConfig struct {
 
 type AdminServerConfig struct {
 	HttpServerConfig `yaml:",inline"`
-	Enabled   bool   `yaml:"enabled,omitempty"`
-	PreInit   bool   `yaml:"preinit,omitempty"`
+	Enabled          bool `yaml:"enabled,omitempty"`
+	PreInit          bool `yaml:"preinit,omitempty"`
 }
 
 type MetricsServerConfig struct {
 	HttpServerConfig `yaml:",inline"`
-	Enabled bool `yaml:"enabled,omitempty"`
-	Path    string `yaml:"path,omitempty"`
+	Enabled          bool   `yaml:"enabled,omitempty"`
+	Path             string `yaml:"path,omitempty"`
 }
 
 type BasicAuth struct {
@@ -176,8 +176,8 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 				Address:   "0.0.0.0",
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
 			},
-			Enabled:   true,
-			PreInit:   true,
+			Enabled: true,
+			PreInit: true,
 		},
 		UI: &UIConfig{
 			Path: "./frontend",
@@ -211,7 +211,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyMetricsPort),
 			},
 			Enabled: true,
-			Path: "/metrics",
+			Path:    "/metrics",
 		}
 	} else {
 		memberConfig.Metrics = &MetricsServerConfig{
