@@ -264,10 +264,6 @@ func (s *StackManager) ensureDirectories() error {
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Join(dataDir, "prometheus_config"), 0755); err != nil {
-		return err
-	}
-
 	return nil
 }
 

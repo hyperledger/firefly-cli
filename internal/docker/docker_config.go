@@ -99,10 +99,6 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Logging: StandardLogOptions,
 			}
 
-			if s.PrometheusEnabled {
-				compose.Services["firefly_core_"+member.ID].Ports = append(compose.Services["firefly_core_"+member.ID].Ports, fmt.Sprintf("%d:%d", member.ExposedFireflyMetricsPort, member.ExposedFireflyMetricsPort))
-			}
-
 			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
 		if s.Database == "postgres" {
