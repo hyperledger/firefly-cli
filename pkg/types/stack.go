@@ -25,23 +25,26 @@ type Stack struct {
 	BlockchainProvider    string           `json:"blockchainProvider"`
 	TokensProvider        string           `json:"tokensProvider"`
 	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
+	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
+	ExposedPrometheusPort int              `json:"exposedPrometheusPort,omitempty"`
 }
 
 type Member struct {
-	ID                      string `json:"id,omitempty"`
-	Index                   *int   `json:"index,omitempty"`
-	Address                 string `json:"address,omitempty"`
-	PrivateKey              string `json:"privateKey,omitempty"`
-	ExposedFireflyPort      int    `json:"exposedFireflyPort,omitempty"`
-	ExposedFireflyAdminPort int    `json:"exposedFireflyAdminPort,omitempty"`
-	ExposedConnectorPort    int    `json:"exposedConnectorPort,omitempty"`
-	ExposedPostgresPort     int    `json:"exposedPostgresPort,omitempty"`
-	ExposedDataexchangePort int    `json:"exposedDataexchangePort,omitempty"`
-	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
-	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
-	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
-	ExposedTokensPort       int    `json:"exposedTokensPort,omitempty"`
-	External                bool   `json:"external,omitempty"`
-	OrgName                 string `json:"orgName,omitempty"`
-	NodeName                string `json:"nodeName,omitempty"`
+	ID                        string `json:"id,omitempty"`
+	Index                     *int   `json:"index,omitempty"`
+	Address                   string `json:"address,omitempty"`
+	PrivateKey                string `json:"privateKey,omitempty"`
+	ExposedFireflyPort        int    `json:"exposedFireflyPort,omitempty"`
+	ExposedFireflyAdminPort   int    `json:"exposedFireflyAdminPort,omitempty"`
+	ExposedFireflyMetricsPort int    `json:"exposedFireflyMetricsPort,omitempty"`
+	ExposedConnectorPort      int    `json:"exposedConnectorPort,omitempty"`
+	ExposedPostgresPort       int    `json:"exposedPostgresPort,omitempty"`
+	ExposedDataexchangePort   int    `json:"exposedDataexchangePort,omitempty"`
+	ExposedIPFSApiPort        int    `json:"exposedIPFSApiPort,omitempty"`
+	ExposedIPFSGWPort         int    `json:"exposedIPFSGWPort,omitempty"`
+	ExposedUIPort             int    `json:"exposedUiPort,omitempty"`
+	ExposedTokensPort         int    `json:"exposedTokensPort,omitempty"`
+	External                  bool   `json:"external,omitempty"`
+	OrgName                   string `json:"orgName,omitempty"`
+	NodeName                  string `json:"nodeName,omitempty"`
 }

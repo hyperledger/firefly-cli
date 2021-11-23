@@ -80,6 +80,11 @@ This command will start a stack and run it in the background.
 		for _, member := range stackManager.Stack.Members {
 			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
 		}
+
+		if stackManager.Stack.PrometheusEnabled {
+			fmt.Printf("Web UI for shared Prometheus: http://127.0.0.1:%v\n", stackManager.Stack.ExposedPrometheusPort)
+		}
+
 		fmt.Printf("\nTo see logs for your stack run:\n\n%s logs %s\n\n", rootCmd.Use, stackName)
 		return nil
 	},

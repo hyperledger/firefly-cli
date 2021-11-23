@@ -37,11 +37,15 @@ type HttpServerConfig struct {
 }
 
 type AdminServerConfig struct {
-	Port      int    `yaml:"port,omitempty"`
-	Address   string `yaml:"address,omitempty"`
-	Enabled   bool   `yaml:"enabled,omitempty"`
-	PreInit   bool   `yaml:"preinit,omitempty"`
-	PublicURL string `yaml:"publicURL,omitempty"`
+	HttpServerConfig `yaml:",inline"`
+	Enabled          bool `yaml:"enabled,omitempty"`
+	PreInit          bool `yaml:"preinit,omitempty"`
+}
+
+type MetricsServerConfig struct {
+	HttpServerConfig `yaml:",inline"`
+	Enabled          bool   `yaml:"enabled,omitempty"`
+	Path             string `yaml:"path,omitempty"`
 }
 
 type BasicAuth struct {
@@ -140,6 +144,7 @@ type FireflyConfig struct {
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
 	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
 	Admin        *AdminServerConfig   `yaml:"admin,omitempty"`
+	Metrics      *MetricsServerConfig `yaml:"metrics,omitempty"`
 	UI           *UIConfig            `yaml:"ui,omitempty"`
 	Node         *NodeConfig          `yaml:"node,omitempty"`
 	Org          *OrgConfig           `yaml:"org,omitempty"`
@@ -164,11 +169,13 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
 		},
 		Admin: &AdminServerConfig{
-			Enabled:   true,
-			Port:      member.ExposedFireflyAdminPort,
-			Address:   "0.0.0.0",
-			PreInit:   true,
-			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
+			HttpServerConfig: HttpServerConfig{
+				Port:      member.ExposedFireflyAdminPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
+			},
+			Enabled: true,
+			PreInit: true,
 		},
 		UI: &UIConfig{
 			Path: "./frontend",
@@ -193,6 +200,23 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			},
 		},
 	}
+
+	if stack.PrometheusEnabled {
+		memberConfig.Metrics = &MetricsServerConfig{
+			HttpServerConfig: HttpServerConfig{
+				Port:      member.ExposedFireflyMetricsPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyMetricsPort),
+			},
+			Enabled: true,
+			Path:    "/metrics",
+		}
+	} else {
+		memberConfig.Metrics = &MetricsServerConfig{
+			Enabled: false,
+		}
+	}
+
 	switch stack.Database {
 	case "postgres":
 		memberConfig.Database = &DatabaseConfig{
