@@ -27,6 +27,8 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+const TOKEN_URI_PATTERN = "firefly://token/{id}"
+
 func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 	var containerName string
 	for _, member := range s.Members {
@@ -54,13 +56,13 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 		if tokenContractAddress == "" {
 			// TODO: version the registered name
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
-			tokenContractAddress, err = ethereum.DeployContract(member, tokenContract, "erc1155", map[string]string{"uri": ""})
+			tokenContractAddress, err = ethereum.DeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
-			err = ethereum.RegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": ""})
+			err = ethereum.RegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}
