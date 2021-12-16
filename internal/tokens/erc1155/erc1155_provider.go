@@ -59,7 +59,6 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions() []*docker.ServiceDefinit
 				Environment: map[string]string{
 					"ETHCONNECT_URL":      p.getEthconnectURL(member),
 					"ETHCONNECT_INSTANCE": "/contracts/erc1155",
-					"ETHCONNECT_IDENTITY": strings.TrimPrefix(member.Address, "0x"),
 					"AUTO_INIT":           "false",
 				},
 				DependsOn: map[string]map[string]string{
