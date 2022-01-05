@@ -139,6 +139,14 @@ type TokenConnector struct {
 
 type TokensConfig []*TokenConnector
 
+type DBEventsConfig struct {
+	BufferSize int `yaml:"bufferSize,omitempty"`
+}
+
+type EventConfig struct {
+	DBEvents *DBEventsConfig `yaml:"dbevents,omitempty"`
+}
+
 type FireflyConfig struct {
 	Log          *LogConfig           `yaml:"log,omitempty"`
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
@@ -153,6 +161,7 @@ type FireflyConfig struct {
 	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 	Tokens       *TokensConfig        `yaml:"tokens,omitempty"`
+	Event        *EventConfig         `yaml:"event,omitempty"`
 }
 
 func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
@@ -197,6 +206,11 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		DataExchange: &DataExchangeConfig{
 			HTTPS: &HttpEndpointConfig{
 				URL: getDataExchangeURL(member),
+			},
+		},
+		Event: &EventConfig{
+			DBEvents: &DBEventsConfig{
+				BufferSize: 10000,
 			},
 		},
 	}
