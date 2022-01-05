@@ -156,7 +156,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 	if s.PrometheusEnabled {
 		compose.Services["prometheus"] = &Service{
 			Image:         constants.PrometheusImageName,
-			ContainerName: "prometheus",
+			ContainerName: fmt.Sprintf("%s_prometheus", s.Name),
 			Ports:         []string{fmt.Sprintf("%d:9090", s.ExposedPrometheusPort)},
 			Volumes:       []string{"prometheus_data:/prometheus", "prometheus_config:/etc/prometheus"},
 			Logging:       StandardLogOptions,
