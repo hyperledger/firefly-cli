@@ -1,4 +1,4 @@
-# Copyright © 2021 Kaleido, Inc.
+# Copyright © 2022 Kaleido, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -16,11 +16,12 @@
 
 VGO=go
 GOBIN := $(shell $(VGO) env GOPATH)/bin
+VERSION := $(shell git rev-parse --short HEAD)
 LINT := $(GOBIN)/golangci-lint
 
 all: build
 build: ## Builds all go code
-		cd ff && go build
+		cd ff && go build -ldflags="-X 'github.com/hyperledger/firefly-cli/internal/version.Version=$(VERSION)'"
 install: ## Installs the package
 		cd ff && go install
 

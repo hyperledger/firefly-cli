@@ -25,6 +25,8 @@ builds:
       - darwin
     main: ./ff
     binary: ff
+    ldflags:
+      - "-X 'github.com/hyperledger/firefly-cli/internal/version.Version=={{.Version}}"
 archives:
   - replacements:
       darwin: Darwin
