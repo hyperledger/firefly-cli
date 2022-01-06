@@ -721,9 +721,12 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 
 func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
+		configPayload := map[string]interface{}{
+			"preInit": false,
+		}
 		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
+		if err := core.RequestWithRetry("PUT", configRecordUrl, configPayload, nil); err != nil && err != io.EOF {
 			return err
 		}
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
