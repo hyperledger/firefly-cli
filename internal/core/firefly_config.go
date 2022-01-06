@@ -107,6 +107,7 @@ type DataExchangeConfig struct {
 
 type CommonDBConfig struct {
 	URL        string            `yaml:"url,omitempty"`
+	MaxConns   int               `yaml:"maxConns,omitempty"`
 	Migrations *MigrationsConfig `yaml:"migrations,omitempty"`
 }
 
@@ -236,7 +237,8 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		memberConfig.Database = &DatabaseConfig{
 			Type: "postgres",
 			PostgreSQL: &CommonDBConfig{
-				URL: getPostgresURL(member),
+				URL:      getPostgresURL(member),
+				MaxConns: 50,
 				Migrations: &MigrationsConfig{
 					Auto: true,
 				},
