@@ -16,4 +16,6 @@
 
 package version
 
-var Version = "v0.0.1"
+var Version = "canary"
+var Commit = "ref"
+var Date = "1970-01-01T00:00:00Z"

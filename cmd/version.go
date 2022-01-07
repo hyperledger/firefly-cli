@@ -17,21 +17,73 @@
 package cmd
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hyperledger/firefly-cli/internal/version"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
+
+type Output string
+
+const (
+	JSON Output = "json"
+	YAML        = "yaml"
+)
+
+var shortened = false
+var output = "json"
+
+// Info creates a formattable struct for version output
+type Info struct {
+	Version string `json:"Version,omitempty" yaml:"Version,omitempty"`
+	Commit  string `json:"Commit,omitempty" yaml:"Commit,omitempty"`
+	Date    string `json:"Date,omitempty" yaml:"Date,omitempty"`
+}
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the version",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("Version: %s\n", version.Version)
+		if shortened {
+			fmt.Println(version.Version)
+		} else {
+			info := &Info{
+				Version: version.Version,
+				Commit:  version.Commit,
+				Date:    version.Date,
+			}
+
+			var (
+				bytes []byte
+				err   error
+			)
+
+			switch output {
+			case "json":
+				bytes, err = json.MarshalIndent(info, "", "  ")
+				break
+			case "yaml":
+				bytes, err = yaml.Marshal(info)
+				break
+			default:
+				return errors.New(fmt.Sprintf("invalid output '%s'", output))
+			}
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(bytes))
+		}
 
 		return nil
 	},
 }
 
 func init() {
+	versionCmd.Flags().BoolVarP(&shortened, "short", "s", false, "Print just the version number.")
+	versionCmd.Flags().StringVarP(&output, "output", "o", "json", "Output format. One of 'yaml' or 'json'.")
 	rootCmd.AddCommand(versionCmd)
 }
