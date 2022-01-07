@@ -25,13 +25,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type Output string
-
-const (
-	JSON Output = "json"
-	YAML        = "yaml"
-)
-
 var shortened = false
 var output = "json"
 
@@ -44,7 +37,8 @@ type Info struct {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Prints the version",
+	Short: "Prints the version info",
+	Long: "Prints the version info of the CLI binary",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if shortened {
 			fmt.Println(version.Version)
@@ -83,7 +77,7 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
-	versionCmd.Flags().BoolVarP(&shortened, "short", "s", false, "Print just the version number.")
-	versionCmd.Flags().StringVarP(&output, "output", "o", "json", "Output format. One of 'yaml' or 'json'.")
+	versionCmd.Flags().BoolVarP(&shortened, "short", "s", false, "print only the version")
+	versionCmd.Flags().StringVarP(&output, "output", "o", "json", "output format (\"yaml\"|\"json\")")
 	rootCmd.AddCommand(versionCmd)
 }
