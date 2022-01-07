@@ -33,6 +33,7 @@ type Info struct {
 	Version string `json:"Version,omitempty" yaml:"Version,omitempty"`
 	Commit  string `json:"Commit,omitempty" yaml:"Commit,omitempty"`
 	Date    string `json:"Date,omitempty" yaml:"Date,omitempty"`
+	License string `json:"License,omitempty" yaml:"License,omitempty"`
 }
 
 var versionCmd = &cobra.Command{
@@ -47,6 +48,7 @@ var versionCmd = &cobra.Command{
 				Version: version.Version,
 				Commit:  version.Commit,
 				Date:    version.Date,
+				License: version.License,
 			}
 
 			var (
