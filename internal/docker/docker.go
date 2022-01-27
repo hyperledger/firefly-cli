@@ -1,3 +1,19 @@
+// Copyright © 2021 Kaleido, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package docker
 
 import (
@@ -26,19 +42,49 @@ func RemoveVolume(volumeName string, verbose bool) error {
 	return RunDockerCommand(".", verbose, verbose, "volume", "remove", volumeName)
 }
 
+func CopyFromContainer(containerName string, sourcePath string, destPath string, verbose bool) error {
+	if err := RunDockerCommand(".", verbose, verbose, "cp", containerName+":"+sourcePath, destPath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func RunDockerCommandRetry(workingDir string, showCommand bool, pipeStdout bool, retries int, command ...string) error {
+	attempt := 0
+	for {
+		err := RunDockerCommand(workingDir, showCommand, pipeStdout, command...)
+		if err != nil && attempt < retries {
+			attempt++
+			continue
+		} else if err != nil {
+			return err
+		}
+		break
+	}
+	return nil
+}
+
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	return err
 }
 
 func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	return err
 }
 
-func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) error {
+func RunDockerCommandBuffered(workingDir string, showCommand bool, command ...string) (string, error) {
+	dockerCmd := exec.Command("docker", command...)
+	dockerCmd.Dir = workingDir
+	return runCommand(dockerCmd, showCommand, false, command...)
+}
+
+func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) (string, error) {
 	if showCommand {
 		fmt.Println(cmd.String())
 	}
@@ -70,15 +116,15 @@ outputCapture:
 				outputBuff.WriteString(s)
 			}
 		case err := <-errChan:
-			return err
+			return "", err
 		}
 	}
 	cmd.Wait()
 	statusCode := cmd.ProcessState.ExitCode()
 	if statusCode != 0 {
-		return fmt.Errorf("%s\nFailed [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
+		return "", fmt.Errorf("%s\nFailed [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
 	}
-	return nil
+	return outputBuff.String(), nil
 }
 
 func pipeCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, errChan chan error) {
