@@ -87,7 +87,7 @@ func (p *ERC1155Provider) getEthconnectURL(member *types.Member, tokenIdx int) s
 
 func (p *ERC1155Provider) getTokensURL(member *types.Member, tokenIdx int) string {
 	if !member.External {
-		return fmt.Sprintf("http://tokens_%s:3000", member.ID)
+		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedTokensPorts[tokenIdx])
 	}
