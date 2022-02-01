@@ -23,7 +23,7 @@ type Stack struct {
 	ExposedBlockchainPort int              `json:"exposedGethPort,omitempty"`
 	Database              string           `json:"database"`
 	BlockchainProvider    string           `json:"blockchainProvider"`
-	TokensProvider        string           `json:"tokensProvider"`
+	TokenProviders        TokenProviders   `json:"tokenProviders"`
 	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
 }
 
@@ -40,8 +40,20 @@ type Member struct {
 	ExposedIPFSApiPort      int    `json:"exposedIPFSApiPort,omitempty"`
 	ExposedIPFSGWPort       int    `json:"exposedIPFSGWPort,omitempty"`
 	ExposedUIPort           int    `json:"exposedUiPort,omitempty"`
-	ExposedTokensPort       int    `json:"exposedTokensPort,omitempty"`
+	ExposedTokensPorts      []int  `json:"exposedTokensPorts,omitempty"`
 	External                bool   `json:"external,omitempty"`
 	OrgName                 string `json:"orgName,omitempty"`
 	NodeName                string `json:"nodeName,omitempty"`
+}
+
+type TokenProvider string
+
+type TokenProviders []TokenProvider
+
+func (tps TokenProviders) Strings() []string {
+	ret := make([]string, len(tps))
+	for i, t := range tps {
+		ret[i] = string(t)
+	}
+	return ret
 }

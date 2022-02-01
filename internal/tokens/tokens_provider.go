@@ -24,7 +24,7 @@ import (
 
 type ITokensProvider interface {
 	DeploySmartContracts() error
-	FirstTimeSetup() error
-	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member) *core.TokensConfig
+	FirstTimeSetup(tokenIdx int) error
+	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
+	GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector
 }

@@ -41,7 +41,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
-	"github.com/hyperledger/firefly-cli/internal/tokens/niltokens"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -54,7 +53,7 @@ type StackManager struct {
 	Log                log.Logger
 	Stack              *types.Stack
 	blockchainProvider blockchain.IBlockchainProvider
-	tokensProvider     tokens.ITokensProvider
+	tokenProviders     []tokens.ITokensProvider
 }
 
 type PullOptions struct {
@@ -74,7 +73,7 @@ type InitOptions struct {
 	OrgNames           []string
 	NodeNames          []string
 	BlockchainProvider BlockchainProvider
-	TokensProvider     TokensProvider
+	TokenProviders     types.TokenProviders
 	FireFlyVersion     string
 	ManifestPath       string
 }
@@ -112,7 +111,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		ExposedBlockchainPort: options.ServicesBasePort,
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
-		TokensProvider:        options.TokensProvider.String(),
+		TokenProviders:        options.TokenProviders,
 	}
 
 	var manifest *types.VersionManifest
@@ -140,7 +139,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 
 	s.Stack.VersionManifest = manifest
 	s.blockchainProvider = s.getBlockchainProvider(false)
-	s.tokensProvider = s.getTokensProvider(false)
+	s.tokenProviders = s.getITokenProviders(false)
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
@@ -148,7 +147,9 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
-	extraServices = append(extraServices, s.tokensProvider.GetDockerServiceDefinitions()...)
+	for i, tp := range s.tokenProviders {
+		extraServices = append(extraServices, tp.GetDockerServiceDefinitions(i)...)
+	}
 
 	for _, serviceDefinition := range extraServices {
 		// Add each service definition to the docker compose file
@@ -208,7 +209,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		}
 		s.Stack = stack
 		s.blockchainProvider = s.getBlockchainProvider(verbose)
-		s.tokensProvider = s.getTokensProvider(verbose)
+		s.tokenProviders = s.getITokenProviders(verbose)
 	}
 	// For backwards compatability, add a "default" VersionManifest
 	// in memory for stacks that were created with old CLI versions
@@ -230,8 +231,12 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 				Image: "ghcr.io/hyperledger/firefly-dataexchange-https",
 				Tag:   "latest",
 			},
-			Tokens: &types.ManifestEntry{
+			TokensERC1155: &types.ManifestEntry{
 				Image: "ghcr.io/hyperledger/firefly-tokens-erc1155",
+				Tag:   "latest",
+			},
+			TokensERC20ERC721: &types.ManifestEntry{
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc20-erc721",
 				Tag:   "latest",
 			},
 		}
@@ -276,7 +281,9 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
 		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(member)
-		config.Tokens = s.tokensProvider.GetFireflyConfig(member)
+		for iTok, tp := range s.tokenProviders {
+			config.Tokens = append(config.Tokens, tp.GetFireflyConfig(member, iTok))
+		}
 		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
 			return err
 		}
@@ -337,7 +344,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	serviceBase := options.ServicesBasePort + (index * 100)
-	return &types.Member{
+	member := &types.Member{
 		ID:                      id,
 		Index:                   &index,
 		Address:                 encodedAddress,
@@ -350,11 +357,14 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 		ExposedDataexchangePort: serviceBase + 5,
 		ExposedIPFSApiPort:      serviceBase + 6,
 		ExposedIPFSGWPort:       serviceBase + 7,
-		ExposedTokensPort:       serviceBase + 8,
 		External:                external,
 		OrgName:                 options.OrgNames[index],
 		NodeName:                options.NodeNames[index],
 	}
+	for i := range options.TokenProviders {
+		member.ExposedTokensPorts = append(member.ExposedTokensPorts, 8+i)
+	}
+	return member
 }
 
 func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
@@ -425,8 +435,10 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	}
 
 	// Iterate over all images used by the tokens provider
-	for _, service := range s.tokensProvider.GetDockerServiceDefinitions() {
-		images = append(images, service.Service.Image)
+	for iTok, tp := range s.tokenProviders {
+		for _, service := range tp.GetDockerServiceDefinitions(iTok) {
+			images = append(images, service.Service.Image)
+		}
 	}
 
 	// Use docker to pull every image - retry on failure
@@ -444,8 +456,10 @@ func (s *StackManager) removeVolumes(verbose bool) {
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
 		volumes = append(volumes, service.VolumeNames...)
 	}
-	for _, service := range s.tokensProvider.GetDockerServiceDefinitions() {
-		volumes = append(volumes, service.VolumeNames...)
+	for iTok, tp := range s.tokenProviders {
+		for _, service := range tp.GetDockerServiceDefinitions(iTok) {
+			volumes = append(volumes, service.VolumeNames...)
+		}
 	}
 	for volumeName := range docker.CreateDockerCompose(s.Stack).Volumes {
 		volumes = append(volumes, volumeName)
@@ -514,7 +528,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedIPFSGWPort)
 		ports = append(ports, member.ExposedPostgresPort)
 		ports = append(ports, member.ExposedUIPort)
-		ports = append(ports, member.ExposedTokensPort)
+		ports = append(ports, member.ExposedTokensPorts...)
 	}
 	for _, port := range ports {
 		available, err := checkPortAvailable(port)
@@ -595,8 +609,10 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
 		return err
 	}
-	if err := s.tokensProvider.DeploySmartContracts(); err != nil {
-		return err
+	for _, tp := range s.tokenProviders {
+		if err := tp.DeploySmartContracts(); err != nil {
+			return err
+		}
 	}
 
 	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
@@ -609,8 +625,10 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 	}
 
 	s.Log.Info("initializing token providers")
-	if err := s.tokensProvider.FirstTimeSetup(); err != nil {
-		return err
+	for iTok, tp := range s.tokenProviders {
+		if err := tp.FirstTimeSetup(iTok); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -684,8 +702,8 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
-		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("PUT", configRecordUrl, "{\"preInit\": false}", nil); err != nil && err != io.EOF {
+		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin.preInit", member.ExposedFireflyAdminPort)
+		if err := core.RequestWithRetry("PUT", configRecordUrl, "false", nil); err != nil && err != io.EOF {
 			return err
 		}
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
@@ -733,21 +751,19 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 	}
 }
 
-func (s *StackManager) getTokensProvider(verbose bool) tokens.ITokensProvider {
-	switch s.Stack.TokensProvider {
-	case NilTokens.String():
-		return &niltokens.NilTokensProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
+func (s *StackManager) getITokenProviders(verbose bool) []tokens.ITokensProvider {
+	tps := make([]tokens.ITokensProvider, len(s.Stack.TokenProviders))
+	for i, tp := range s.Stack.TokenProviders {
+		switch tp {
+		case ERC1155:
+			tps[i] = &erc1155.ERC1155Provider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+			}
+		default:
+			return nil
 		}
-	case ERC1155.String():
-		return &erc1155.ERC1155Provider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
-		}
-	default:
-		return nil
 	}
+	return tps
 }

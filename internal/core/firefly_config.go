@@ -149,7 +149,7 @@ type FireflyConfig struct {
 	Database     *DatabaseConfig      `yaml:"database,omitempty"`
 	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
-	Tokens       *TokensConfig        `yaml:"tokens,omitempty"`
+	Tokens       TokensConfig         `yaml:"tokens,omitempty"`
 }
 
 func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
