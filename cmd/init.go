@@ -180,7 +180,7 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
 	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
-	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155", "erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", stacks.ValidTokenProviders))
+	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-provider", "t", []string{"erc1155"}, fmt.Sprintf("Token provider to use. Can specify more than one. Options are: %v", stacks.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
 	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
