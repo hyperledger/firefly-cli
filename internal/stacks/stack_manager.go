@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
+	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -796,6 +797,12 @@ func (s *StackManager) getITokenProviders(verbose bool) []tokens.ITokensProvider
 		switch tp {
 		case ERC1155:
 			tps[i] = &erc1155.ERC1155Provider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+			}
+		case ERC20_ERC721:
+			tps[i] = &erc20erc721.ERC20ERC721Provider{
 				Verbose: verbose,
 				Log:     s.Log,
 				Stack:   s.Stack,

@@ -77,7 +77,7 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
 	return &core.TokenConnector{
 		Plugin: "fftokens",
-		Name:   "erc1155",
+		Name:   "erc20_erc721",
 		URL:    p.getTokensURL(m, tokenIdx),
 	}
 }
