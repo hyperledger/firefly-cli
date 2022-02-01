@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -121,54 +122,28 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		s.Stack.ExposedPrometheusPort = options.PrometheusPort
 	}
 
-	// TODO: Revert before merge
-	var manifest *types.VersionManifest = &types.VersionManifest{
-		FireFly: &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly",
-			Tag:   "latest",
-		},
-		Ethconnect: &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly-ethconnect",
-			Tag:   "latest",
-		},
-		Fabconnect: &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly-fabconnect",
-			Tag:   "latest",
-		},
-		DataExchange: &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly-dataexchange-https",
-			Tag:   "latest",
-		},
-		TokensERC1155: &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly-tokens-erc1155",
-			Tag:   "latest",
-		},
-		TokensERC20ERC721: &types.ManifestEntry{
-			Image: "ghcr.io/eberger727/firefly-tokens-erc20-erc721",
-			Tag:   "latest",
-		},
-	}
+	var manifest *types.VersionManifest
 
-	// if options.ManifestPath != "" {
-	// 	// If a path to a manifest file is set, read the existing file
-	// 	manifest, err = core.ReadManifestFile(options.ManifestPath)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	// Otherwise, fetch the manifest file from GitHub for the specified version
-	// 	if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
-	// 		manifest, err = core.GetLatestReleaseManifest()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	} else {
-	// 		manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
+	if options.ManifestPath != "" {
+		// If a path to a manifest file is set, read the existing file
+		manifest, err = core.ReadManifestFile(options.ManifestPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Otherwise, fetch the manifest file from GitHub for the specified version
+		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
+			manifest, err = core.GetLatestReleaseManifest()
+			if err != nil {
+				return err
+			}
+		} else {
+			manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	s.Stack.VersionManifest = manifest
 	s.blockchainProvider = s.getBlockchainProvider(false)
@@ -269,7 +244,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 				Tag:   "latest",
 			},
 			TokensERC20ERC721: &types.ManifestEntry{
-				Image: "ghcr.io/eberger727/firefly-tokens-erc20-erc721",
+				Image: "ghcr.io/hyperledger/firefly-tokens-erc20-erc721",
 				Tag:   "latest",
 			},
 		}
