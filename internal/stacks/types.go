@@ -77,7 +77,7 @@ const (
 
 var ValidTokenProviders = []types.TokenProvider{NilTokens, ERC1155, ERC20_ERC721}
 
-func TokensProviderFromStrings(strTokens []string) (tps types.TokenProviders, err error) {
+func TokenProvidersFromStrings(strTokens []string) (tps types.TokenProviders, err error) {
 	tps = make([]types.TokenProvider, 0, len(strTokens))
 	for _, s := range strTokens {
 		found := false
