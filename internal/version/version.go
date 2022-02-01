@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,16 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constants
+package version
 
-import (
-	"os"
-	"path/filepath"
+var (
+	Version = "canary"
+	Commit = "ref"
+	Date = "1970-01-01T00:00:00Z"
 )
 
-var homeDir, _ = os.UserHomeDir()
-var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
-
-var IPFSImageName = "ipfs/go-ipfs"
-var PostgresImageName = "postgres"
-var PrometheusImageName = "prom/prometheus"
+const License = "Apache-2.0"

@@ -31,16 +31,21 @@ func GetEthconnectServiceDefinitions(s *types.Stack, blockchainServiceName strin
 			Service: &docker.Service{
 				Image:         s.VersionManifest.Ethconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_ethconnect_%v", s.Name, i),
-				Command:       fmt.Sprintf("rest -U http://127.0.0.1:8080 -I ./abis -r http://%s:8545 -E ./events -d 3", blockchainServiceName),
+				Command:       "server -f ./config/config.yaml -d 2",
 				DependsOn:     map[string]map[string]string{blockchainServiceName: {"condition": "service_started"}},
 				Ports:         []string{fmt.Sprintf("%d:8080", member.ExposedConnectorPort)},
 				Volumes: []string{
+					fmt.Sprintf("ethconnect_config_%s:/ethconnect/config", member.ID),
 					fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
 					fmt.Sprintf("ethconnect_events_%s:/ethconnect/events", member.ID),
 				},
 				Logging: docker.StandardLogOptions,
 			},
-			VolumeNames: []string{fmt.Sprintf("ethconnect_abis_%v", member.ID), fmt.Sprintf("ethconnect_events_%v", member.ID)},
+			VolumeNames: []string{
+				fmt.Sprintf("ethconnect_config_%v", member.ID),
+				fmt.Sprintf("ethconnect_abis_%v", member.ID),
+				fmt.Sprintf("ethconnect_events_%v", member.ID),
+			},
 		}
 	}
 	return serviceDefinitions

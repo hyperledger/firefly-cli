@@ -19,3 +19,5 @@
 .vscode
 ff/ff
 dist/
+*.iml
+.idea/

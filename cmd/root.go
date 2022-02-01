@@ -80,7 +80,7 @@ To get started run: ff init
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	rootCmd.PersistentFlags().StringVarP(&ansi, "ansi", "", "auto", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\") (default \"auto\")")
+	rootCmd.PersistentFlags().StringVarP(&ansi, "ansi", "", "auto", "control when to print ANSI control characters (\"never\"|\"always\"|\"auto\")")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose log output")
 	cobra.CheckErr(rootCmd.Execute())
 }

@@ -37,11 +37,15 @@ type HttpServerConfig struct {
 }
 
 type AdminServerConfig struct {
-	Port      int    `yaml:"port,omitempty"`
-	Address   string `yaml:"address,omitempty"`
-	Enabled   bool   `yaml:"enabled,omitempty"`
-	PreInit   bool   `yaml:"preinit,omitempty"`
-	PublicURL string `yaml:"publicURL,omitempty"`
+	HttpServerConfig `yaml:",inline"`
+	Enabled          bool `yaml:"enabled,omitempty"`
+	PreInit          bool `yaml:"preinit,omitempty"`
+}
+
+type MetricsServerConfig struct {
+	HttpServerConfig `yaml:",inline"`
+	Enabled          bool   `yaml:"enabled,omitempty"`
+	Path             string `yaml:"path,omitempty"`
 }
 
 type BasicAuth struct {
@@ -68,20 +72,18 @@ type OrgConfig struct {
 }
 
 type EthconnectConfig struct {
-	URL                 string     `yaml:"url,omitempty"`
-	Instance            string     `yaml:"instance,omitempty"`
-	Topic               string     `yaml:"topic,omitempty"`
-	SkipEventStreamInit bool       `yaml:"skipEventstreamInit,omitempty"`
-	Auth                *BasicAuth `yaml:"auth,omitempty"`
+	URL      string     `yaml:"url,omitempty"`
+	Instance string     `yaml:"instance,omitempty"`
+	Topic    string     `yaml:"topic,omitempty"`
+	Auth     *BasicAuth `yaml:"auth,omitempty"`
 }
 
 type FabconnectConfig struct {
-	URL                 string `yaml:"url,omitempty"`
-	Channel             string `yaml:"channel,omitempty"`
-	Chaincode           string `yaml:"chaincode,omitempty"`
-	Topic               string `yaml:"topic,omitempty"`
-	Signer              string `yaml:"signer,omitempty"`
-	SkipEventStreamInit bool   `yaml:"skipEventstreamInit,omitempty"`
+	URL       string `yaml:"url,omitempty"`
+	Channel   string `yaml:"channel,omitempty"`
+	Chaincode string `yaml:"chaincode,omitempty"`
+	Topic     string `yaml:"topic,omitempty"`
+	Signer    string `yaml:"signer,omitempty"`
 }
 
 type EthereumConfig struct {
@@ -137,11 +139,20 @@ type TokenConnector struct {
 
 type TokensConfig []*TokenConnector
 
+type DBEventsConfig struct {
+	BufferSize int `yaml:"bufferSize,omitempty"`
+}
+
+type EventConfig struct {
+	DBEvents *DBEventsConfig `yaml:"dbevents,omitempty"`
+}
+
 type FireflyConfig struct {
 	Log          *LogConfig           `yaml:"log,omitempty"`
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
 	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
 	Admin        *AdminServerConfig   `yaml:"admin,omitempty"`
+	Metrics      *MetricsServerConfig `yaml:"metrics,omitempty"`
 	UI           *UIConfig            `yaml:"ui,omitempty"`
 	Node         *NodeConfig          `yaml:"node,omitempty"`
 	Org          *OrgConfig           `yaml:"org,omitempty"`
@@ -150,6 +161,7 @@ type FireflyConfig struct {
 	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 	Tokens       TokensConfig         `yaml:"tokens,omitempty"`
+	Event        *EventConfig         `yaml:"event,omitempty"`
 }
 
 func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
@@ -166,11 +178,13 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
 		},
 		Admin: &AdminServerConfig{
-			Enabled:   true,
-			Port:      member.ExposedFireflyAdminPort,
-			Address:   "0.0.0.0",
-			PreInit:   true,
-			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
+			HttpServerConfig: HttpServerConfig{
+				Port:      member.ExposedFireflyAdminPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
+			},
+			Enabled: true,
+			PreInit: true,
 		},
 		UI: &UIConfig{
 			Path: "./frontend",
@@ -194,7 +208,29 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 				URL: getDataExchangeURL(member),
 			},
 		},
+		Event: &EventConfig{
+			DBEvents: &DBEventsConfig{
+				BufferSize: 10000,
+			},
+		},
 	}
+
+	if stack.PrometheusEnabled {
+		memberConfig.Metrics = &MetricsServerConfig{
+			HttpServerConfig: HttpServerConfig{
+				Port:      member.ExposedFireflyMetricsPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyMetricsPort),
+			},
+			Enabled: true,
+			Path:    "/metrics",
+		}
+	} else {
+		memberConfig.Metrics = &MetricsServerConfig{
+			Enabled: false,
+		}
+	}
+
 	switch stack.Database {
 	case "postgres":
 		memberConfig.Database = &DatabaseConfig{

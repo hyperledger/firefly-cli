@@ -40,10 +40,17 @@ type GethProvider struct {
 
 func (p *GethProvider) WriteConfig() error {
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
-	for _, member := range p.Stack.Members {
+	for i, member := range p.Stack.Members {
+		// Write the private key to disk for each member
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
 		if err := ioutil.WriteFile(filepath.Join(stackDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
 			return err
+		}
+
+		// Generate the ethconnect config for each member
+		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath); err != nil {
+			return nil
 		}
 	}
 
@@ -68,28 +75,36 @@ func (p *GethProvider) WriteConfig() error {
 }
 
 func (p *GethProvider) FirstTimeSetup() error {
-	volumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
+	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
+	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
 	gethConfigDir := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+
+	for i := range p.Stack.Members {
+		// Copy ethconnect config to each member's volume
+		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
+		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	}
 
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	for _, member := range p.Stack.Members {
-		if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/geth", gethConfigDir), "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--nousb", "account", "import", "--password", "/geth/password", "--keystore", "/data/keystore", fmt.Sprintf("/geth/%s/keyfile", member.ID)); err != nil {
+		if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/geth", gethConfigDir), "-v", fmt.Sprintf("%s:/data", gethVolumeName), "ethereum/client-go:release-1.9", "--nousb", "account", "import", "--password", "/geth/password", "--keystore", "/data/keystore", fmt.Sprintf("/geth/%s/keyfile", member.ID)); err != nil {
 			return err
 		}
 	}
 
 	// Copy the genesis block information
-	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(gethConfigDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
 		return err
 	}
 
 	// Copy the password (to be used for decrypting private keys)
-	if err := docker.CopyFileToVolume(volumeName, path.Join(gethConfigDir, "password"), "password", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(gethConfigDir, "password"), "password", p.Verbose); err != nil {
 		return err
 	}
 
 	// Initialize the genesis block
-	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", volumeName), "ethereum/client-go:release-1.9", "--datadir", "/data", "--nousb", "init", "/data/genesis.json"); err != nil {
+	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), "ethereum/client-go:release-1.9", "--datadir", "/data", "--nousb", "init", "/data/genesis.json"); err != nil {
 		return err
 	}
 

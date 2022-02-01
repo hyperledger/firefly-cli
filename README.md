@@ -14,23 +14,32 @@ In order to run the FireFly CLI, you will need a few things installed on your de
 
 - [Docker](https://www.docker.com/)
 - [Docker Compose](https://docs.docker.com/compose/)
-- [Go](https://golang.org/)
 - openssl
 
 ## Install the CLI
 
-On Go 1.16 and newer:
+The easiest way to get up and running with the FireFly CLI is to download a pre-compiled binary of the latest release.
+
+### Download the package for your OS
+Go to the [latest release page](https://github.com/hyperledger/firefly-cli/releases/latest) and download the package for your OS and CPU architecture.
+
+### Extract the binary and move it to `/usr/bin/local`
+
+Assuming you downloaded the package from GitHub into you `Downloads` directory, run the following command:
 
 ```
-$ go install github.com/hyperledger/firefly-cli/ff@latest
+sudo tar -zxf ~/Downloads/firefly-cli_*.tar.gz -C /usr/local/bin ff
 ```
 
-On earlier versions of Go:
+If you downloaded the package from GitHub into a different directory, you will need to change the `tar` command above to wherever the `firefly-cli_*.tar.gz ` file is located.
 
-```
-$ go get github.com/hyperledger/firefly-cli/ff
-```
+### macOSUsers
+ > **NOTE**: On recent versions of macOS, default security settings will prevent the FireFly CLI binary from running, because it was downloaded from the internet. You will need to [allow the FireFly CLI in System Preferences](docs/mac_help.md), before it will run.
 
+### Windows Users
+ > **NOTE**: For Windows users, we recommend that you use [Windows Subsystem for Linux 2 (WSL2)](https://docs.microsoft.com/en-us/windows/wsl/). Binaries provided for Linux will work in this environment.
+
+### Linux Users
 > **NOTE**: For Linux users, it is recommended that you add your user to the `docker` group so that you do not have to run `ff` or `docker` as `root` or with `sudo`. For more information about Docker permissions on Linux, please see [Docker's documentation on the topic](https://docs.docker.com/engine/install/linux-postinstall/).
 
 ## Create a new stack
