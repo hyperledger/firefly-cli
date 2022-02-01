@@ -36,10 +36,10 @@ func (p *ERC20ERC721Provider) DeploySmartContracts() error {
 	return DeployContracts(p.Stack, p.Log, p.Verbose)
 }
 
-func (p *ERC20ERC721Provider) FirstTimeSetup(port int) error {
+func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 	for _, member := range p.Stack.Members {
 		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
-		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", port)
+		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
 		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil); err != nil {
 			return err
 		}
