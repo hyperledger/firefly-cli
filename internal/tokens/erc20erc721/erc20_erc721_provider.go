@@ -32,14 +32,14 @@ type ERC20ERC721Provider struct {
 	Stack   *types.Stack
 }
 
-func (p *ERC20ERC721Provider) DeploySmartContracts() error {
-	return DeployContracts(p.Stack, p.Log, p.Verbose)
+func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) error {
+	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 
-func (p *ERC20ERC721Provider) FirstTimeSetup(port int) error {
+func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 	for _, member := range p.Stack.Members {
 		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
-		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", port)
+		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
 		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil); err != nil {
 			return err
 		}
@@ -51,10 +51,10 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
-			ServiceName: "tokens_" + member.ID,
+			ServiceName: fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx),
 			Service: &docker.Service{
 				Image:         p.Stack.VersionManifest.TokensERC20ERC721.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_tokens_%v", p.Stack.Name, i),
+				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
 					"ETHCONNECT_URL":      p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
@@ -77,7 +77,7 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
 	return &core.TokenConnector{
 		Plugin: "fftokens",
-		Name:   "erc1155",
+		Name:   "erc20_erc721",
 		URL:    p.getTokensURL(m, tokenIdx),
 	}
 }
@@ -88,7 +88,7 @@ func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Member, tokenIdx in
 
 func (p *ERC20ERC721Provider) getTokensURL(member *types.Member, tokenIdx int) string {
 	if !member.External {
-		return fmt.Sprintf("http://tokens_%s:3000", member.ID)
+		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedTokensPorts[tokenIdx])
 	}

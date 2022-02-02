@@ -31,8 +31,8 @@ type ERC1155Provider struct {
 	Stack   *types.Stack
 }
 
-func (p *ERC1155Provider) DeploySmartContracts() error {
-	return DeployContracts(p.Stack, p.Log, p.Verbose)
+func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) error {
+	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
@@ -50,13 +50,13 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
-			ServiceName: "tokens_" + member.ID,
+			ServiceName: fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx),
 			Service: &docker.Service{
 				Image:         p.Stack.VersionManifest.TokensERC1155.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_tokens_%v", p.Stack.Name, i),
+				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
-					"ETHCONNECT_URL":      p.getEthconnectURL(member),
+					"ETHCONNECT_URL":      p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
 					"ETHCONNECT_INSTANCE": "/contracts/erc1155",
 					"AUTO_INIT":           "false",
 				},
@@ -81,13 +81,13 @@ func (p *ERC1155Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.
 	}
 }
 
-func (p *ERC1155Provider) getEthconnectURL(member *types.Member) string {
+func (p *ERC1155Provider) getEthconnectURL(member *types.Member, tokenIdx int) string {
 	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 }
 
 func (p *ERC1155Provider) getTokensURL(member *types.Member, tokenIdx int) string {
 	if !member.External {
-		return fmt.Sprintf("http://tokens_%s:3000", member.ID)
+		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedTokensPorts[tokenIdx])
 	}

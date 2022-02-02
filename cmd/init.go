@@ -100,7 +100,7 @@ var initCmd = &cobra.Command{
 		initOptions.Verbose = verbose
 		initOptions.BlockchainProvider, _ = stacks.BlockchainProviderFromString(blockchainProviderInput)
 		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
-		initOptions.TokenProviders, _ = stacks.TokensProviderFromStrings(tokenProvidersSelection)
+		initOptions.TokenProviders, _ = stacks.TokenProvidersFromStrings(tokenProvidersSelection)
 
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
@@ -168,7 +168,7 @@ func validateBlockchainProvider(input string) error {
 }
 
 func validateTokensProvider(input []string) error {
-	_, err := stacks.TokensProviderFromStrings(input)
+	_, err := stacks.TokenProvidersFromStrings(input)
 	if err != nil {
 		return err
 	}

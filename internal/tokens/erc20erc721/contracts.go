@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) error {
 
 	// Currently the act of creating and deploying a suitable ERC20 or ERC721 compliant
 	// contract, or contract factory, is an exercise left to the user.

@@ -29,11 +29,11 @@ import (
 
 const TOKEN_URI_PATTERN = "firefly://token/{id}"
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) error {
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_tokens_%s", s.Name, member.ID)
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", s.Name, member.ID, tokenIndex)
 			break
 		}
 	}
