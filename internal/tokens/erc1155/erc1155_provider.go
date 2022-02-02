@@ -56,9 +56,8 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
-					"ETHCONNECT_URL":      p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
-					"ETHCONNECT_INSTANCE": "/contracts/erc1155",
-					"AUTO_INIT":           "false",
+					"ETHCONNECT_URL": p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
+					"AUTO_INIT":      "false",
 				},
 				DependsOn: map[string]map[string]string{
 					"ethconnect_" + member.ID: {"condition": "service_started"},

@@ -18,7 +18,6 @@ package erc20erc721
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -57,9 +56,8 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
-					"ETHCONNECT_URL":      p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
-					"ETHCONNECT_IDENTITY": strings.TrimPrefix(member.Address, "0x"),
-					"AUTO_INIT":           "false",
+					"ETHCONNECT_URL": p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
+					"AUTO_INIT":      "false",
 				},
 				DependsOn: map[string]map[string]string{
 					"ethconnect_" + member.ID: {"condition": "service_started"},
