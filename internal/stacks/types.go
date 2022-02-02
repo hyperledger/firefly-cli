@@ -84,7 +84,9 @@ func TokensProviderFromStrings(strTokens []string) (tps types.TokenProviders, er
 		for _, tokensProviderSelection := range ValidTokenProviders {
 			if strings.ToLower(s) == string(tokensProviderSelection) {
 				found = true
-				tps = append(tps, tokensProviderSelection)
+				if tokensProviderSelection != NilTokens {
+					tps = append(tps, tokensProviderSelection)
+				}
 			}
 		}
 		if !found {
