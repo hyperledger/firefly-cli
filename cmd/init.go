@@ -33,7 +33,7 @@ import (
 var initOptions stacks.InitOptions
 var databaseSelection string
 var blockchainProviderInput string
-var tokensProviderSelection string
+var tokenProvidersSelection []string
 var promptNames bool
 
 var ffNameValidator = regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z._-]{0,62}[0-9a-zA-Z])?$`)
@@ -53,7 +53,7 @@ var initCmd = &cobra.Command{
 		if err := validateBlockchainProvider(blockchainProviderInput); err != nil {
 			return err
 		}
-		if err := validateTokensProvider(tokensProviderSelection); err != nil {
+		if err := validateTokensProvider(tokenProvidersSelection); err != nil {
 			return err
 		}
 
@@ -100,7 +100,7 @@ var initCmd = &cobra.Command{
 		initOptions.Verbose = verbose
 		initOptions.BlockchainProvider, _ = stacks.BlockchainProviderFromString(blockchainProviderInput)
 		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
-		initOptions.TokensProvider, _ = stacks.TokensProviderFromString(tokensProviderSelection)
+		initOptions.TokenProviders, _ = stacks.TokenProvidersFromStrings(tokenProvidersSelection)
 
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
@@ -161,14 +161,14 @@ func validateBlockchainProvider(input string) error {
 
 	// TODO: When we get tokens on Fabric this should change
 	if blockchainSelection == stacks.HyperledgerFabric {
-		tokensProviderSelection = "none"
+		tokenProvidersSelection = []string{}
 	}
 
 	return nil
 }
 
-func validateTokensProvider(input string) error {
-	_, err := stacks.TokensProviderFromString(input)
+func validateTokensProvider(input []string) error {
+	_, err := stacks.TokenProvidersFromStrings(input)
 	if err != nil {
 		return err
 	}
@@ -180,13 +180,11 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
 	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
-	initCmd.Flags().StringVarP(&tokensProviderSelection, "tokens-provider", "t", "erc1155", fmt.Sprintf("Tokens provider to use. Options are: %v", stacks.TokensProviderStrings))
+	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155", "erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", stacks.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
 	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
 	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
-	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
-	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
 
 	rootCmd.AddCommand(initCmd)
 }
