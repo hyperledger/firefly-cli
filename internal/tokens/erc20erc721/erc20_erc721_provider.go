@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package erc1155
+package erc20erc721
 
 import (
 	"fmt"
@@ -25,17 +25,17 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-type ERC1155Provider struct {
+type ERC20ERC721Provider struct {
 	Log     log.Logger
 	Verbose bool
 	Stack   *types.Stack
 }
 
-func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) error {
+func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) error {
 	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 
-func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
+func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 	for _, member := range p.Stack.Members {
 		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
 		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
@@ -46,13 +46,13 @@ func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
 	return nil
 }
 
-func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition {
+func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition {
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx),
 			Service: &docker.Service{
-				Image:         p.Stack.VersionManifest.TokensERC1155.GetDockerImageString(),
+				Image:         p.Stack.VersionManifest.TokensERC20ERC721.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
@@ -72,19 +72,19 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 	return serviceDefinitions
 }
 
-func (p *ERC1155Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
+func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
 	return &core.TokenConnector{
 		Plugin: "fftokens",
-		Name:   "erc1155",
+		Name:   "erc20_erc721",
 		URL:    p.getTokensURL(m, tokenIdx),
 	}
 }
 
-func (p *ERC1155Provider) getEthconnectURL(member *types.Member, tokenIdx int) string {
+func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Member, tokenIdx int) string {
 	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 }
 
-func (p *ERC1155Provider) getTokensURL(member *types.Member, tokenIdx int) string {
+func (p *ERC20ERC721Provider) getTokensURL(member *types.Member, tokenIdx int) string {
 	if !member.External {
 		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {

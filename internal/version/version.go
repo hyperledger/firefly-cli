@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,17 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokens
+package version
 
-import (
-	"github.com/hyperledger/firefly-cli/internal/core"
-	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/pkg/types"
+var (
+	Version = "canary"
+	Commit = "ref"
+	Date = "1970-01-01T00:00:00Z"
 )
 
-type ITokensProvider interface {
-	DeploySmartContracts(tokenIndex int) error
-	FirstTimeSetup(tokenIdx int) error
-	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector
-}
+const License = "Apache-2.0"

@@ -19,6 +19,8 @@ package stacks
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type DatabaseSelection int
@@ -67,24 +69,29 @@ func BlockchainProviderFromString(s string) (BlockchainProvider, error) {
 	return GoEthereum, fmt.Errorf("\"%s\" is not a valid blockchain provider selection. valid options are: %v", s, BlockchainProviderStrings)
 }
 
-type TokensProvider int
-
 const (
-	NilTokens TokensProvider = iota
-	ERC1155
+	NilTokens    types.TokenProvider = "none"
+	ERC1155      types.TokenProvider = "erc1155"
+	ERC20_ERC721 types.TokenProvider = "erc20_erc721"
 )
 
-var TokensProviderStrings = []string{"none", "erc1155"}
+var ValidTokenProviders = []types.TokenProvider{NilTokens, ERC1155, ERC20_ERC721}
 
-func (tokensProvider TokensProvider) String() string {
-	return TokensProviderStrings[tokensProvider]
-}
-
-func TokensProviderFromString(s string) (TokensProvider, error) {
-	for i, tokensProviderSelection := range TokensProviderStrings {
-		if strings.ToLower(s) == tokensProviderSelection {
-			return TokensProvider(i), nil
+func TokenProvidersFromStrings(strTokens []string) (tps types.TokenProviders, err error) {
+	tps = make([]types.TokenProvider, 0, len(strTokens))
+	for _, s := range strTokens {
+		found := false
+		for _, tokensProviderSelection := range ValidTokenProviders {
+			if strings.ToLower(s) == string(tokensProviderSelection) {
+				found = true
+				if tokensProviderSelection != NilTokens {
+					tps = append(tps, tokensProviderSelection)
+				}
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("\"%s\" is not a valid tokens provider selection. valid options are: %v", s, ValidTokenProviders)
 		}
 	}
-	return ERC1155, fmt.Errorf("\"%s\" is not a valid tokens provider selection. valid options are: %v", s, TokensProviderStrings)
+	return tps, nil
 }
