@@ -455,18 +455,6 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 		images = append(images, constants.PostgresImageName)
 	}
 
-	// Iterate over all images used by the blockchain provider
-	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
-		images = append(images, service.Service.Image)
-	}
-
-	// Iterate over all images used by the tokens provider
-	for iTok, tp := range s.tokenProviders {
-		for _, service := range tp.GetDockerServiceDefinitions(iTok) {
-			images = append(images, service.Service.Image)
-		}
-	}
-
 	// Use docker to pull every image - retry on failure
 	for _, image := range images {
 		s.Log.Info(fmt.Sprintf("pulling '%s", image))
