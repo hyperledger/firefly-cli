@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -108,6 +109,13 @@ var initCmd = &cobra.Command{
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
 		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, stackName, "docker-compose.yml"))
+
+		switch runtime.GOOS {
+		case "windows", "darwin":
+			if memberCount > 2 {
+				fmt.Printf("\u001b[33mNOTE: If your Docker Desktop configuration is set to the default memory configuration (2 GB), you may need to increase this value. It is recommended to allocate 1 GB per member of your FireFly network.\u001b[0m\n\n")
+			}
+		}
 		return nil
 	},
 }
