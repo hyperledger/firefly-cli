@@ -170,7 +170,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "fabconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:         "ghcr.io/hyperledger/firefly-fabconnect:latest",
+				Image:         p.Stack.VersionManifest.Fabconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_fabconnect_%s", p.Stack.Name, member.ID),
 				Command:       "-f /fabconnect/fabconnect.yaml",
 				DependsOn: map[string]map[string]string{
