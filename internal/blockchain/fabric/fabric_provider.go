@@ -302,6 +302,14 @@ func (p *FabricProvider) registerIdentities() error {
 	return nil
 }
 
+func (p *FabricProvider) GetContracts(filename string) ([]string, error) {
+	return []string{}, fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
+}
+
+func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+	return "", fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
+}
+
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images
 func getDockerPlatform() string {
 	return "linux/amd64"

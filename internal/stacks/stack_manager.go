@@ -743,11 +743,11 @@ func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
 	for _, member := range s.Stack.Members {
 		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin.preInit", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("PUT", configRecordUrl, "false", nil); err != nil && err != io.EOF {
+		if err := core.RequestWithRetry("PUT", configRecordUrl, "false", nil, verbose); err != nil && err != io.EOF {
 			return err
 		}
 		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("POST", resetUrl, "{}", nil); err != nil {
+		if err := core.RequestWithRetry("POST", resetUrl, "{}", nil, verbose); err != nil {
 			return err
 		}
 	}
@@ -764,6 +764,14 @@ func (s *StackManager) StackHasRunBefore() (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+func (s *StackManager) GetContracts(filename string) ([]string, error) {
+	return s.blockchainProvider.GetContracts(filename)
+}
+
+func (s *StackManager) DeployContract(filename, contractName string, memberIndex int) (string, error) {
+	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex])
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
