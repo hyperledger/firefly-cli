@@ -101,8 +101,8 @@ type BlockchainConfig struct {
 }
 
 type DataExchangeConfig struct {
-	Type  string              `yaml:"type,omitempty"`
-	HTTPS *HttpEndpointConfig `yaml:"https,omitempty"`
+	Type string              `yaml:"type,omitempty"`
+	FFDX *HttpEndpointConfig `yaml:"ffdx,omitempty"`
 }
 
 type CommonDBConfig struct {
@@ -204,7 +204,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			},
 		},
 		DataExchange: &DataExchangeConfig{
-			HTTPS: &HttpEndpointConfig{
+			FFDX: &HttpEndpointConfig{
 				URL: getDataExchangeURL(member),
 			},
 		},
