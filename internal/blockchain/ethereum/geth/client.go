@@ -29,10 +29,10 @@ type GethClient struct {
 }
 
 type RpcRequest struct {
-	JsonRPC string   `json:"jsonrpc"`
-	ID      int      `json:"id"`
-	Method  string   `json:"method"`
-	Params  []string `json:"params"`
+	JsonRPC string        `json:"jsonrpc"`
+	ID      int           `json:"id"`
+	Method  string        `json:"method"`
+	Params  []interface{} `json:"params"`
 }
 
 func NewGethClient(rpcUrl string) *GethClient {
@@ -46,7 +46,7 @@ func (g *GethClient) UnlockAccount(address string, password string) error {
 		JsonRPC: "2.0",
 		ID:      0,
 		Method:  "personal_unlockAccount",
-		Params:  []string{address, password},
+		Params:  []interface{}{address, password, 0},
 	})
 	if err != nil {
 		return err
