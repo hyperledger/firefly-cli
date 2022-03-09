@@ -204,6 +204,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			},
 		},
 		DataExchange: &DataExchangeConfig{
+			Type: "ffdx",
 			FFDX: &HttpEndpointConfig{
 				URL: getDataExchangeURL(member),
 			},
