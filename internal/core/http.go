@@ -26,12 +26,14 @@ import (
 	"time"
 )
 
-func RequestWithRetry(method, url string, body, result interface{}) (err error) {
+func RequestWithRetry(method, url string, body, result interface{}, logRetries bool) (err error) {
 	retries := 30
 	for {
 		if err := request(method, url, body, result); err != nil {
 			if retries > 0 {
-				fmt.Printf("%s - retrying request...", err.Error())
+				if logRetries {
+					fmt.Printf("%s - retrying request...", err.Error())
+				}
 				retries--
 				time.Sleep(1 * time.Second)
 			} else {

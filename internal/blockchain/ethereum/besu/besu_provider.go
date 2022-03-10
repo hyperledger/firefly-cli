@@ -128,7 +128,7 @@ func (p *BesuProvider) FirstTimeSetup() error {
 }
 
 func (p *BesuProvider) DeploySmartContracts() error {
-	return ethereum.DeployContracts(p.Stack, p.Log, p.Verbose)
+	return ethconnect.DeployContracts(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *BesuProvider) PreStart() error {
@@ -285,6 +285,23 @@ func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core
 		},
 	}
 	return
+}
+
+func (p *BesuProvider) GetContracts(filename string) ([]string, error) {
+	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	if err != nil {
+		return []string{}, err
+	}
+	contractNames := make([]string, len(contracts.Contracts))
+	i := 0
+	for contractName := range contracts.Contracts {
+		contractNames[i] = contractName
+	}
+	return contractNames, err
+}
+
+func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+	return ethconnect.DeployCustomContract(p.getEthconnectURL(&member), member.Address, filename, contractName)
 }
 
 func (p *BesuProvider) getEthconnectURL(member *types.Member) string {

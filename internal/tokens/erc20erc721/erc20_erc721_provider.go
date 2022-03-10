@@ -39,7 +39,7 @@ func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 	for _, member := range p.Stack.Members {
 		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
 		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
-		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil); err != nil {
+		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil, p.Verbose); err != nil {
 			return err
 		}
 	}
