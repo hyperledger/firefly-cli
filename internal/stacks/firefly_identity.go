@@ -31,13 +31,13 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		s.Log.Info(fmt.Sprintf("registering org and node for member %s", member.ID))
 
 		registerOrgURL := fmt.Sprintf("%s/network/organizations/self?confirm=true", ffURL)
-		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil)
+		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil, verbose)
 		if err != nil {
 			return err
 		}
 
 		registerNodeURL := fmt.Sprintf("%s/network/nodes/self?confirm=true", ffURL)
-		err = core.RequestWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil)
+		err = core.RequestWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil, verbose)
 		if err != nil {
 			return nil
 		}

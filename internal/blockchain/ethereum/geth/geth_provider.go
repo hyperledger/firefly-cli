@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -142,7 +142,7 @@ func (p *GethProvider) PostStart() error {
 }
 
 func (p *GethProvider) DeploySmartContracts() error {
-	return ethereum.DeployContracts(p.Stack, p.Log, p.Verbose)
+	return ethconnect.DeployContracts(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
@@ -193,6 +193,24 @@ func (p *GethProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core
 
 func (p *GethProvider) Reset() error {
 	return nil
+}
+
+func (p *GethProvider) GetContracts(filename string) ([]string, error) {
+	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	if err != nil {
+		return []string{}, err
+	}
+	contractNames := make([]string, len(contracts.Contracts))
+	i := 0
+	for contractName := range contracts.Contracts {
+		contractNames[i] = contractName
+		i++
+	}
+	return contractNames, err
+}
+
+func (p *GethProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+	return ethconnect.DeployCustomContract(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), member.Address, filename, contractName)
 }
 
 func (p *GethProvider) getEthconnectURL(member *types.Member) string {
