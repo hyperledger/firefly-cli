@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/miracl/conflate"
 	"gopkg.in/yaml.v2"
 )
 
@@ -306,10 +307,26 @@ func ReadFireflyConfig(filePath string) (*FireflyConfig, error) {
 	}
 }
 
-func WriteFireflyConfig(config *FireflyConfig, filePath string) error {
+func WriteFireflyConfig(config *FireflyConfig, filePath, extraCoreConfigPath string) error {
 	if bytes, err := yaml.Marshal(config); err != nil {
 		return err
 	} else {
-		return ioutil.WriteFile(filePath, bytes, 0755)
+		if err := ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+			return err
+		}
 	}
+	if extraCoreConfigPath != "" {
+		c, err := conflate.FromFiles(filePath, extraCoreConfigPath)
+		if err != nil {
+			return err
+		}
+		bytes, err := c.MarshalYAML()
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -23,6 +23,7 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-isatty v0.0.13
+	github.com/miracl/conflate v1.2.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.1

@@ -66,19 +66,20 @@ type StartOptions struct {
 }
 
 type InitOptions struct {
-	FireFlyBasePort    int
-	ServicesBasePort   int
-	DatabaseSelection  DatabaseSelection
-	Verbose            bool
-	ExternalProcesses  int
-	OrgNames           []string
-	NodeNames          []string
-	BlockchainProvider BlockchainProvider
-	TokenProviders     types.TokenProviders
-	FireFlyVersion     string
-	ManifestPath       string
-	PrometheusEnabled  bool
-	PrometheusPort     int
+	FireFlyBasePort     int
+	ServicesBasePort    int
+	DatabaseSelection   DatabaseSelection
+	Verbose             bool
+	ExternalProcesses   int
+	OrgNames            []string
+	NodeNames           []string
+	BlockchainProvider  BlockchainProvider
+	TokenProviders      types.TokenProviders
+	FireFlyVersion      string
+	ManifestPath        string
+	PrometheusEnabled   bool
+	PrometheusPort      int
+	ExtraCoreConfigPath string
 }
 
 func ListStacks() ([]string, error) {
@@ -185,7 +186,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 	if err := s.writeDockerCompose(compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
 	}
-	return s.writeConfigs(options.Verbose)
+	return s.writeConfigs(options)
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -284,7 +285,7 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *StackManager) writeConfigs(verbose bool) error {
+func (s *StackManager) writeConfigs(options *InitOptions) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	for _, member := range s.Stack.Members {
@@ -293,7 +294,8 @@ func (s *StackManager) writeConfigs(verbose bool) error {
 		for iTok, tp := range s.tokenProviders {
 			config.Tokens = append(config.Tokens, tp.GetFireflyConfig(member, iTok))
 		}
-		if err := core.WriteFireflyConfig(config, filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))); err != nil {
+		coreConfigFilename := filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))
+		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
 		}
 	}
