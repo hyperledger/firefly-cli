@@ -187,6 +187,7 @@ func init() {
 	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
 	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
+	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
 
 	rootCmd.AddCommand(initCmd)
 }
