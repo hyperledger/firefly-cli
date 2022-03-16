@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
 	"github.com/hyperledger/firefly-cli/internal/constants"
@@ -72,7 +73,17 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	}
 
 	// Run cryptogen to generate MSP
-	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", "-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath), "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "cryptogen", "generate", "--config", "/etc/template.yml", "--output", "/etc/firefly/organizations"); err != nil {
+	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		"-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath),
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"cryptogen", "generate",
+		"--config", "/etc/template.yml",
+		"--output", "/etc/firefly/organizations",
+	); err != nil {
 		return err
 	}
 
@@ -85,6 +96,13 @@ func (p *FabricProvider) FirstTimeSetup() error {
 }
 
 func (p *FabricProvider) DeploySmartContracts() error {
+	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	contractsDir := path.Join(stackDir, "contracts")
+	packageFilename := path.Join(contractsDir, "firefly_fabric.tar.gz")
+	chaincode := "firefly"
+	channel := "firefly"
+	version := "1.0"
+
 	if err := p.extractChaincode(); err != nil {
 		return err
 	}
@@ -97,7 +115,7 @@ func (p *FabricProvider) DeploySmartContracts() error {
 		return err
 	}
 
-	if err := p.installChaincode(); err != nil {
+	if err := p.installChaincode(packageFilename); err != nil {
 		return err
 	}
 
@@ -109,11 +127,11 @@ func (p *FabricProvider) DeploySmartContracts() error {
 		return fmt.Errorf("failed to find installed chaincode")
 	}
 
-	if err := p.approveChaincode(res.InstalledChaincodes[0].PackageID); err != nil {
+	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
 		return err
 	}
 
-	if err := p.commitChaincode(); err != nil {
+	if err := p.commitChaincode(channel, chaincode, version); err != nil {
 		return err
 	}
 
@@ -215,14 +233,41 @@ func (p *FabricProvider) createChannel() error {
 	p.Log.Info("creating channel")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "osnadmin", "channel", "join", "--channelID", "firefly", "--config-block", "/etc/firefly/firefly.block", "-o", "fabric_orderer:7053", "--ca-file", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/ca.crt", "--client-cert", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt", "--client-key", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key")
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"osnadmin", "channel", "join",
+		"--channelID", "firefly",
+		"--config-block", "/etc/firefly/firefly.block",
+		"-o", "fabric_orderer:7053",
+		"--ca-file", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/ca.crt",
+		"--client-cert", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt",
+		"--client-key", "/etc/firefly/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key",
+	)
 }
 
 func (p *FabricProvider) joinChannel() error {
 	p.Log.Info("joining channel")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "hyperledger/fabric-tools:2.3", "peer", "channel", "join", "-b", "/etc/firefly/firefly.block")
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
+		"-e", "CORE_PEER_TLS_ENABLED=true",
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
+		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
+		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+		"hyperledger/fabric-tools:2.3",
+		"peer", "channel", "join",
+		"-b", "/etc/firefly/firefly.block")
 }
 
 func (p *FabricProvider) extractChaincode() error {
@@ -250,18 +295,46 @@ func (p *FabricProvider) extractChaincode() error {
 	return nil
 }
 
-func (p *FabricProvider) installChaincode() error {
+func (p *FabricProvider) installChaincode(packageFilename string) error {
 	p.Log.Info("installing chaincode")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/contracts", path.Join(stackDir, "contracts")), "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "peer", "lifecycle", "chaincode", "install", "/contracts/firefly_fabric.tar.gz")
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
+		"-e", "CORE_PEER_TLS_ENABLED=true",
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
+		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
+		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+		"-v", fmt.Sprintf("%s:/package.tar.gz", packageFilename),
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"peer", "lifecycle", "chaincode", "install", "/package.tar.gz",
+	)
 }
 
 func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 	p.Log.Info("querying installed chaincode")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	str, err := docker.RunDockerCommandBuffered(stackDir, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "peer", "lifecycle", "chaincode", "queryinstalled", "--output", "json")
+	str, err := docker.RunDockerCommandBuffered(stackDir, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
+		"-e", "CORE_PEER_TLS_ENABLED=true",
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
+		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
+		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"peer", "lifecycle", "chaincode", "queryinstalled",
+		"--output", "json",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -273,18 +346,61 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 	return res, nil
 }
 
-func (p *FabricProvider) approveChaincode(packageId string) error {
+func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId string) error {
 	p.Log.Info("approving chaincode")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "peer", "lifecycle", "chaincode", "approveformyorg", "-o", "fabric_orderer:7050", "--ordererTLSHostnameOverride", "fabric_orderer", "--channelID", "firefly", "--name", "firefly", "--version", "1.0", "--package-id", packageId, "--sequence", "1", "--tls", "--cafile", "/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem")
+	return docker.RunDockerCommand(
+		stackDir,
+		p.Verbose,
+		p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
+		"-e", "CORE_PEER_TLS_ENABLED=true",
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
+		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
+		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"peer", "lifecycle", "chaincode", "approveformyorg",
+		"-o", "fabric_orderer:7050",
+		"--ordererTLSHostnameOverride", "fabric_orderer",
+		"--channelID", channel,
+		"--name", chaincode,
+		"--version", version,
+		"--package-id", packageId,
+		"--sequence", "1",
+		"--tls",
+		"--cafile", "/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem",
+	)
 }
 
-func (p *FabricProvider) commitChaincode() error {
+func (p *FabricProvider) commitChaincode(channel, chaincode, version string) error {
 	p.Log.Info("committing chaincode")
 	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", fmt.Sprintf("--network=%s_default", p.Stack.Name), "-e", "CORE_PEER_ADDRESS=fabric_peer:7051", "-e", "CORE_PEER_TLS_ENABLED=true", "-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "hyperledger/fabric-tools:2.3", "peer", "lifecycle", "chaincode", "commit", "-o", "fabric_orderer:7050", "--ordererTLSHostnameOverride", "fabric_orderer", "--channelID", "firefly", "--name", "firefly", "--version", "1.0", "--sequence", "1", "--tls", "--cafile", "/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem")
+	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
+		"-e", "CORE_PEER_TLS_ENABLED=true",
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"hyperledger/fabric-tools:2.3",
+		"peer", "lifecycle", "chaincode", "commit",
+		"-o", "fabric_orderer:7050",
+		"--ordererTLSHostnameOverride", "fabric_orderer",
+		"--channelID", channel,
+		"--name", chaincode,
+		"--version", version,
+		"--sequence", "1",
+		"--tls",
+		"--cafile", "/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem",
+	)
 }
 
 func (p *FabricProvider) registerIdentities() error {
@@ -302,12 +418,47 @@ func (p *FabricProvider) registerIdentities() error {
 	return nil
 }
 
-func (p *FabricProvider) GetContracts(filename string) ([]string, error) {
-	return []string{}, fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
+func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
+	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
-	return "", fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
+func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
+	filename, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case len(extraArgs) < 1:
+		return "", fmt.Errorf("channel not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+	case len(extraArgs) < 2:
+		return "", fmt.Errorf("chaincode not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+	case len(extraArgs) < 3:
+		return "", fmt.Errorf("version not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+	}
+	channel := extraArgs[0]
+	chaincode := extraArgs[1]
+	version := extraArgs[2]
+
+	if err := p.installChaincode(filename); err != nil {
+		return "", err
+	}
+
+	res, err := p.queryInstalled()
+	if err != nil {
+		return "", err
+	}
+	if len(res.InstalledChaincodes) == 0 {
+		return "", fmt.Errorf("failed to find installed chaincode")
+	}
+
+	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
+		return "", err
+	}
+
+	if err := p.commitChaincode(channel, chaincode, version); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("\n{\n\t\"channel\": \"%s\",\n\t\"chaincode\": \"%s\"\n}", channel, chaincode), nil
 }
 
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images

@@ -195,7 +195,7 @@ func (p *GethProvider) Reset() error {
 	return nil
 }
 
-func (p *GethProvider) GetContracts(filename string) ([]string, error) {
+func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
 	contracts, err := ethereum.ReadCombinedABIJSON(filename)
 	if err != nil {
 		return []string{}, err
@@ -209,7 +209,7 @@ func (p *GethProvider) GetContracts(filename string) ([]string, error) {
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+func (p *GethProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
 	return ethconnect.DeployCustomContract(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), member.Address, filename, contractName)
 }
 

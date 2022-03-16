@@ -26,7 +26,7 @@ import (
 
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
-	Use:   "deploy <stack_name> <filename>",
+	Use:   "deploy <stack_name> <filename> [extra_args]",
 	Short: "Deploy a compiled smart contract to the blockchain used by a FireFly stack",
 	Long:  `Deploy a compiled smart contract to the blockchain used by a FireFly stack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,7 +55,7 @@ var deployCmd = &cobra.Command{
 			return err
 		}
 
-		contractNames, err := stackManager.GetContracts(filename)
+		contractNames, err := stackManager.GetContracts(filename, args[2:])
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ var deployCmd = &cobra.Command{
 		}
 
 		fmt.Printf("deploying %s... ", selectedContractName)
-		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0)
+		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
 			return err
 		}

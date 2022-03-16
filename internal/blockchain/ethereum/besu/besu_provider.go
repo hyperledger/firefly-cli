@@ -287,7 +287,7 @@ func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core
 	return
 }
 
-func (p *BesuProvider) GetContracts(filename string) ([]string, error) {
+func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
 	contracts, err := ethereum.ReadCombinedABIJSON(filename)
 	if err != nil {
 		return []string{}, err
@@ -300,7 +300,7 @@ func (p *BesuProvider) GetContracts(filename string) ([]string, error) {
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
 	return ethconnect.DeployCustomContract(p.getEthconnectURL(&member), member.Address, filename, contractName)
 }
 

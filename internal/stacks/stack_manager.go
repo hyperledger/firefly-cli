@@ -768,12 +768,12 @@ func (s *StackManager) StackHasRunBefore() (bool, error) {
 	}
 }
 
-func (s *StackManager) GetContracts(filename string) ([]string, error) {
-	return s.blockchainProvider.GetContracts(filename)
+func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]string, error) {
+	return s.blockchainProvider.GetContracts(filename, extraArgs)
 }
 
-func (s *StackManager) DeployContract(filename, contractName string, memberIndex int) (string, error) {
-	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex])
+func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
+	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex], extraArgs)
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
