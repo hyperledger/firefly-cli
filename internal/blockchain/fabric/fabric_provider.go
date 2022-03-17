@@ -447,11 +447,22 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member ty
 	if err != nil {
 		return "", err
 	}
-	if len(res.InstalledChaincodes) == 0 {
+
+	chaincodeInstalled := false
+	packageID := ""
+	for _, installedChaincode := range res.InstalledChaincodes {
+		if installedChaincode.Label == chaincode {
+			chaincodeInstalled = true
+			packageID = installedChaincode.PackageID
+			break
+		}
+	}
+
+	if !chaincodeInstalled {
 		return "", fmt.Errorf("failed to find installed chaincode")
 	}
 
-	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
+	if err := p.approveChaincode(channel, chaincode, version, packageID); err != nil {
 		return "", err
 	}
 
