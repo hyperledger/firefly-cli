@@ -28,9 +28,10 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var initOptions stacks.InitOptions
+var initOptions types.InitOptions
 var databaseSelection string
 var blockchainProviderInput string
 var tokenProvidersSelection []string
@@ -98,9 +99,9 @@ var initCmd = &cobra.Command{
 		}
 
 		initOptions.Verbose = verbose
-		initOptions.BlockchainProvider, _ = stacks.BlockchainProviderFromString(blockchainProviderInput)
-		initOptions.DatabaseSelection, _ = stacks.DatabaseSelectionFromString(databaseSelection)
-		initOptions.TokenProviders, _ = stacks.TokenProvidersFromStrings(tokenProvidersSelection)
+		initOptions.BlockchainProvider, _ = types.BlockchainProviderFromString(blockchainProviderInput)
+		initOptions.DatabaseSelection, _ = types.DatabaseSelectionFromString(databaseSelection)
+		initOptions.TokenProviders, _ = types.TokenProvidersFromStrings(tokenProvidersSelection)
 
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
@@ -142,7 +143,7 @@ func validateFFName(input string) error {
 }
 
 func validateDatabaseProvider(input string) error {
-	_, err := stacks.DatabaseSelectionFromString(input)
+	_, err := types.DatabaseSelectionFromString(input)
 	if err != nil {
 		return err
 	}
@@ -150,17 +151,17 @@ func validateDatabaseProvider(input string) error {
 }
 
 func validateBlockchainProvider(input string) error {
-	blockchainSelection, err := stacks.BlockchainProviderFromString(input)
+	blockchainSelection, err := types.BlockchainProviderFromString(input)
 	if err != nil {
 		return err
 	}
 
-	if blockchainSelection == stacks.Corda {
+	if blockchainSelection == types.Corda {
 		return errors.New("support for corda is coming soon")
 	}
 
 	// TODO: When we get tokens on Fabric this should change
-	if blockchainSelection == stacks.HyperledgerFabric {
+	if blockchainSelection == types.HyperledgerFabric {
 		tokenProvidersSelection = []string{}
 	}
 
@@ -168,7 +169,7 @@ func validateBlockchainProvider(input string) error {
 }
 
 func validateTokensProvider(input []string) error {
-	_, err := stacks.TokenProvidersFromStrings(input)
+	_, err := types.TokenProvidersFromStrings(input)
 	if err != nil {
 		return err
 	}
@@ -178,9 +179,9 @@ func validateTokensProvider(input []string) error {
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
-	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", stacks.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", stacks.BlockchainProviderStrings))
-	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155"}, fmt.Sprintf("Token providers to use. Options are: %v", stacks.ValidTokenProviders))
+	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", types.DBSelectionStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155"}, fmt.Sprintf("Token providers to use. Options are: %v", types.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
 	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
@@ -188,6 +189,8 @@ func init() {
 	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
 	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
 	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
+	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
+	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -42,7 +42,7 @@ type FabricProvider struct {
 //go:embed configtx.yaml
 var configtxYaml string
 
-func (p *FabricProvider) WriteConfig() error {
+func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 

@@ -23,7 +23,7 @@ import (
 )
 
 type IBlockchainProvider interface {
-	WriteConfig() error
+	WriteConfig(options *types.InitOptions) error
 	FirstTimeSetup() error
 	DeploySmartContracts() error
 	PreStart() error

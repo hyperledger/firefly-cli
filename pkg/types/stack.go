@@ -48,15 +48,3 @@ type Member struct {
 	OrgName                   string `json:"orgName,omitempty"`
 	NodeName                  string `json:"nodeName,omitempty"`
 }
-
-type TokenProvider string
-
-type TokenProviders []TokenProvider
-
-func (tps TokenProviders) Strings() []string {
-	ret := make([]string, len(tps))
-	for i, t := range tps {
-		ret[i] = string(t)
-	}
-	return ret
-}

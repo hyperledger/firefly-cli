@@ -62,7 +62,10 @@ type Alloc struct {
 	Balance string `json:"balance"`
 }
 
-func CreateGenesis(addresses []string) *Genesis {
+func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
+	if blockPeriod == -1 {
+		blockPeriod = 0
+	}
 	extraData := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	alloc := make(map[string]*Alloc)
 	for _, address := range addresses {
@@ -85,7 +88,7 @@ func CreateGenesis(addresses []string) *Genesis {
 			ConstantinopleBlock: 0,
 			IstanbulBlock:       0,
 			Clique: &CliqueConfig{
-				Period: 0,
+				Period: blockPeriod,
 				Epoch:  30000,
 			},
 		},
