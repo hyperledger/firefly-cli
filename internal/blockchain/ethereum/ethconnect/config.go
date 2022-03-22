@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/miracl/conflate"
 	"gopkg.in/yaml.v2"
 )
 
@@ -55,10 +56,23 @@ type HTTP struct {
 	Port int `yaml:"port,omitempty"`
 }
 
-func (e *Config) WriteConfig(filename string) error {
+func (e *Config) WriteConfig(filename string, extraEthconnectConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
 	if err := ioutil.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
 		return err
+	}
+	if extraEthconnectConfigPath != "" {
+		c, err := conflate.FromFiles(filename, extraEthconnectConfigPath)
+		if err != nil {
+			return err
+		}
+		bytes, err := c.MarshalYAML()
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(filename, bytes, 0755); err != nil {
+			return err
+		}
 	}
 	return nil
 }

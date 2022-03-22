@@ -57,31 +57,6 @@ type StackManager struct {
 	tokenProviders     []tokens.ITokensProvider
 }
 
-type PullOptions struct {
-	Retries int
-}
-
-type StartOptions struct {
-	NoRollback bool
-}
-
-type InitOptions struct {
-	FireFlyBasePort     int
-	ServicesBasePort    int
-	DatabaseSelection   DatabaseSelection
-	Verbose             bool
-	ExternalProcesses   int
-	OrgNames            []string
-	NodeNames           []string
-	BlockchainProvider  BlockchainProvider
-	TokenProviders      types.TokenProviders
-	FireFlyVersion      string
-	ManifestPath        string
-	PrometheusEnabled   bool
-	PrometheusPort      int
-	ExtraCoreConfigPath string
-}
-
 func ListStacks() ([]string, error) {
 	files, err := ioutil.ReadDir(constants.StacksDir)
 	if err != nil {
@@ -107,7 +82,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) (err error) {
+func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                  stackName,
 		Members:               make([]*types.Member, memberCount),
@@ -285,7 +260,7 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *StackManager) writeConfigs(options *InitOptions) error {
+func (s *StackManager) writeConfigs(options *types.InitOptions) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	for _, member := range s.Stack.Members {
@@ -305,7 +280,7 @@ func (s *StackManager) writeConfigs(options *InitOptions) error {
 		return err
 	}
 
-	if err := s.blockchainProvider.WriteConfig(); err != nil {
+	if err := s.blockchainProvider.WriteConfig(options); err != nil {
 		return err
 	}
 
@@ -353,7 +328,7 @@ func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
 	return nil
 }
 
-func createMember(id string, index int, options *InitOptions, external bool) *types.Member {
+func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -395,7 +370,7 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	return member
 }
 
-func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	if err := s.checkPortsAvailable(); err != nil {
@@ -432,7 +407,7 @@ func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 	}
 }
 
-func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
+func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	var images []string
@@ -453,7 +428,7 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	images = append(images, constants.IPFSImageName)
 
 	// Also pull postgres if we're using it
-	if s.Stack.Database == PostgreSQL.String() {
+	if s.Stack.Database == types.PostgreSQL.String() {
 		images = append(images, constants.PostgresImageName)
 	}
 
@@ -612,7 +587,7 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) error {
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	s.Log.Info("initializing blockchain node")
@@ -778,19 +753,19 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
 	switch s.Stack.BlockchainProvider {
-	case GoEthereum.String():
+	case types.GoEthereum.String():
 		return &geth.GethProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
 		}
-	case HyperledgerBesu.String():
+	case types.HyperledgerBesu.String():
 		return &besu.BesuProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
 		}
-	case HyperledgerFabric.String():
+	case types.HyperledgerFabric.String():
 		return &fabric.FabricProvider{
 			Verbose: verbose,
 			Log:     s.Log,
@@ -805,13 +780,13 @@ func (s *StackManager) getITokenProviders(verbose bool) []tokens.ITokensProvider
 	tps := make([]tokens.ITokensProvider, len(s.Stack.TokenProviders))
 	for i, tp := range s.Stack.TokenProviders {
 		switch tp {
-		case ERC1155:
+		case types.ERC1155:
 			tps[i] = &erc1155.ERC1155Provider{
 				Verbose: verbose,
 				Log:     s.Log,
 				Stack:   s.Stack,
 			}
-		case ERC20_ERC721:
+		case types.ERC20_ERC721:
 			tps[i] = &erc20erc721.ERC20ERC721Provider{
 				Verbose: verbose,
 				Log:     s.Log,

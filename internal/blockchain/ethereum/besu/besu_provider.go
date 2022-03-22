@@ -37,7 +37,7 @@ type BesuProvider struct {
 	Stack   *types.Stack
 }
 
-func (p *BesuProvider) WriteConfig() error {
+func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
 	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir, "config"}, elem...)...) }
@@ -85,7 +85,7 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 
 		// Generate the ethconnect config for each member
 		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath); err != nil {
+		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
 			return nil
 		}
 	}
@@ -97,7 +97,7 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 	}
 
 	// Create genesis.json
-	genesis := CreateGenesis(addresses)
+	genesis := CreateGenesis(addresses, options.BlockPeriod)
 
 	if err := genesis.WriteGenesisJson(GetPath("besu", "CliqueGenesis.json")); err != nil {
 		return err

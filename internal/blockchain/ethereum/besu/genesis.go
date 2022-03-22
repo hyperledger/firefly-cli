@@ -68,7 +68,10 @@ func (g *Genesis) WriteGenesisJson(filename string) error {
 	return nil
 }
 
-func CreateGenesis(addresses []string) *Genesis {
+func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
+	if blockPeriod == -1 {
+		blockPeriod = 5
+	}
 	alloc := make(map[string]*Alloc)
 	for _, address := range addresses {
 		alloc[address] = &Alloc{
@@ -81,7 +84,7 @@ func CreateGenesis(addresses []string) *Genesis {
 			ChainId:                1337,
 			ConstantinopleFixBlock: 0,
 			Clique: &CliqueConfig{
-				Blockperiodseconds: 5,
+				Blockperiodseconds: blockPeriod,
 				EpochLength:        30000,
 			},
 		},

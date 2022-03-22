@@ -25,10 +25,11 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/spf13/cobra"
 )
 
-var startOptions stacks.StartOptions
+var startOptions types.StartOptions
 
 var startCmd = &cobra.Command{
 	Use:   "start <stack_name>",

@@ -40,7 +40,7 @@ type GethProvider struct {
 	Stack   *types.Stack
 }
 
-func (p *GethProvider) WriteConfig() error {
+func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
 	for i, member := range p.Stack.Members {
 		// Write the private key to disk for each member
@@ -51,7 +51,7 @@ func (p *GethProvider) WriteConfig() error {
 
 		// Generate the ethconnect config for each member
 		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath); err != nil {
+		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
 			return nil
 		}
 	}
@@ -62,7 +62,7 @@ func (p *GethProvider) WriteConfig() error {
 		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
 		addresses[i] = member.Address[2:]
 	}
-	genesis := CreateGenesis(addresses)
+	genesis := CreateGenesis(addresses, options.BlockPeriod)
 	if err := genesis.WriteGenesisJson(filepath.Join(stackDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
