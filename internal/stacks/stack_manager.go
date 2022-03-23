@@ -772,8 +772,8 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 	return s.blockchainProvider.GetContracts(filename, extraArgs)
 }
 
-func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex], extraArgs)
+func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs ...string) (string, error) {
+	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex], extraArgs...)
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {

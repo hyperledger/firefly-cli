@@ -300,7 +300,7 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
+func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error) {
 	return ethconnect.DeployCustomContract(p.getEthconnectURL(&member), member.Address, filename, contractName)
 }
 

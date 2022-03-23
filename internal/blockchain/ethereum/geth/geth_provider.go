@@ -209,7 +209,7 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
+func (p *GethProvider) DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error) {
 	return ethconnect.DeployCustomContract(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), member.Address, filename, contractName)
 }
 

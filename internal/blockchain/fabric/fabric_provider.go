@@ -422,7 +422,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member, extraArgs []string) (string, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return "", err
