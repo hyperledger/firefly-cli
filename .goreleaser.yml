@@ -26,7 +26,7 @@ builds:
     main: ./ff
     binary: ff
     ldflags:
-      - "-s -w -X 'github.com/hyperledger/firefly-cli/internal/version.Version={{.Version}}' -X 'github.com/hyperledger/firefly-cli/internal/version.Commit={{.Commit}}' -X 'github.com/hyperledger/firefly-cli/internal/version.Date={{.Date}}'"
+      - "-s -w -X 'github.com/hyperledger/firefly-cli/cmd.BuildVersionOverride={{.Version}}' -X 'github.com/hyperledger/firefly-cli/cmd.BuildDate={{.Date}}' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit={{.Commit}}'"
 archives:
   - replacements:
       darwin: Darwin

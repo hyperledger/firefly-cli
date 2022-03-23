@@ -42,6 +42,14 @@ If you downloaded the package from GitHub into a different directory, you will n
 ### Linux Users
 > **NOTE**: For Linux users, it is recommended that you add your user to the `docker` group so that you do not have to run `ff` or `docker` as `root` or with `sudo`. For more information about Docker permissions on Linux, please see [Docker's documentation on the topic](https://docs.docker.com/engine/install/linux-postinstall/).
 
+### Install via Go
+
+If you have a local Go development environment, and you have included `${GOPATH}/bin` in your path, you can install with:
+
+```sh
+go install github.com/hyperledger/firefly-cli/ff@latest
+```
+
 ## Create a new stack
 
 ```
