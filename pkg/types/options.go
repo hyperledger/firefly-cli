@@ -45,6 +45,7 @@ type InitOptions struct {
 	ExtraCoreConfigPath       string
 	ExtraEthconnectConfigPath string
 	BlockPeriod               int
+	ContractAddress           string
 }
 
 type BlockchainProvider int

@@ -147,7 +147,7 @@ func publishABI(ethconnectUrl string, contract *types.Contract) (*PublishAbiResp
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var publishAbiResponse *PublishAbiResponseBody
 	json.Unmarshal(responseBody, &publishAbiResponse)
@@ -189,7 +189,7 @@ func deployContract(ethconnectUrl string, abiId string, fromAddress string, para
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var deployContractResponse *DeployContractResponseBody
 	json.Unmarshal(responseBody, &deployContractResponse)
@@ -224,7 +224,7 @@ func registerContract(ethconnectUrl string, abiId string, contractAddress string
 		return nil, err
 	}
 	if resp.StatusCode != 201 {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var registerResponseBody *RegisterResponseBody
 	json.Unmarshal(responseBody, &registerResponseBody)
@@ -282,18 +282,10 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
 		return err
 	}
 
-	var fireflyContractAddress string
 	for _, member := range s.Members {
-		if fireflyContractAddress == "" {
-			// TODO: version the registered name
+		if s.ContractAddress == "" {
 			log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
-			fireflyContractAddress, err = DeployContract(member, fireflyContract, "firefly", map[string]string{})
-			if err != nil {
-				return err
-			}
-		} else {
-			log.Info(fmt.Sprintf("registering firefly contract on '%s'", member.ID))
-			err = RegisterContract(member, fireflyContract, fireflyContractAddress, "firefly", map[string]string{})
+			s.ContractAddress, err = DeployContract(member, fireflyContract, "firefly", map[string]string{})
 			if err != nil {
 				return err
 			}

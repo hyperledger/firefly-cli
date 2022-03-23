@@ -191,6 +191,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
 	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
 	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
+	initCmd.Flags().StringVarP(&initOptions.ContractAddress, "contract-address", "", "", "Do not automatically deploy a contract, instead use a pre-configured address")
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -91,6 +91,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
 		TokenProviders:        options.TokenProviders,
+		ContractAddress:       options.ContractAddress,
 	}
 
 	if options.PrometheusEnabled {

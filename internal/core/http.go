@@ -78,7 +78,7 @@ func request(method, url string, body, result interface{}) (err error) {
 		if resp.StatusCode != 204 {
 			responseBytes, _ = ioutil.ReadAll(resp.Body)
 		}
-		return fmt.Errorf("%s returned %d: %s", url, resp.StatusCode, responseBytes)
+		return fmt.Errorf("%s [%d] %s", url, resp.StatusCode, responseBytes)
 	}
 
 	if resp.StatusCode == 204 {
