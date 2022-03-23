@@ -29,8 +29,9 @@ import (
 var shortened = false
 var output = "json"
 
-var BuildDate string   // set by go releaser
-var BuildCommit string // set by go releaser
+var BuildDate string            // set by go-releaser
+var BuildCommit string          // set by go-releaser
+var BuildVersionOverride string // set by go-releaser
 
 // Info creates a formattable struct for version output
 type Info struct {
@@ -47,14 +48,19 @@ var versionCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		info := &Info{
+			Version: BuildVersionOverride,
 			Date:    BuildDate,
 			Commit:  BuildCommit,
 			License: "Apache-2.0",
 		}
 
-		buildInfo, ok := debug.ReadBuildInfo()
-		if ok {
-			info.Version = buildInfo.Main.Version
+		// Where you are using go install, we will get good version information usefully from Go
+		// When we're in go-releaser in a Github action, we will have the version passed in explicitly
+		if info.Version == "" {
+			buildInfo, ok := debug.ReadBuildInfo()
+			if ok {
+				info.Version = buildInfo.Main.Version
+			}
 		}
 
 		if shortened {
