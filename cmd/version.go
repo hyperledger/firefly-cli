@@ -29,7 +29,8 @@ import (
 var shortened = false
 var output = "json"
 
-var BuildDate string
+var BuildDate string   // set by go releaser
+var BuildCommit string // set by go releaser
 
 // Info creates a formattable struct for version output
 type Info struct {
@@ -47,13 +48,13 @@ var versionCmd = &cobra.Command{
 
 		info := &Info{
 			Date:    BuildDate,
+			Commit:  BuildCommit,
 			License: "Apache-2.0",
 		}
 
 		buildInfo, ok := debug.ReadBuildInfo()
 		if ok {
 			info.Version = buildInfo.Main.Version
-			info.Commit = buildInfo.Main.Sum
 		}
 
 		if shortened {
