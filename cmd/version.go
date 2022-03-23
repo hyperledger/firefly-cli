@@ -20,13 +20,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hyperledger/firefly-cli/internal/version"
+	"runtime/debug"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
 var shortened = false
 var output = "json"
+
+var BuildDate string
 
 // Info creates a formattable struct for version output
 type Info struct {
@@ -39,18 +42,23 @@ type Info struct {
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the version info",
-	Long: "Prints the version info of the CLI binary",
+	Long:  "Prints the version info of the CLI binary",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if shortened {
-			fmt.Println(version.Version)
-		} else {
-			info := &Info{
-				Version: version.Version,
-				Commit:  version.Commit,
-				Date:    version.Date,
-				License: version.License,
-			}
 
+		info := &Info{
+			Date:    BuildDate,
+			License: "Apache-2.0",
+		}
+
+		buildInfo, ok := debug.ReadBuildInfo()
+		if ok {
+			info.Version = buildInfo.Main.Version
+			info.Commit = buildInfo.Main.Sum
+		}
+
+		if shortened {
+			fmt.Println(info.Version)
+		} else {
 			var (
 				bytes []byte
 				err   error
