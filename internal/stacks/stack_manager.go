@@ -605,7 +605,7 @@ func (s *StackManager) writeFireflyConfgToContainer(verbose bool, workingDir str
 	return nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) error {
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	s.Log.Info("initializing blockchain node")
@@ -643,16 +643,16 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		}
 	}
 
+	var configPatchJSON []byte
 	if s.Stack.ContractAddress == "" {
 		s.Log.Info("deploying FireFly smart contracts")
-		configPatchJSON, err := s.blockchainProvider.DeploySmartContracts()
+		configPatchJSON, err = s.blockchainProvider.DeploySmartContracts()
 		if err != nil {
 			return err
 		}
-
-		if err := s.patchSmartContractAndRestartFireflyNodes(verbose, workingDir, configPatchJSON); err != nil {
-			return err
-		}
+	}
+	if err := s.patchSmartContractAndRestartFireflyNodes(verbose, workingDir, configPatchJSON); err != nil {
+		return err
 	}
 
 	s.Log.Info("registering FireFly identities")
