@@ -275,8 +275,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 
 func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
-		Name:     m.OrgName,
-		Identity: m.Address,
+		Name: m.OrgName,
+		Key:  m.Address,
 	}
 	blockchainConfig = &core.BlockchainConfig{
 		Type: "ethereum",

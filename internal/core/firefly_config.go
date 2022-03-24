@@ -68,8 +68,8 @@ type NodeConfig struct {
 }
 
 type OrgConfig struct {
-	Name     string `yaml:"name,omitempty"`
-	Identity string `yaml:"identity,omitempty"`
+	Name string `yaml:"name,omitempty"`
+	Key  string `yaml:"key,omitempty"`
 }
 
 type EthconnectConfig struct {

@@ -145,8 +145,8 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 
 func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
-		Name:     m.OrgName,
-		Identity: m.OrgName,
+		Name: m.OrgName,
+		Key:  m.OrgName,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
