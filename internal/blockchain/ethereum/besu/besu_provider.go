@@ -127,8 +127,12 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *BesuProvider) DeploySmartContracts() error {
-	return ethconnect.DeployContracts(p.Stack, p.Log, p.Verbose)
+func (p *BesuProvider) DeploySmartContracts() ([]byte, error) {
+	contractAddr, err := ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
+	if err != nil {
+		return nil, err
+	}
+	return p.getSmartContractAddressPatchJSON(contractAddr), nil
 }
 
 func (p *BesuProvider) PreStart() error {
@@ -269,7 +273,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
 		Name:     m.OrgName,
 		Identity: m.Address,
@@ -279,12 +283,16 @@ func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core
 		Ethereum: &core.EthereumConfig{
 			Ethconnect: &core.EthconnectConfig{
 				URL:      p.getEthconnectURL(m),
-				Instance: "/contracts/firefly",
+				Instance: stack.ContractAddress,
 				Topic:    m.ID,
 			},
 		},
 	}
 	return
+}
+
+func (p *BesuProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
+	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
 }
 
 func (p *BesuProvider) GetContracts(filename string) ([]string, error) {

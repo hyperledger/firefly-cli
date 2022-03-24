@@ -43,6 +43,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/miracl/conflate"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
@@ -261,12 +262,18 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
 }
 
+func (s *StackManager) writeStackConfig() error {
+	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
+	return ioutil.WriteFile(filepath.Join(stackDir, "stack.json"), stackConfigBytes, 0755)
+}
+
 func (s *StackManager) writeConfigs(options *types.InitOptions) error {
 	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
-		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(member)
+		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(s.Stack, member)
 		for iTok, tp := range s.tokenProviders {
 			config.Tokens = append(config.Tokens, tp.GetFireflyConfig(member, iTok))
 		}
@@ -276,8 +283,7 @@ func (s *StackManager) writeConfigs(options *types.InitOptions) error {
 		}
 	}
 
-	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+	if err := s.writeStackConfig(); err != nil {
 		return err
 	}
 
@@ -588,6 +594,17 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
+func (s *StackManager) writeFireflyConfgToContainer(verbose bool, workingDir string, member *types.Member) error {
+	if !member.External {
+		s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
+		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
+		if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 
@@ -603,12 +620,8 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	// write firefly configs to volumes
 	for _, member := range s.Stack.Members {
-		if !member.External {
-			s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
-			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
-			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
-				return err
-			}
+		if err := s.writeFireflyConfgToContainer(verbose, workingDir, member); err != nil {
+			return err
 		}
 	}
 
@@ -624,17 +637,22 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return err
 	}
 
-	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
-		return err
-	}
 	for i, tp := range s.tokenProviders {
 		if err := tp.DeploySmartContracts(i); err != nil {
 			return err
 		}
 	}
 
-	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
-		return err
+	if s.Stack.ContractAddress == "" {
+		s.Log.Info("deploying FireFly smart contracts")
+		configPatchJSON, err := s.blockchainProvider.DeploySmartContracts()
+		if err != nil {
+			return err
+		}
+
+		if err := s.patchSmartContractAndRestartFireflyNodes(verbose, workingDir, configPatchJSON); err != nil {
+			return err
+		}
 	}
 
 	s.Log.Info("registering FireFly identities")
@@ -717,9 +735,34 @@ func (s *StackManager) PrintStackInfo(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
+func (s *StackManager) patchSmartContractAndRestartFireflyNodes(verbose bool, workingDir string, configPatchJSON []byte) error {
+
 	for _, member := range s.Stack.Members {
-		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
+
+		if configPatchJSON != nil {
+			s.Log.Debug(fmt.Sprintf("Patching config for %s: %s", member.ID, configPatchJSON))
+			configFile := path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))
+			merger := conflate.New()
+			if err := merger.AddFiles(configFile); err != nil {
+				return fmt.Errorf("Failed merging config %s", configFile)
+			}
+			if err := merger.AddData(configPatchJSON); err != nil {
+				return fmt.Errorf("Failed merging JSON '%s' into config: %s", configPatchJSON, err)
+			}
+			s.Log.Info(fmt.Sprintf("updating %s config for new smart contract address", member.ID))
+			configData, err := merger.MarshalYAML()
+			if err != nil {
+				return err
+			}
+			if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
+				return err
+			}
+			if err = s.writeFireflyConfgToContainer(verbose, workingDir, member); err != nil {
+				return nil
+			}
+		}
+
+		s.Log.Info(fmt.Sprintf("resetting %s to pick up deployed smart contract address", member.ID))
 		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin.preInit", member.ExposedFireflyAdminPort)
 		if err := core.RequestWithRetry("PUT", configRecordUrl, "false", nil, verbose); err != nil && err != io.EOF {
 			return err

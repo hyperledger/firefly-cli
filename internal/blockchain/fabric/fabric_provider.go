@@ -84,7 +84,12 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *FabricProvider) DeploySmartContracts() error {
+func (p *FabricProvider) DeploySmartContracts() ([]byte, error) {
+	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
+	return nil, p.deploySmartContracts()
+}
+
+func (p *FabricProvider) deploySmartContracts() error {
 	if err := p.extractChaincode(); err != nil {
 		return err
 	}
@@ -138,7 +143,7 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
 		Name:     m.OrgName,
 		Identity: m.OrgName,

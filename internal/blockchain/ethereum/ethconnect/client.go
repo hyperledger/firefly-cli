@@ -31,6 +31,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/constants"
@@ -231,8 +232,72 @@ func registerContract(ethconnectUrl string, abiId string, contractAddress string
 	return registerResponseBody, nil
 }
 
-// Deprecated
-func DeployContract(member *types.Member, contract *types.Contract, name string, args map[string]string) (string, error) {
+func DeployContract(member *types.Member, contract *types.Contract, args map[string]string) (string, error) {
+	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+
+	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
+	if err != nil {
+		return "", err
+	}
+	base64Bytecode := base64.StdEncoding.EncodeToString(hexBytecode)
+
+	b, err := json.Marshal(&EthconnectMessageRequest{
+		Headers: EthconnectMessageHeaders{
+			Type: "DeployContract",
+		},
+		From:     member.Address,
+		ABI:      contract.ABI,
+		Bytecode: base64Bytecode,
+	})
+	if err != nil {
+		return "", err
+	}
+	req, _ := http.NewRequest("POST", ethconnectUrl, bytes.NewReader(b))
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	b, _ = ioutil.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("%s [%d] %s", ethconnectUrl, resp.StatusCode, b)
+	}
+	var submitResponse struct {
+		ReplyID string `json:"id"`
+	}
+	err = json.Unmarshal(b, &submitResponse)
+	if err != nil {
+		return "", fmt.Errorf("Unexpected response from EthConnect contract deployment: %s", b)
+	}
+	maxAttempts := 20
+	for attempt := 1; ; attempt++ {
+		url := fmt.Sprintf("%s/replies/%s", ethconnectUrl, submitResponse.ReplyID)
+		req, _ = http.NewRequest("GET", url, bytes.NewReader(b))
+		resp, err = client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		b, _ = ioutil.ReadAll(resp.Body)
+		if resp.StatusCode == 404 {
+			if attempt >= maxAttempts {
+				return "", fmt.Errorf("Failed to get receipt for contract deploy after %d attempts: %s [%d] %s", attempt, url, resp.StatusCode, b)
+			}
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if resp.StatusCode >= 300 {
+			return "", fmt.Errorf("%s [%d] %s", url, resp.StatusCode, b)
+		}
+		var ethconnectReply EthconnectReply
+		err = json.Unmarshal(b, &ethconnectReply)
+		if err != nil || ethconnectReply.ContractAddress == "" {
+			return "", fmt.Errorf("Unexpected response from EthConnect contract deployment: %s", b)
+		}
+		return ethconnectReply.ContractAddress, nil
+	}
+}
+
+func DeprecatedDeployContract(member *types.Member, contract *types.Contract, name string, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	if err != nil {
@@ -245,8 +310,7 @@ func DeployContract(member *types.Member, contract *types.Contract, name string,
 	return deployResponse.ContractAddress, nil
 }
 
-// Deprecated
-func RegisterContract(member *types.Member, contract *types.Contract, contractAddress string, name string, args map[string]string) error {
+func DeprecatedRegisterContract(member *types.Member, contract *types.Contract, contractAddress string, name string, args map[string]string) error {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	if err != nil {
@@ -259,40 +323,32 @@ func RegisterContract(member *types.Member, contract *types.Contract, contractAd
 	return nil
 }
 
-// Deprecated
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool) error {
+func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (string, error) {
 	var containerName string
+	var firstNonExternalMember *types.Member
 	for _, member := range s.Members {
 		if !member.External {
+			firstNonExternalMember = member
 			containerName = fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
 			break
 		}
 	}
 	if containerName == "" {
-		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+		return "", errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
 	if err := ethereum.ExtractContracts(s.Name, containerName, "/firefly/contracts", verbose); err != nil {
-		return err
+		return "", err
 	}
 
 	fireflyContract, err := ethereum.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	for _, member := range s.Members {
-		if s.ContractAddress == "" {
-			log.Info(fmt.Sprintf("deploying firefly contract on '%s'", member.ID))
-			s.ContractAddress, err = DeployContract(member, fireflyContract, "firefly", map[string]string{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	log.Info(fmt.Sprintf("deploying firefly contract via '%s'", firstNonExternalMember.ID))
+	return DeployContract(firstNonExternalMember, fireflyContract, map[string]string{})
 }
 
 func DeployCustomContract(ethconnectUrl, fromAddress, filename, contractName string) (string, error) {

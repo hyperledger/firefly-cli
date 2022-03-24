@@ -54,16 +54,16 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 
 	var tokenContractAddress string
 	for _, member := range s.Members {
+		// TODO: move to address based contract deployment, once ERC-1155 connector is updated to not require an EthConnect REST API registration
 		if tokenContractAddress == "" {
-			// TODO: version the registered name
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
-			tokenContractAddress, err = ethconnect.DeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
+			tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
-			err = ethconnect.RegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
+			err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}
