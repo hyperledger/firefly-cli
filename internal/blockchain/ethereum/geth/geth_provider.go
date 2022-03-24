@@ -217,8 +217,8 @@ func (p *GethProvider) GetContracts(filename string) ([]string, error) {
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
-	return ethconnect.DeployCustomContract(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), member.Address, filename, contractName)
+func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member) (string, error) {
+	return ethconnect.DeployCustomContract(member, filename, contractName)
 }
 
 func (p *GethProvider) getEthconnectURL(member *types.Member) string {

@@ -23,7 +23,6 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type CompiledContracts struct {
@@ -35,12 +34,21 @@ type CompiledContract struct {
 	Bytecode string      `json:"bin"`
 }
 
-func ReadCompiledContract(filePath string) (*types.Contract, error) {
+type truffleCompiledContract struct {
+	ABI      interface{} `json:"abi"`
+	Bytecode string      `json:"bytecode"`
+}
+
+func ReadTruffleCompiledContract(filePath string) (*CompiledContract, error) {
 	d, _ := ioutil.ReadFile(filePath)
-	var contract *types.Contract
-	err := json.Unmarshal(d, &contract)
+	var truffleCompiledContract *truffleCompiledContract
+	err := json.Unmarshal(d, &truffleCompiledContract)
 	if err != nil {
 		return nil, err
+	}
+	contract := &CompiledContract{
+		ABI:      truffleCompiledContract.ABI,
+		Bytecode: truffleCompiledContract.Bytecode,
 	}
 	return contract, nil
 }

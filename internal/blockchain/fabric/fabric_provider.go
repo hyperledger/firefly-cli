@@ -311,7 +311,7 @@ func (p *FabricProvider) GetContracts(filename string) ([]string, error) {
 	return []string{}, fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member) (string, error) {
 	return "", fmt.Errorf("deploying chaincode on a Fabric network is not supported yet")
 }
 
