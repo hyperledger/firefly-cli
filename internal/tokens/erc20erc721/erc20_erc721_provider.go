@@ -75,9 +75,13 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 }
 
 func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
+	name := "erc20_erc721"
+	if tokenIdx > 0 {
+		name = fmt.Sprintf("erc20_erc721_%d", tokenIdx)
+	}
 	return &core.TokenConnector{
 		Plugin: "fftokens",
-		Name:   "erc20_erc721",
+		Name:   name,
 		URL:    p.getTokensURL(m, tokenIdx),
 	}
 }
