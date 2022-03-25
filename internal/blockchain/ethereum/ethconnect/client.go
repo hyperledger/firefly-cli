@@ -304,8 +304,13 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (string
 	if err != nil {
 		return "", err
 	}
-
-	fireflyContract := contracts.Contracts["Firefly.sol:Firefly"]
+	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
+	if !ok {
+		fireflyContract, err = ethereum.ReadTruffleCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
+		if err != nil {
+			return "", err
+		}
+	}
 
 	log.Info(fmt.Sprintf("deploying firefly contract via '%s'", firstNonExternalMember.ID))
 	return deployContract(firstNonExternalMember, fireflyContract, map[string]string{})
