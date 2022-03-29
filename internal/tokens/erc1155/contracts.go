@@ -23,7 +23,6 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -43,11 +42,11 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	}
 	log.Info("extracting smart contracts")
 
-	if err := ethereum.ExtractContracts(s.Name, containerName, "/root/contracts", verbose); err != nil {
+	if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
 		return err
 	}
 
-	tokenContract, err := ethereum.ReadTruffleCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "ERC1155MixedFungible.json"))
+	tokenContract, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
 	if err != nil {
 		return err
 	}

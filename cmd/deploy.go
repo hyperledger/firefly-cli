@@ -45,12 +45,6 @@ var deployCmd = &cobra.Command{
 		}
 		filename := args[1]
 
-		if exists, err := stacks.CheckExists(stackName); err != nil {
-			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
-		}
-
 		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}

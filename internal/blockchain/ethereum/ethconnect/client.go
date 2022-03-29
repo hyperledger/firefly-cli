@@ -33,7 +33,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -281,7 +280,7 @@ func DeprecatedRegisterContract(member *types.Member, contract *ethereum.Compile
 	return nil
 }
 
-func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (string, error) {
+func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.BlockchainConfig, error) {
 	var containerName string
 	var firstNonExternalMember *types.Member
 	for _, member := range s.Members {
@@ -292,28 +291,38 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (string
 		}
 	}
 	if containerName == "" {
-		return "", errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+		return nil, errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
-	if err := ethereum.ExtractContracts(s.Name, containerName, "/firefly/contracts", verbose); err != nil {
-		return "", err
+	if err := ethereum.ExtractContracts(containerName, "/firefly/contracts", s.RuntimeDir, verbose); err != nil {
+		return nil, err
 	}
 
-	contracts, err := ethereum.ReadCombinedABIJSON(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
+	contracts, err := ethereum.ReadCombinedABIJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
 	if !ok {
-		fireflyContract, err = ethereum.ReadTruffleCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "Firefly.json"))
+		fireflyContract, err = ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
 	log.Info(fmt.Sprintf("deploying firefly contract via '%s'", firstNonExternalMember.ID))
-	return deployContract(firstNonExternalMember, fireflyContract, map[string]string{})
+	contractAddress, err := deployContract(firstNonExternalMember, fireflyContract, map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	return &core.BlockchainConfig{
+		Ethereum: &core.EthereumConfig{
+			Ethconnect: &core.EthconnectConfig{
+				Instance: contractAddress,
+			},
+		},
+	}, nil
 }
 
 func DeployCustomContract(member *types.Member, filename, contractName string) (string, error) {

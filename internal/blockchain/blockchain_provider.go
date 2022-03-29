@@ -25,7 +25,7 @@ import (
 type IBlockchainProvider interface {
 	WriteConfig(options *types.InitOptions) error
 	FirstTimeSetup() error
-	DeploySmartContracts() ([]byte, error)
+	DeployFireFlyContract() (*core.BlockchainConfig, error)
 	PreStart() error
 	PostStart() error
 	GetDockerServiceDefinitions() []*docker.ServiceDefinition

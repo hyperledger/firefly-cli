@@ -127,12 +127,8 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *BesuProvider) DeploySmartContracts() ([]byte, error) {
-	contractAddr, err := ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
-	if err != nil {
-		return nil, err
-	}
-	return p.getSmartContractAddressPatchJSON(contractAddr), nil
+func (p *BesuProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *BesuProvider) PreStart() error {

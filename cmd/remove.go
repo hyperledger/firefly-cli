@@ -45,10 +45,8 @@ and configuration.`,
 		}
 		stackName := args[0]
 
-		if exists, err := stacks.CheckExists(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
 		if !force {

@@ -19,9 +19,7 @@ package ethereum
 import (
 	"encoding/json"
 	"io/ioutil"
-	"path/filepath"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
@@ -63,9 +61,8 @@ func ReadCombinedABIJSON(filePath string) (*CompiledContracts, error) {
 	return contracts, nil
 }
 
-func ExtractContracts(stackName string, containerName string, dirName string, verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, stackName)
-	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":"+dirName, workingDir); err != nil {
+func ExtractContracts(containerName, sourceDir, destinationDir string, verbose bool) error {
+	if err := docker.RunDockerCommand(destinationDir, verbose, verbose, "cp", containerName+":"+sourceDir, destinationDir); err != nil {
 		return err
 	}
 	return nil
