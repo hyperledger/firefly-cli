@@ -503,7 +503,7 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	// Use docker to pull every image - retry on failure
 	for _, image := range images {
 		s.Log.Info(fmt.Sprintf("pulling '%s", image))
-		if err := docker.RunDockerCommandRetry(s.Stack.RuntimeDir, verbose, verbose, options.Retries, "pull", image); err != nil {
+		if err := docker.RunDockerCommandRetry(s.Stack.InitDir, verbose, verbose, options.Retries, "pull", image); err != nil {
 			return err
 		}
 	}
@@ -535,6 +535,10 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 
 	s.Log.Info("starting FireFly dependencies")
 	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d"); err != nil {
+		return err
+	}
+
+	if err := s.blockchainProvider.PostStart(); err != nil {
 		return err
 	}
 
@@ -782,13 +786,12 @@ func (s *StackManager) UpgradeStack(verbose bool) error {
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "images"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "ps"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "ps"); err != nil {
 		return err
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, s.Stack.Name, "docker-compose.yml"))
