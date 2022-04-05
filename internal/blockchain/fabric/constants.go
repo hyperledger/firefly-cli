@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2021 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,19 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package fabric
 
-import (
-	"github.com/spf13/cobra"
-)
-
-// deployCmd represents the deploy command
-var deployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy a compiled smart contract",
-	Long:  `Deploy a compiled smart contract to the blockchain used by a FireFly stack`,
-}
-
-func init() {
-	rootCmd.AddCommand(deployCmd)
-}
+var FabricToolsImageName = "hyperledger/fabric-tools:2.3"
+var FabricCAImageName = "hyperledger/fabric-ca:1.5"
+var FabricOrdererImageName = "hyperledger/fabric-orderer:2.3"
+var FabricPeerImageName = "hyperledger/fabric-peer:2.3"

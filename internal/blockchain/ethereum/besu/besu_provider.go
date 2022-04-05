@@ -282,11 +282,7 @@ func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (bl
 	return
 }
 
-func (p *BesuProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
-	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
-}
-
-func (p *BesuProvider) GetContracts(filename string) ([]string, error) {
+func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
 	contracts, err := ethereum.ReadCombinedABIJSON(filename)
 	if err != nil {
 		return []string{}, err
@@ -299,7 +295,7 @@ func (p *BesuProvider) GetContracts(filename string) ([]string, error) {
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member) (string, error) {
+func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
 	return ethconnect.DeployCustomContract(member, filename, contractName)
 }
 
