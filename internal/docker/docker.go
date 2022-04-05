@@ -122,7 +122,7 @@ outputCapture:
 	cmd.Wait()
 	statusCode := cmd.ProcessState.ExitCode()
 	if statusCode != 0 {
-		return "", fmt.Errorf("%s\nFailed [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
+		return "", fmt.Errorf("%s [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
 	}
 	return outputBuff.String(), nil
 }

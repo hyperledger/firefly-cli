@@ -19,11 +19,8 @@ package ethereum
 import (
 	"encoding/json"
 	"io/ioutil"
-	"path/filepath"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type CompiledContracts struct {
@@ -35,12 +32,21 @@ type CompiledContract struct {
 	Bytecode string      `json:"bin"`
 }
 
-func ReadCompiledContract(filePath string) (*types.Contract, error) {
+type truffleCompiledContract struct {
+	ABI      interface{} `json:"abi"`
+	Bytecode string      `json:"bytecode"`
+}
+
+func ReadTruffleCompiledContract(filePath string) (*CompiledContract, error) {
 	d, _ := ioutil.ReadFile(filePath)
-	var contract *types.Contract
-	err := json.Unmarshal(d, &contract)
+	var truffleCompiledContract *truffleCompiledContract
+	err := json.Unmarshal(d, &truffleCompiledContract)
 	if err != nil {
 		return nil, err
+	}
+	contract := &CompiledContract{
+		ABI:      truffleCompiledContract.ABI,
+		Bytecode: truffleCompiledContract.Bytecode,
 	}
 	return contract, nil
 }
@@ -55,9 +61,8 @@ func ReadCombinedABIJSON(filePath string) (*CompiledContracts, error) {
 	return contracts, nil
 }
 
-func ExtractContracts(stackName string, containerName string, dirName string, verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, stackName)
-	if err := docker.RunDockerCommand(workingDir, verbose, verbose, "cp", containerName+":"+dirName, workingDir); err != nil {
+func ExtractContracts(containerName, sourceDir, destinationDir string, verbose bool) error {
+	if err := docker.RunDockerCommand(destinationDir, verbose, verbose, "cp", containerName+":"+sourceDir, destinationDir); err != nil {
 		return err
 	}
 	return nil

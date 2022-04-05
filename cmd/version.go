@@ -20,13 +20,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hyperledger/firefly-cli/internal/version"
+	"runtime/debug"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
 var shortened = false
 var output = "json"
+
+var BuildDate string            // set by go-releaser
+var BuildCommit string          // set by go-releaser
+var BuildVersionOverride string // set by go-releaser
 
 // Info creates a formattable struct for version output
 type Info struct {
@@ -39,18 +44,28 @@ type Info struct {
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the version info",
-	Long: "Prints the version info of the CLI binary",
+	Long:  "Prints the version info of the CLI binary",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if shortened {
-			fmt.Println(version.Version)
-		} else {
-			info := &Info{
-				Version: version.Version,
-				Commit:  version.Commit,
-				Date:    version.Date,
-				License: version.License,
-			}
 
+		info := &Info{
+			Version: BuildVersionOverride,
+			Date:    BuildDate,
+			Commit:  BuildCommit,
+			License: "Apache-2.0",
+		}
+
+		// Where you are using go install, we will get good version information usefully from Go
+		// When we're in go-releaser in a Github action, we will have the version passed in explicitly
+		if info.Version == "" {
+			buildInfo, ok := debug.ReadBuildInfo()
+			if ok {
+				info.Version = buildInfo.Main.Version
+			}
+		}
+
+		if shortened {
+			fmt.Println(info.Version)
+		} else {
 			var (
 				bytes []byte
 				err   error

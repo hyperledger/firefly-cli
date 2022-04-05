@@ -27,6 +27,10 @@ type Stack struct {
 	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
 	ExposedPrometheusPort int              `json:"exposedPrometheusPort,omitempty"`
+	ContractAddress       string           `json:"contractAddress,omitempty"`
+	InitDir               string           `json:-`
+	RuntimeDir            string           `json:-`
+	StackDir              string           `json:-`
 }
 
 type Member struct {
@@ -47,16 +51,4 @@ type Member struct {
 	External                  bool   `json:"external,omitempty"`
 	OrgName                   string `json:"orgName,omitempty"`
 	NodeName                  string `json:"nodeName,omitempty"`
-}
-
-type TokenProvider string
-
-type TokenProviders []TokenProvider
-
-func (tps TokenProviders) Strings() []string {
-	ret := make([]string, len(tps))
-	for i, t := range tps {
-		ret[i] = string(t)
-	}
-	return ret
 }

@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
 	"gopkg.in/yaml.v2"
@@ -68,8 +67,8 @@ type NodeConfig struct {
 }
 
 type OrgConfig struct {
-	Name     string `yaml:"name,omitempty"`
-	Identity string `yaml:"identity,omitempty"`
+	Name string `yaml:"name,omitempty"`
+	Key  string `yaml:"key,omitempty"`
 }
 
 type EthconnectConfig struct {
@@ -102,8 +101,8 @@ type BlockchainConfig struct {
 }
 
 type DataExchangeConfig struct {
-	Type  string              `yaml:"type,omitempty"`
-	HTTPS *HttpEndpointConfig `yaml:"https,omitempty"`
+	Type string              `yaml:"type,omitempty"`
+	FFDX *HttpEndpointConfig `yaml:"ffdx,omitempty"`
 }
 
 type CommonDBConfig struct {
@@ -185,7 +184,6 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
 			},
 			Enabled: true,
-			PreInit: true,
 		},
 		UI: &UIConfig{
 			Path: "./frontend",
@@ -205,7 +203,8 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			},
 		},
 		DataExchange: &DataExchangeConfig{
-			HTTPS: &HttpEndpointConfig{
+			Type: "ffdx",
+			FFDX: &HttpEndpointConfig{
 				URL: getDataExchangeURL(member),
 			},
 		},
@@ -247,7 +246,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		memberConfig.Database = &DatabaseConfig{
 			Type: stack.Database,
 			SQLite3: &CommonDBConfig{
-				URL: getSQLitePath(member, stack.Name),
+				URL: getSQLitePath(member, stack.RuntimeDir),
 				Migrations: &MigrationsConfig{
 					Auto: true,
 				},
@@ -281,11 +280,11 @@ func getPostgresURL(member *types.Member) string {
 	}
 }
 
-func getSQLitePath(member *types.Member, stackName string) string {
+func getSQLitePath(member *types.Member, runtimeDir string) string {
 	if !member.External {
 		return "/etc/firefly/db?_busy_timeout=5000"
 	} else {
-		return path.Join(constants.StacksDir, stackName, "data", member.ID+".db")
+		return path.Join(runtimeDir, member.ID+".db")
 	}
 }
 

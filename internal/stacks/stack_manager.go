@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -43,43 +42,23 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/miracl/conflate"
 	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger/firefly-cli/internal/log"
+
+	"github.com/otiai10/copy"
 )
 
 type StackManager struct {
-	Log                log.Logger
-	Stack              *types.Stack
-	blockchainProvider blockchain.IBlockchainProvider
-	tokenProviders     []tokens.ITokensProvider
-}
-
-type PullOptions struct {
-	Retries int
-}
-
-type StartOptions struct {
-	NoRollback bool
-}
-
-type InitOptions struct {
-	FireFlyBasePort     int
-	ServicesBasePort    int
-	DatabaseSelection   DatabaseSelection
-	Verbose             bool
-	ExternalProcesses   int
-	OrgNames            []string
-	NodeNames           []string
-	BlockchainProvider  BlockchainProvider
-	TokenProviders      types.TokenProviders
-	FireFlyVersion      string
-	ManifestPath        string
-	PrometheusEnabled   bool
-	PrometheusPort      int
-	ExtraCoreConfigPath string
+	Log                    log.Logger
+	Stack                  *types.Stack
+	blockchainProvider     blockchain.IBlockchainProvider
+	tokenProviders         []tokens.ITokensProvider
+	fireflyCoreEntrypoints [][]string
+	IsOldFileStructure     bool
 }
 
 func ListStacks() ([]string, error) {
@@ -107,7 +86,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *InitOptions) (err error) {
+func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                  stackName,
 		Members:               make([]*types.Member, memberCount),
@@ -116,6 +95,10 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		Database:              options.DatabaseSelection.String(),
 		BlockchainProvider:    options.BlockchainProvider.String(),
 		TokenProviders:        options.TokenProviders,
+		ContractAddress:       options.ContractAddress,
+		StackDir:              filepath.Join(constants.StacksDir, stackName),
+		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
+		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
 	}
 
 	if options.PrometheusEnabled {
@@ -180,13 +163,13 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *Ini
 		}
 	}
 
-	if err := s.ensureDirectories(); err != nil {
+	if err := s.ensureInitDirectories(); err != nil {
 		return err
 	}
-	if err := s.writeDockerCompose(compose); err != nil {
+	if err := s.writeDockerCompose(s.Stack.InitDir, compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
 	}
-	return s.writeConfigs(options)
+	return s.writeConfig(options)
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -200,7 +183,19 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
+func isOldFileStructure(stackDir string) (bool, error) {
+	_, err := os.Stat(filepath.Join(stackDir, "init"))
+	if os.IsNotExist(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return false, nil
+	}
+}
+
 func (s *StackManager) LoadStack(stackName string, verbose bool) error {
+	stackDir := filepath.Join(constants.StacksDir, stackName)
 	exists, err := CheckExists(stackName)
 	if err != nil {
 		return err
@@ -209,17 +204,34 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
 	fmt.Printf("reading stack config... ")
-	if d, err := ioutil.ReadFile(filepath.Join(constants.StacksDir, stackName, "stack.json")); err != nil {
+	d, err := ioutil.ReadFile(filepath.Join(stackDir, "stack.json"))
+	if err != nil {
 		return err
-	} else {
-		var stack *types.Stack
-		if err := json.Unmarshal(d, &stack); err == nil {
-			fmt.Printf("done\n")
-		}
-		s.Stack = stack
-		s.blockchainProvider = s.getBlockchainProvider(verbose)
-		s.tokenProviders = s.getITokenProviders(verbose)
 	}
+	var stack *types.Stack
+	if err := json.Unmarshal(d, &stack); err != nil {
+		return err
+	}
+	fmt.Printf("done\n")
+	s.Stack = stack
+	s.Stack.StackDir = stackDir
+	s.blockchainProvider = s.getBlockchainProvider(verbose)
+	s.tokenProviders = s.getITokenProviders(verbose)
+
+	isOldFileStructure, err := isOldFileStructure(s.Stack.StackDir)
+	if err != nil {
+		return err
+	}
+
+	if !isOldFileStructure {
+		s.Stack.InitDir = filepath.Join(s.Stack.StackDir, "init")
+		s.Stack.RuntimeDir = filepath.Join(s.Stack.StackDir, "runtime")
+	} else {
+		s.IsOldFileStructure = true
+		s.Stack.InitDir = s.Stack.StackDir
+		s.Stack.RuntimeDir = s.Stack.StackDir
+	}
+
 	// For backwards compatability, add a "default" VersionManifest
 	// in memory for stacks that were created with old CLI versions
 	if s.Stack.VersionManifest == nil {
@@ -253,20 +265,18 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) ensureDirectories() error {
+func (s *StackManager) ensureInitDirectories() error {
+	configDir := filepath.Join(s.Stack.InitDir, "config")
 
-	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	dataDir := filepath.Join(stackDir, "data")
-
-	if err := os.MkdirAll(filepath.Join(stackDir, "configs"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(configDir), 0755); err != nil {
 		return err
 	}
 
 	for _, member := range s.Stack.Members {
-		if err := os.MkdirAll(filepath.Join(dataDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(configDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Join(stackDir, "blockchain", member.ID), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(s.Stack.InitDir, "blockchain", member.ID), 0755); err != nil {
 			return err
 		}
 	}
@@ -274,38 +284,42 @@ func (s *StackManager) ensureDirectories() error {
 	return nil
 }
 
-func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) error {
+func (s *StackManager) writeDockerCompose(workingDir string, compose *docker.DockerComposeConfig) error {
 	bytes, err := yaml.Marshal(compose)
 	if err != nil {
 		return err
 	}
 
-	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-
-	return ioutil.WriteFile(filepath.Join(stackDir, "docker-compose.yml"), bytes, 0755)
+	return ioutil.WriteFile(filepath.Join(workingDir, "docker-compose.yml"), bytes, 0755)
 }
 
-func (s *StackManager) writeConfigs(options *InitOptions) error {
-	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+func (s *StackManager) writeStackConfig() error {
+	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
+}
+
+func (s *StackManager) writeConfig(options *types.InitOptions) error {
+	if err := s.writeDataExchangeCerts(options.Verbose); err != nil {
+		return err
+	}
 
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
-		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(member)
+		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(s.Stack, member)
 		for iTok, tp := range s.tokenProviders {
 			config.Tokens = append(config.Tokens, tp.GetFireflyConfig(member, iTok))
 		}
-		coreConfigFilename := filepath.Join(stackDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID))
+		coreConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
 		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
 		}
 	}
 
-	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+	if err := s.writeStackConfig(); err != nil {
 		return err
 	}
 
-	if err := s.blockchainProvider.WriteConfig(); err != nil {
+	if err := s.blockchainProvider.WriteConfig(options); err != nil {
 		return err
 	}
 
@@ -315,7 +329,7 @@ func (s *StackManager) writeConfigs(options *InitOptions) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path.Join(stackDir, "configs", "prometheus.yml"), configBytes, 0755); err != nil {
+		if err := ioutil.WriteFile(path.Join(s.Stack.InitDir, "config", "prometheus.yml"), configBytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -324,14 +338,14 @@ func (s *StackManager) writeConfigs(options *InitOptions) error {
 }
 
 func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
-	stackDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+	configDir := filepath.Join(s.Stack.InitDir, "config")
 	for _, member := range s.Stack.Members {
 
-		memberDXDir := path.Join(stackDir, "data", "dataexchange_"+member.ID)
+		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 
 		// TODO: remove dependency on openssl here
 		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=dataexchange_%s/O=member_%s", member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
-		opensslCmd.Dir = filepath.Join(stackDir, "data", "dataexchange_"+member.ID)
+		opensslCmd.Dir = filepath.Join(configDir, "dataexchange_"+member.ID)
 		if err := opensslCmd.Run(); err != nil {
 			return err
 		}
@@ -341,19 +355,34 @@ func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
 		if err != nil {
 			return err
 		}
-		ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755)
-
-		// Copy files into docker volumes
-		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
-		docker.MkdirInVolume(volumeName, "peer-certs", verbose)
-		docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "config.json"), "/config.json", verbose)
-		docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "cert.pem"), "/cert.pem", verbose)
-		docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "key.pem"), "/key.pem", verbose)
+		if err := ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func createMember(id string, index int, options *InitOptions, external bool) *types.Member {
+func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
+	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
+	for _, member := range s.Stack.Members {
+		// Copy files into docker volumes
+		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
+		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
+		docker.MkdirInVolume(volumeName, "peer-certs", verbose)
+		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "config.json"), "/config.json", verbose); err != nil {
+			return err
+		}
+		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "cert.pem"), "/cert.pem", verbose); err != nil {
+			return err
+		}
+		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "key.pem"), "/key.pem", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
 	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := privateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
@@ -395,15 +424,20 @@ func createMember(id string, index int, options *InitOptions, external bool) *ty
 	return member
 }
 
-func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) error {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
-	if err := s.checkPortsAvailable(); err != nil {
+	err := s.checkPortsAvailable()
+	if err != nil {
 		return err
 	}
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	if hasBeenRun, err := s.StackHasRunBefore(); !hasBeenRun && err == nil {
-		if err := s.runFirstTimeSetup(verbose, options); err != nil {
+	hasBeenRun, err := s.StackHasRunBefore()
+	if err != nil {
+		return err
+	}
+	if !hasBeenRun {
+		err := s.runFirstTimeSetup(verbose, options)
+		if err != nil {
 			// Something bad happened during setup
 			if options.NoRollback {
 				return err
@@ -423,18 +457,15 @@ func (s *StackManager) StartStack(verbose bool, options *StartOptions) error {
 				return finalErr
 			}
 		}
-
-		return nil
-	} else if err == nil {
-		return s.runStartupSequence(workingDir, verbose, false)
-	} else {
+	}
+	err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
+	if err != nil {
 		return err
 	}
+	return s.ensureFireflyNodesUp(true)
 }
 
-func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-
+func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
 	var images []string
 
 	// Collect FireFly docker image names
@@ -453,7 +484,7 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	images = append(images, constants.IPFSImageName)
 
 	// Also pull postgres if we're using it
-	if s.Stack.Database == PostgreSQL.String() {
+	if s.Stack.Database == types.PostgreSQL.String() {
 		images = append(images, constants.PostgresImageName)
 	}
 
@@ -472,7 +503,7 @@ func (s *StackManager) PullStack(verbose bool, options *PullOptions) error {
 	// Use docker to pull every image - retry on failure
 	for _, image := range images {
 		s.Log.Info(fmt.Sprintf("pulling '%s", image))
-		if err := docker.RunDockerCommandRetry(workingDir, verbose, verbose, options.Retries, "pull", image); err != nil {
+		if err := docker.RunDockerCommandRetry(s.Stack.InitDir, verbose, verbose, options.Retries, "pull", image); err != nil {
 			return err
 		}
 	}
@@ -503,7 +534,7 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 	}
 
 	s.Log.Info("starting FireFly dependencies")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "up", "-d"); err != nil {
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d"); err != nil {
 		return err
 	}
 
@@ -511,35 +542,33 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 		return err
 	}
 
-	if err := s.ensureFireflyNodesUp(firstTimeSetup); err != nil {
-		return err
-	}
 	return nil
 }
 
 func (s *StackManager) StopStack(verbose bool) error {
-	return docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "stop")
+	return docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "stop")
 }
 
 func (s *StackManager) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(filepath.Join(constants.StacksDir, s.Stack.Name), verbose, verbose, "down"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name, "data")); err != nil {
+	if err := os.RemoveAll(s.Stack.RuntimeDir); err != nil {
 		return err
 	}
 	if err := s.blockchainProvider.Reset(); err != nil {
 		return err
 	}
 	s.removeVolumes(verbose)
-	return s.ensureDirectories()
+	return nil
 }
 
 func (s *StackManager) RemoveStack(verbose bool) error {
-	if err := s.ResetStack(verbose); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.Join(constants.StacksDir, s.Stack.Name))
+	s.removeVolumes(verbose)
+	return os.RemoveAll(s.Stack.StackDir)
 }
 
 func (s *StackManager) checkPortsAvailable() error {
@@ -612,52 +641,81 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
+func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+	if !member.External {
+		s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
+		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
+		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core.yml", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
+	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
+
+	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
+		return err
+	}
+
+	if err := s.disableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
+		return err
+	}
 
 	s.Log.Info("initializing blockchain node")
 	if err := s.blockchainProvider.FirstTimeSetup(); err != nil {
 		return err
 	}
 
-	s.Log.Info("writing data exchange certs")
-	if err := s.writeDataExchangeCerts(verbose); err != nil {
-		return err
-	}
-
-	// write firefly configs to volumes
-	for _, member := range s.Stack.Members {
-		if !member.External {
-			s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
-			volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
-			if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core", verbose); err != nil {
-				return err
-			}
-		}
-	}
-
 	if s.Stack.PrometheusEnabled {
 		s.Log.Info("copying prometheus.yml to prometheus_config")
 		volumeName := fmt.Sprintf("%s_prometheus_config", s.Stack.Name)
-		if err := docker.CopyFileToVolume(volumeName, path.Join(workingDir, "configs", "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
+		if err := docker.CopyFileToVolume(volumeName, path.Join(configDir, "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
 			return err
 		}
 	}
 
-	if err := s.runStartupSequence(workingDir, verbose, true); err != nil {
+	if err := s.copyDataExchangeConfigToVolumes(verbose); err != nil {
 		return err
 	}
 
-	if err := s.blockchainProvider.DeploySmartContracts(); err != nil {
+	if err := s.runStartupSequence(s.Stack.RuntimeDir, verbose, true); err != nil {
 		return err
 	}
+
 	for i, tp := range s.tokenProviders {
 		if err := tp.DeploySmartContracts(i); err != nil {
 			return err
 		}
 	}
 
-	if err := s.patchConfigAndRestartFireflyNodes(verbose); err != nil {
+	if s.Stack.ContractAddress == "" {
+		s.Log.Info("deploying FireFly smart contracts")
+		blockchainConfig, err := s.blockchainProvider.DeployFireFlyContract()
+		if err != nil {
+			return err
+		}
+		newConfig := &core.FireflyConfig{
+			Blockchain: blockchainConfig,
+		}
+		s.patchFireFlyCoreConfigs(verbose, configDir, newConfig)
+	}
+
+	for _, member := range s.Stack.Members {
+		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
+			return err
+		}
+	}
+
+	if err := s.enableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
+		return err
+	}
+
+	// Bring up the FireFly Core containers now that we've finalized the runtime config
+	docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d")
+
+	if err := s.ensureFireflyNodesUp(true); err != nil {
 		return err
 	}
 
@@ -678,7 +736,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *StartOptions) er
 func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
 	for _, member := range s.Stack.Members {
 		if member.External {
-			configFilename := path.Join(constants.StacksDir, s.Stack.Name, "configs", fmt.Sprintf("firefly_core_%v.yml", member.ID))
+			configFilename := filepath.Join(s.Stack.RuntimeDir, "config", fmt.Sprintf("firefly_core_%v.yml", member.ID))
 			var port int
 			if firstTimeSetup {
 				port = member.ExposedFireflyAdminPort
@@ -721,50 +779,121 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 
 func (s *StackManager) UpgradeStack(verbose bool) error {
 	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "down"); err != nil {
+	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
 		return err
 	}
 	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "images"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, true, "ps"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "ps"); err != nil {
 		return err
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, s.Stack.Name, "docker-compose.yml"))
 	return nil
 }
 
-func (s *StackManager) patchConfigAndRestartFireflyNodes(verbose bool) error {
+func (s *StackManager) disableFireflyCoreContainers(verbose bool, workingDir string) error {
+	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
+	if err != nil {
+		return err
+	}
+	var dockerComposeYAML *docker.DockerComposeConfig
+	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
+		return err
+	}
+
+	// Cache any currently set entrypoint
+	s.fireflyCoreEntrypoints = make([][]string, len(s.Stack.Members))
 	for _, member := range s.Stack.Members {
-		s.Log.Info(fmt.Sprintf("applying configuration changes to %s", member.ID))
-		configRecordUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/records/admin.preInit", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("PUT", configRecordUrl, "false", nil, verbose); err != nil && err != io.EOF {
+		if !member.External {
+			s.fireflyCoreEntrypoints[*member.Index] = dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint
+			// Temporarily set the entrypoint to not run anything
+			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = []string{"/bin/sh", "-c", "exit", "0"}
+		}
+	}
+	return s.writeDockerCompose(workingDir, dockerComposeYAML)
+}
+
+func (s *StackManager) enableFireflyCoreContainers(verbose bool, workingDir string) error {
+	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
+	if err != nil {
+		return err
+	}
+	var dockerComposeYAML *docker.DockerComposeConfig
+	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
+		return err
+	}
+
+	for _, member := range s.Stack.Members {
+		if !member.External {
+			// If there was a cached entrypoint for this service, restore it
+			// Otherwise default to the entrypoint of "firefly" as defined in the Dockerfile for FireFly Core
+			entrypoint := []string{"firefly"}
+			if len(s.fireflyCoreEntrypoints[*member.Index]) > 0 {
+				entrypoint = s.fireflyCoreEntrypoints[*member.Index]
+			}
+			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = entrypoint
+		}
+	}
+	return s.writeDockerCompose(workingDir, dockerComposeYAML)
+}
+
+func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, newConfig *core.FireflyConfig) error {
+	if newConfig != nil {
+		newConfigBytes, err := yaml.Marshal(newConfig)
+		if err != nil {
 			return err
 		}
-		resetUrl := fmt.Sprintf("http://localhost:%d/admin/api/v1/config/reset", member.ExposedFireflyAdminPort)
-		if err := core.RequestWithRetry("POST", resetUrl, "{}", nil, verbose); err != nil {
-			return err
+		for _, member := range s.Stack.Members {
+			s.Log.Debug(fmt.Sprintf("patching config for %s: %v", member.ID, newConfig))
+			configFile := path.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", member.ID))
+			merger := conflate.New()
+			if err := merger.AddFiles(configFile); err != nil {
+				return fmt.Errorf("failed merging config %s", configFile)
+			}
+			if err := merger.AddData(newConfigBytes); err != nil {
+				return fmt.Errorf("failed merging YAML '%v' into config: %s", newConfig, err)
+			}
+			s.Log.Info(fmt.Sprintf("updating %s config for new smart contract address", member.ID))
+			configData, err := merger.MarshalYAML()
+			if err != nil {
+				return err
+			}
+			if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func (s *StackManager) StackHasRunBefore() (bool, error) {
-	path := filepath.Join(constants.StacksDir, s.Stack.Name, "data", fmt.Sprintf("dataexchange_%s", s.Stack.Members[0].ID), "cert.pem")
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
-		return false, err
+	if s.IsOldFileStructure {
+		dataDir := filepath.Join(constants.StacksDir, s.Stack.Name, "data")
+		_, err := os.Stat(dataDir)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		} else {
+			return true, nil
+		}
 	} else {
-		return true, nil
+		runtimeDir := filepath.Join(s.Stack.RuntimeDir)
+		_, err := os.Stat(runtimeDir)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		} else {
+			return true, nil
+		}
 	}
 }
 
@@ -772,25 +901,25 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 	return s.blockchainProvider.GetContracts(filename, extraArgs)
 }
 
-func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs ...string) (string, error) {
-	return s.blockchainProvider.DeployContract(filename, contractName, *s.Stack.Members[memberIndex], extraArgs...)
+func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
+	return s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
 	switch s.Stack.BlockchainProvider {
-	case GoEthereum.String():
+	case types.GoEthereum.String():
 		return &geth.GethProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
 		}
-	case HyperledgerBesu.String():
+	case types.HyperledgerBesu.String():
 		return &besu.BesuProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
 		}
-	case HyperledgerFabric.String():
+	case types.HyperledgerFabric.String():
 		return &fabric.FabricProvider{
 			Verbose: verbose,
 			Log:     s.Log,
@@ -805,13 +934,13 @@ func (s *StackManager) getITokenProviders(verbose bool) []tokens.ITokensProvider
 	tps := make([]tokens.ITokensProvider, len(s.Stack.TokenProviders))
 	for i, tp := range s.Stack.TokenProviders {
 		switch tp {
-		case ERC1155:
+		case types.ERC1155:
 			tps[i] = &erc1155.ERC1155Provider{
 				Verbose: verbose,
 				Log:     s.Log,
 				Stack:   s.Stack,
 			}
-		case ERC20_ERC721:
+		case types.ERC20_ERC721:
 			tps[i] = &erc20erc721.ERC20ERC721Provider{
 				Verbose: verbose,
 				Log:     s.Log,

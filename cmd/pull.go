@@ -23,10 +23,11 @@ import (
 	"github.com/briandowns/spinner"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/spf13/cobra"
 )
 
-var pullOptions stacks.PullOptions
+var pullOptions types.PullOptions
 
 var pullCmd = &cobra.Command{
 	Use:   "pull <stack_name>",

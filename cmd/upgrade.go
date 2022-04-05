@@ -36,11 +36,6 @@ var upgradeCmd = &cobra.Command{
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
-		if exists, err := stacks.CheckExists(stackName); err != nil {
-			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
-		}
 
 		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err

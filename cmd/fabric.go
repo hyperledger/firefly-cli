@@ -24,15 +24,12 @@ var fabricCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
 		filename := args[1]
-		channel := args[2]
-		chaincode := args[3]
-		version := args[4]
 		stackManager := stacks.NewStackManager(logger)
 		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
 		fmt.Printf("deploying %s... ", filename)
-		contractAddress, err := stackManager.DeployContract(filename, filename, 0, channel, chaincode, version)
+		contractAddress, err := stackManager.DeployContract(filename, filename, 0, args[2:])
 		if err != nil {
 			return err
 		}

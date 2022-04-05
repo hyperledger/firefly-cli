@@ -49,7 +49,7 @@ solc --combined-json abi,bin contract.sol > contract.json
 			}
 		}
 		fmt.Printf("deploying %s... ", selectedContractName)
-		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0)
+		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
 			return err
 		}

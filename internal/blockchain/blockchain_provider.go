@@ -23,14 +23,14 @@ import (
 )
 
 type IBlockchainProvider interface {
-	WriteConfig() error
+	WriteConfig(options *types.InitOptions) error
 	FirstTimeSetup() error
-	DeploySmartContracts() error
+	DeployFireFlyContract() (*core.BlockchainConfig, error)
 	PreStart() error
 	PostStart() error
 	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, coreConfig *core.OrgConfig)
+	GetFireflyConfig(stack *types.Stack, member *types.Member) (blockchainConfig *core.BlockchainConfig, coreConfig *core.OrgConfig)
 	Reset() error
 	GetContracts(filename string, extraArgs []string) ([]string, error)
-	DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error)
+	DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error)
 }

@@ -24,7 +24,6 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -37,12 +36,9 @@ type BesuProvider struct {
 	Stack   *types.Stack
 }
 
-func (p *BesuProvider) WriteConfig() error {
-
-	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
-	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir, "config"}, elem...)...) }
-	if err := os.Mkdir(filepath.Join(stackDir, "config"), 0755); err != nil {
-		return err
+func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
+	GetPath := func(elem ...string) string {
+		return filepath.Join(append([]string{p.Stack.InitDir, "config"}, elem...)...)
 	}
 
 	if err := p.writeStaticFiles(); err != nil {
@@ -84,8 +80,8 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 		}
 
 		// Generate the ethconnect config for each member
-		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath); err != nil {
+		ethconnectConfigPath := filepath.Join(p.Stack.InitDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
+		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
 			return nil
 		}
 	}
@@ -97,7 +93,7 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 	}
 
 	// Create genesis.json
-	genesis := CreateGenesis(addresses)
+	genesis := CreateGenesis(addresses, options.BlockPeriod)
 
 	if err := genesis.WriteGenesisJson(GetPath("besu", "CliqueGenesis.json")); err != nil {
 		return err
@@ -107,19 +103,18 @@ password-file = "%s"`, filepath.Join("/keyFiles", member.ID), filepath.Join("/Pa
 }
 
 func (p *BesuProvider) FirstTimeSetup() error {
-	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
-	EthSignerConfigPath := filepath.Join(stackDir, "config", "ethsigner")
+	EthSignerConfigPath := filepath.Join(p.Stack.RuntimeDir, "config", "ethsigner")
 
 	ethSignerKeysVolume := fmt.Sprintf("%s_ethsigner_keys", p.Stack.Name)
 	docker.CreateVolume(ethSignerKeysVolume, p.Verbose)
 
-	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/ethSigner", EthSignerConfigPath), "-v", fmt.Sprintf("%s:/usr/local/bin/keyFiles", ethSignerKeysVolume), "--entrypoint", "/ethSigner/Nodejs.sh", "node:latest"); err != nil {
+	if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/ethSigner", EthSignerConfigPath), "-v", fmt.Sprintf("%s:/usr/local/bin/keyFiles", ethSignerKeysVolume), "--entrypoint", "/ethSigner/Nodejs.sh", "node:latest"); err != nil {
 		return err
 	}
 
 	for i := range p.Stack.Members {
 		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigPath := filepath.Join(p.Stack.RuntimeDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
 		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
 	}
@@ -127,8 +122,8 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *BesuProvider) DeploySmartContracts() error {
-	return ethconnect.DeployContracts(p.Stack, p.Log, p.Verbose)
+func (p *BesuProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *BesuProvider) PreStart() error {
@@ -269,17 +264,17 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *BesuProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
-		Name:     m.OrgName,
-		Identity: m.Address,
+		Name: m.OrgName,
+		Key:  m.Address,
 	}
 	blockchainConfig = &core.BlockchainConfig{
 		Type: "ethereum",
 		Ethereum: &core.EthereumConfig{
 			Ethconnect: &core.EthconnectConfig{
 				URL:      p.getEthconnectURL(m),
-				Instance: "/contracts/firefly",
+				Instance: stack.ContractAddress,
 				Topic:    m.ID,
 			},
 		},
@@ -300,8 +295,8 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error) {
-	return ethconnect.DeployCustomContract(p.getEthconnectURL(&member), member.Address, filename, contractName)
+func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
+	return ethconnect.DeployCustomContract(member, filename, contractName)
 }
 
 func (p *BesuProvider) getEthconnectURL(member *types.Member) string {

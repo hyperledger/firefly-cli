@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -43,8 +42,8 @@ type FabricProvider struct {
 //go:embed configtx.yaml
 var configtxYaml string
 
-func (p *FabricProvider) WriteConfig() error {
-	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
+	blockchainDirectory := path.Join(p.Stack.InitDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 
 	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenYamlPath); err != nil {
@@ -64,7 +63,7 @@ func (p *FabricProvider) WriteConfig() error {
 }
 
 func (p *FabricProvider) FirstTimeSetup() error {
-	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
 
@@ -106,10 +105,13 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *FabricProvider) DeploySmartContracts() error {
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
-	contractsDir := path.Join(stackDir, "contracts")
-	packageFilename := path.Join(contractsDir, "firefly_fabric.tar.gz")
+func (p *FabricProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
+	return nil, p.deploySmartContracts()
+}
+
+func (p *FabricProvider) deploySmartContracts() error {
+	packageFilename := path.Join(p.Stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
 	chaincode := "firefly"
 	channel := "firefly"
 	version := "1.0"
@@ -167,10 +169,10 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
-		Name:     m.OrgName,
-		Identity: m.OrgName,
+		Name: m.OrgName,
+		Key:  m.OrgName,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
@@ -193,7 +195,7 @@ func (p *FabricProvider) Reset() error {
 }
 
 func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member) []*docker.ServiceDefinition {
-	blockchainDirectory := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(members))
 	for i, member := range members {
 		serviceDefinitions[i] = &docker.ServiceDefinition{
@@ -214,6 +216,9 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 					fmt.Sprintf("%s:/fabconnect/fabconnect.yaml", path.Join(blockchainDirectory, "fabconnect.yaml")),
 					fmt.Sprintf("%s:/fabconnect/ccp.yaml", path.Join(blockchainDirectory, "ccp.yaml")),
 					"firefly_fabric:/etc/firefly",
+				},
+				HealthCheck: &docker.HealthCheck{
+					Test: []string{"CMD", "wget", "-O", "-", "http://localhost:3000/status"},
 				},
 				Logging: docker.StandardLogOptions,
 			},
@@ -236,13 +241,13 @@ func (p *FabricProvider) getFabconnectUrl(member *types.Member) string {
 }
 
 func (p *FabricProvider) writeConfigtxYaml() error {
-	filePath := path.Join(constants.StacksDir, p.Stack.Name, "blockchain", "configtx.yaml")
+	filePath := path.Join(p.Stack.InitDir, "blockchain", "configtx.yaml")
 	return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
 }
 
 func (p *FabricProvider) createChannel() error {
 	p.Log.Info("creating channel")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	stackDir := p.Stack.StackDir
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
 	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
 		"run",
@@ -263,7 +268,7 @@ func (p *FabricProvider) createChannel() error {
 
 func (p *FabricProvider) joinChannel() error {
 	p.Log.Info("joining channel")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	stackDir := p.Stack.StackDir
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
 	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
 		"run",
@@ -282,8 +287,7 @@ func (p *FabricProvider) joinChannel() error {
 }
 
 func (p *FabricProvider) extractChaincode() error {
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
-	contractsDir := path.Join(stackDir, "contracts")
+	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
 
 	if err := os.MkdirAll(contractsDir, 0755); err != nil {
 		return err
@@ -308,9 +312,9 @@ func (p *FabricProvider) extractChaincode() error {
 
 func (p *FabricProvider) installChaincode(packageFilename string) error {
 	p.Log.Info("installing chaincode")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
+	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+	return docker.RunDockerCommand(contractsDir, p.Verbose, p.Verbose,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
@@ -329,9 +333,8 @@ func (p *FabricProvider) installChaincode(packageFilename string) error {
 
 func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 	p.Log.Info("querying installed chaincode")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	str, err := docker.RunDockerCommandBuffered(stackDir, p.Verbose,
+	str, err := docker.RunDockerCommandBuffered(p.Stack.RuntimeDir, p.Verbose,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
@@ -359,12 +362,8 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 
 func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId string) error {
 	p.Log.Info("approving chaincode")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(
-		stackDir,
-		p.Verbose,
-		p.Verbose,
+	return docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
@@ -391,16 +390,18 @@ func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId
 
 func (p *FabricProvider) commitChaincode(channel, chaincode, version string) error {
 	p.Log.Info("committing chaincode")
-	stackDir := path.Join(constants.StacksDir, p.Stack.Name)
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+	return docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.Stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
-		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
+		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
+		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
 		FabricToolsImageName,
 		"peer", "lifecycle", "chaincode", "commit",
 		"-o", "fabric_orderer:7050",
@@ -433,7 +434,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member types.Member, extraArgs ...string) (string, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return "", err

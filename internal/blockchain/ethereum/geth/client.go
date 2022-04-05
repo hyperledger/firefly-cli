@@ -67,7 +67,7 @@ func (g *GethClient) UnlockAccount(address string, password string) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	return nil
 }
