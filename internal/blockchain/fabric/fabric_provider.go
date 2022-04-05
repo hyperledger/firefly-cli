@@ -79,7 +79,7 @@ func (p *FabricProvider) FirstTimeSetup() error {
 		"--rm",
 		"-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"cryptogen", "generate",
 		"--config", "/etc/template.yml",
 		"--output", "/etc/firefly/organizations",
@@ -88,7 +88,18 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	}
 
 	// Generate genesis block
-	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose, "run", "--platform", getDockerPlatform(), "--rm", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName), "-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")), "hyperledger/fabric-tools:2.3", "configtxgen", "-outputBlock", "/etc/firefly/firefly.block", "-profile", "SingleOrgApplicationGenesis", "-channelID", "firefly"); err != nil {
+	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose,
+		"run",
+		"--platform", getDockerPlatform(),
+		"--rm",
+		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+		"-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
+		FabricToolsImageName,
+		"configtxgen",
+		"-outputBlock", "/etc/firefly/firefly.block",
+		"-profile", "SingleOrgApplicationGenesis",
+		"-channelID", "firefly",
+	); err != nil {
 		return err
 	}
 
@@ -239,7 +250,7 @@ func (p *FabricProvider) createChannel() error {
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.Stack.Name),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"osnadmin", "channel", "join",
 		"--channelID", "firefly",
 		"--config-block", "/etc/firefly/firefly.block",
@@ -265,7 +276,7 @@ func (p *FabricProvider) joinChannel() error {
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
 		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
 		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"peer", "channel", "join",
 		"-b", "/etc/firefly/firefly.block")
 }
@@ -311,7 +322,7 @@ func (p *FabricProvider) installChaincode(packageFilename string) error {
 		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
 		"-v", fmt.Sprintf("%s:/package.tar.gz", packageFilename),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"peer", "lifecycle", "chaincode", "install", "/package.tar.gz",
 	)
 }
@@ -331,7 +342,7 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
 		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"peer", "lifecycle", "chaincode", "queryinstalled",
 		"--output", "json",
 	)
@@ -364,7 +375,7 @@ func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId
 		"-e", "CORE_PEER_LOCALMSPID=Org1MSP",
 		"-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"peer", "lifecycle", "chaincode", "approveformyorg",
 		"-o", "fabric_orderer:7050",
 		"--ordererTLSHostnameOverride", "fabric_orderer",
@@ -390,7 +401,7 @@ func (p *FabricProvider) commitChaincode(channel, chaincode, version string) err
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt", "-e", "CORE_PEER_LOCALMSPID=Org1MSP", "-e", "CORE_PEER_MSPCONFIGPATH=/etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp", "-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"hyperledger/fabric-tools:2.3",
+		FabricToolsImageName,
 		"peer", "lifecycle", "chaincode", "commit",
 		"-o", "fabric_orderer:7050",
 		"--ordererTLSHostnameOverride", "fabric_orderer",
