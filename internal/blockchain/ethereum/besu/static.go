@@ -21,8 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	"github.com/hyperledger/firefly-cli/internal/constants"
 )
 
 //go:embed besuCliqueConfig/besu/networkFiles/member1/keys/key.pub
@@ -101,14 +99,15 @@ var validator_def []byte
 var tessera_def []byte
 
 func (p *BesuProvider) writeStaticFiles() error {
-	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
-	GetPath := func(elem ...string) string { return filepath.Join(append([]string{stackDir, "config"}, elem...)...) }
-	if err := os.Mkdir(filepath.Join(stackDir, "logs"), 0755); err != nil {
+	GetPath := func(elem ...string) string {
+		return filepath.Join(append([]string{p.Stack.InitDir, "config"}, elem...)...)
+	}
+	if err := os.Mkdir(filepath.Join(p.Stack.InitDir, "logs"), 0755); err != nil {
 		return err
 	}
 	log_members := []string{"besu", "tessera"}
 	for _, members := range log_members {
-		if err := os.Mkdir(filepath.Join(stackDir, "logs", members), 0755); err != nil {
+		if err := os.Mkdir(filepath.Join(p.Stack.InitDir, "logs", members), 0755); err != nil {
 			return err
 		}
 	}

@@ -19,6 +19,7 @@ package geth
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
@@ -41,16 +42,16 @@ type GethProvider struct {
 }
 
 func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
-	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
+	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
 		// Write the private key to disk for each member
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := ioutil.WriteFile(filepath.Join(stackDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
 			return err
 		}
 
 		// Generate the ethconnect config for each member
-		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
 			return nil
 		}
@@ -63,13 +64,13 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 		addresses[i] = member.Address[2:]
 	}
 	genesis := CreateGenesis(addresses, options.BlockPeriod)
-	if err := genesis.WriteGenesisJson(filepath.Join(stackDir, "blockchain", "genesis.json")); err != nil {
+	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
 
 	// Write the password that will be used to encrypt the private key
 	// TODO: Probably randomize this and make it differnet per member?
-	if err := ioutil.WriteFile(filepath.Join(stackDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
 		return err
 	}
 
@@ -77,13 +78,17 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *GethProvider) FirstTimeSetup() error {
-	stackDir := filepath.Join(constants.StacksDir, p.Stack.Name)
 	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
-	gethConfigDir := path.Join(constants.StacksDir, p.Stack.Name, "blockchain")
+	gethConfigDir := path.Join(p.Stack.RuntimeDir, "blockchain")
+	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
+
+	if err := os.MkdirAll(contractsDir, 0755); err != nil {
+		return err
+	}
 
 	for i := range p.Stack.Members {
 		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(stackDir, "configs", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
 		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
 	}
@@ -106,7 +111,7 @@ func (p *GethProvider) FirstTimeSetup() error {
 	}
 
 	// Initialize the genesis block
-	if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
+	if err := docker.RunDockerCommand(p.Stack.StackDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
 		return err
 	}
 
@@ -141,8 +146,8 @@ func (p *GethProvider) PostStart() error {
 	return nil
 }
 
-func (p *GethProvider) DeploySmartContracts() error {
-	return ethconnect.DeployContracts(p.Stack, p.Log, p.Verbose)
+func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
@@ -172,10 +177,10 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *GethProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+func (p *GethProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
 	orgConfig = &core.OrgConfig{
-		Name:     m.OrgName,
-		Identity: m.Address,
+		Name: m.OrgName,
+		Key:  m.Address,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
@@ -183,12 +188,16 @@ func (p *GethProvider) GetFireflyConfig(m *types.Member) (blockchainConfig *core
 		Ethereum: &core.EthereumConfig{
 			Ethconnect: &core.EthconnectConfig{
 				URL:      p.getEthconnectURL(m),
-				Instance: "/contracts/firefly",
+				Instance: stack.ContractAddress,
 				Topic:    m.ID,
 			},
 		},
 	}
 	return
+}
+
+func (p *GethProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
+	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
 }
 
 func (p *GethProvider) Reset() error {
@@ -209,8 +218,8 @@ func (p *GethProvider) GetContracts(filename string) ([]string, error) {
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member types.Member) (string, error) {
-	return ethconnect.DeployCustomContract(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), member.Address, filename, contractName)
+func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member) (string, error) {
+	return ethconnect.DeployCustomContract(member, filename, contractName)
 }
 
 func (p *GethProvider) getEthconnectURL(member *types.Member) string {

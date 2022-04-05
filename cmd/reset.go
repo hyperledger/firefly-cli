@@ -46,10 +46,12 @@ Note: this will also stop the stack if it is running.
 		}
 		stackName := args[0]
 
-		if exists, err := stacks.CheckExists(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
+		}
+
+		if stackManager.IsOldFileStructure {
+			return fmt.Errorf("the FireFly stack '%s' was created with an older version of the CLI and resetting the stack is not supported. If you want to start fresh, please remove and recreate the stack", stackName)
 		}
 
 		if !force {
@@ -57,10 +59,6 @@ Note: this will also stop the stack if it is running.
 			if err := confirm(fmt.Sprintf("reset all data in FireFly stack '%s'", stackName)); err != nil {
 				cancel()
 			}
-		}
-
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
-			return err
 		}
 
 		fmt.Printf("resetting FireFly stack '%s'... ", stackName)

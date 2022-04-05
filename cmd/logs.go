@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
@@ -40,29 +39,36 @@ output with the -f flag.`,
 			return err
 		}
 
+		stackManager := stacks.NewStackManager(logger)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if exists, err := stacks.CheckExists(stackName); err != nil {
+		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
-		} else if !exists {
-			return fmt.Errorf("stack '%s' does not exist", stackName)
 		}
 
-		fmt.Println("getting logs... ")
+		stackHasRunBefore, err := stackManager.StackHasRunBefore()
+		if err != nil {
+			return err
+		}
 
-		stackDir := filepath.Join(constants.StacksDir, stackName)
-		commandLine := []string{}
-		if fancyFeatures {
-			commandLine = append(commandLine, "--ansi", "always")
+		if stackHasRunBefore {
+			fmt.Println("getting logs... ")
+			stackDir := filepath.Join(stackManager.Stack.RuntimeDir, stackName)
+			commandLine := []string{}
+			if fancyFeatures {
+				commandLine = append(commandLine, "--ansi", "always")
+			}
+			commandLine = append(commandLine, "logs")
+			if follow {
+				commandLine = append(commandLine, "-f")
+			}
+			docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
+		} else {
+			fmt.Println("no logs found - stack has not been started")
 		}
-		commandLine = append(commandLine, "logs")
-		if follow {
-			commandLine = append(commandLine, "-f")
-		}
-		docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
 		return nil
 	},
 }

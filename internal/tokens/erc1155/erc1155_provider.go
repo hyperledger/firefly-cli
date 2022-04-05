@@ -49,15 +49,17 @@ func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
 func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition {
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
+		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
-			ServiceName: fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx),
+			ServiceName: connectorName,
 			Service: &docker.Service{
 				Image:         p.Stack.VersionManifest.TokensERC1155.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment: map[string]string{
-					"ETHCONNECT_URL": p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
-					"AUTO_INIT":      "false",
+					"ETHCONNECT_URL":   p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
+					"ETHCONNECT_TOPIC": connectorName,
+					"AUTO_INIT":        "false",
 				},
 				DependsOn: map[string]map[string]string{
 					"ethconnect_" + member.ID: {"condition": "service_started"},
@@ -73,9 +75,13 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 }
 
 func (p *ERC1155Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
+	name := "erc1155"
+	if tokenIdx > 0 {
+		name = fmt.Sprintf("erc1155_%d", tokenIdx)
+	}
 	return &core.TokenConnector{
 		Plugin: "fftokens",
-		Name:   "erc1155",
+		Name:   name,
 		URL:    p.getTokensURL(m, tokenIdx),
 	}
 }

@@ -26,7 +26,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -38,6 +37,8 @@ var tokenProvidersSelection []string
 var promptNames bool
 
 var ffNameValidator = regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z._-]{0,62}[0-9a-zA-Z])?$`)
+
+var stackNameInvalidRegex = regexp.MustCompile(`[^-_a-z0-9]`)
 
 var initCmd = &cobra.Command{
 	Use:   "init [stack_name] [member_count]",
@@ -108,7 +109,7 @@ var initCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
-		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, stackName, "docker-compose.yml"))
+		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stackManager.Stack.InitDir, "docker-compose.yml"))
 		return nil
 	},
 }
@@ -117,6 +118,11 @@ func validateStackName(stackName string) error {
 	if strings.TrimSpace(stackName) == "" {
 		return errors.New("stack name must not be empty")
 	}
+
+	if stackNameInvalidRegex.Find([]byte(stackName)) != nil {
+		return fmt.Errorf("stack name may not contain any character matching the regex: %s", stackNameInvalidRegex)
+	}
+
 	if exists, err := stacks.CheckExists(stackName); exists {
 		return fmt.Errorf("stack '%s' already exists", stackName)
 	} else {
@@ -191,6 +197,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
 	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
 	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
+	initCmd.Flags().StringVarP(&initOptions.ContractAddress, "contract-address", "", "", "Do not automatically deploy a contract, instead use a pre-configured address")
 
 	rootCmd.AddCommand(initCmd)
 }

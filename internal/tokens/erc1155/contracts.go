@@ -23,7 +23,6 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
-	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -43,27 +42,27 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	}
 	log.Info("extracting smart contracts")
 
-	if err := ethereum.ExtractContracts(s.Name, containerName, "/root/contracts", verbose); err != nil {
+	if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
 		return err
 	}
 
-	tokenContract, err := ethereum.ReadCompiledContract(filepath.Join(constants.StacksDir, s.Name, "contracts", "ERC1155MixedFungible.json"))
+	tokenContract, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
 	if err != nil {
 		return err
 	}
 
 	var tokenContractAddress string
 	for _, member := range s.Members {
+		// TODO: move to address based contract deployment, once ERC-1155 connector is updated to not require an EthConnect REST API registration
 		if tokenContractAddress == "" {
-			// TODO: version the registered name
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
-			tokenContractAddress, err = ethconnect.DeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
+			tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
-			err = ethconnect.RegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
+			err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return err
 			}

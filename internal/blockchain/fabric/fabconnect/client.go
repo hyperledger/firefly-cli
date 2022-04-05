@@ -78,7 +78,7 @@ func CreateIdentity(fabconnectUrl string, signer string) (*CreateIdentityRespons
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var createIdentityResponseBody *CreateIdentityResponse
 	json.Unmarshal(responseBody, &createIdentityResponseBody)
@@ -118,7 +118,7 @@ func EnrollIdentity(fabconnectUrl, signer, secret string) (*EnrollIdentityRespon
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var enrollIdentityResponse *EnrollIdentityResponse
 	json.Unmarshal(responseBody, &enrollIdentityResponse)
