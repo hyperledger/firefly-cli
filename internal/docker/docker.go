@@ -67,24 +67,24 @@ func RunDockerCommandRetry(workingDir string, showCommand bool, pipeStdout bool,
 func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout)
 	return err
 }
 
 func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
 	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir
-	_, err := runCommand(dockerCmd, showCommand, pipeStdout, command...)
+	_, err := runCommand(dockerCmd, showCommand, pipeStdout)
 	return err
 }
 
 func RunDockerCommandBuffered(workingDir string, showCommand bool, command ...string) (string, error) {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, false, command...)
+	return runCommand(dockerCmd, showCommand, false)
 }
 
-func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool, command ...string) (string, error) {
+func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool) (string, error) {
 	if showCommand {
 		fmt.Println(cmd.String())
 	}

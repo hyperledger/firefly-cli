@@ -47,6 +47,7 @@ type Service struct {
 	ContainerName string                       `yaml:"container_name,omitempty"`
 	Image         string                       `yaml:"image,omitempty"`
 	Build         string                       `yaml:"build,omitempty"`
+	User          string                       `yaml:"user,omitempty"`
 	Command       string                       `yaml:"command,omitempty"`
 	Environment   map[string]string            `yaml:"environment,omitempty"`
 	Volumes       []string                     `yaml:"volumes,omitempty"`
