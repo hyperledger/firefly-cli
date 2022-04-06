@@ -902,7 +902,7 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 			Stack:   s.Stack,
 		}
 	case types.HyperledgerBesu.String():
-		return &besu.NewBesuProvider{
+		return &besu.BesuProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,
