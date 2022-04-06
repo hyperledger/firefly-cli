@@ -218,6 +218,11 @@ func (p *NewBesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinit
 			Command:       ethsignerCommand,
 			Volumes:       []string{"ethsigner:/data"},
 			Logging:       docker.StandardLogOptions,
+			HealthCheck: &docker.HealthCheck{
+				Test:     []string{"CMD", "curl", "http://besu:8545/livenes"},
+				Interval: "4s",
+				Retries:  30,
+			},
 			// Ports:         []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
 		},
 		VolumeNames: []string{"ethsigner"},
