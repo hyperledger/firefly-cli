@@ -137,83 +137,9 @@ func (p *BesuProvider) PostStart() error {
 
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 
-	serviceDefinitions := make([]*docker.ServiceDefinition, 5)
-	// Define bootNode validator container
-	serviceDefinitions[0] = &docker.ServiceDefinition{
-		ServiceName: "validator1",
-		Service: &docker.Service{
-			Image:   "hyperledger/besu:latest",
-			EnvFile: "./config/besu/.env",
-			HealthCheck: &docker.HealthCheck{
-				Test:     []string{"CMD", "curl", "http://localhost:8555/liveness"},
-				Interval: "2s",
-				Retries:  25,
-				Timeout:  "2s",
-			},
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=validator1,service.version=${BESU_VERSION:-latest}",
-			},
-			Volumes: []string{"public-keys:/tmp/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/validator1/keys:/opt/besu/keys",
-			},
-			EntryPoint: []string{"/config/bootnode_def.sh"},
-		},
-		VolumeNames: []string{"public-keys"},
-	}
-	// RPC Node Definition, this container is the JSON-RPC endpoint for Besu
-	serviceDefinitions[1] = &docker.ServiceDefinition{
-		ServiceName: "rpcnode",
-		Service: &docker.Service{
-			Image:   "hyperledger/besu:latest",
-			EnvFile: "./config/besu/.env",
-			HealthCheck: &docker.HealthCheck{
-				Test:     []string{"CMD", "curl", "http://localhost:8555/liveness"},
-				Interval: "2s",
-				Retries:  25,
-				Timeout:  "2s",
-			},
-			Environment: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "service.name=rpcnode,service.version=${BESU_VERSION:-latest}",
-			},
-			Volumes: []string{
-				"public-keys:/opt/besu/public-keys/",
-				"./config:/config",
-				"./logs/besu:/tmp/besu",
-				"./config/besu/networkFiles/rpcnode/keys:/opt/besu/keys",
-			},
-			EntryPoint: []string{"/config/validator_node_def.sh"},
-			DependsOn:  map[string]map[string]string{"validator1": {"condition": "service_started"}},
-			Ports:      []string{"8555:8555/tcp", "8556:8556/tcp"},
-		},
-	}
-	// Tessera Container for enabling Private Transaction Support
-	serviceDefinitions[2] = &docker.ServiceDefinition{
-		ServiceName: "member1tessera",
-		Service: &docker.Service{
-			Image:  "quorumengineering/tessera:21.7.0",
-			Expose: []int{9000, 9080, 9101},
-			HealthCheck: &docker.HealthCheck{
-				Test: []string{
-					"CMD", "wget", "--spider", "--proxy", "off", "http://localhost:9000/upcheck"},
-				Interval: "3s",
-				Timeout:  "3s",
-				Retries:  20,
-			},
-			Ports:       []string{"9081:9080"},
-			Environment: map[string]string{"TESSERA_CONFIG_TYPE": `"-09"`},
-			Volumes: []string{
-				"./config:/config",
-				"./config/tessera/networkFiles/member1:/config/keys",
-				"member1tessera:/data",
-				"./logs/tessera:/var/log/tessera/"},
-			EntryPoint: []string{"/config/tessera_def.sh"},
-		},
-		VolumeNames: []string{"member1tessera"},
-	}
-	// Besu Container depends on Tessera
-	serviceDefinitions[3] = &docker.ServiceDefinition{
+	serviceDefinitions := make([]*docker.ServiceDefinition, 0)
+	
+	serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 		ServiceName: "member1besu",
 		Service: &docker.Service{
 			Image: "hyperledger/besu:latest",
@@ -223,17 +149,18 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				"public-keys:/opt/besu/public-keys/",
 				"./config:/config",
 				"./config/besu/networkFiles/member1/keys:/opt/besu/keys",
-				"./config/tessera/networkFiles/member1/tm.pub:/config/tessera/tm.pub"},
+				// "./config/tessera/networkFiles/member1/tm.pub:/config/tessera/tm.pub"
+			},
 			EntryPoint: []string{"/config/besu_mem1_def.sh"},
-			DependsOn: map[string]map[string]string{
-				"validator1":     {"condition": "service_healthy"},
-				"member1tessera": {"condition": "service_healthy"}},
+			// DependsOn: map[string]map[string]string{
+			// "validator1":     {"condition": "service_healthy"},
+			// "member1tessera": {"condition": "service_healthy"}},
 			Ports: []string{"20000:8545/tcp", "20001:8546/tcp"},
 		},
-	}
+	})
 	// EthSigner Container needs to be defined as,
 	// eth_sendTransaction cannot be used to send Transactions on Besu (Besu only accepts raw Transactions)
-	serviceDefinitions[4] = &docker.ServiceDefinition{
+	serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 		ServiceName: "ethsigner",
 		Service: &docker.Service{
 			Image: "consensys/ethsigner:develop",
@@ -259,7 +186,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			},
 		},
 		VolumeNames: []string{"ethsigner_keys"},
-	}
+	})
 	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "ethsigner")...)
 	return serviceDefinitions
 }

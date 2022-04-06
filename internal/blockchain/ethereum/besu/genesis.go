@@ -18,8 +18,10 @@ package besu
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 )
 
 type Storage struct {
@@ -72,16 +74,18 @@ func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
 	if blockPeriod == -1 {
 		blockPeriod = 5
 	}
+	extraData := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	alloc := make(map[string]*Alloc)
 	for _, address := range addresses {
 		alloc[address] = &Alloc{
 			Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 		}
-
+		extraData = extraData + address
 	}
+	extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 	return &Genesis{
 		Config: &GenesisConfig{
-			ChainId:                1337,
+			ChainId:                2021,
 			ConstantinopleFixBlock: 0,
 			Clique: &CliqueConfig{
 				Blockperiodseconds: blockPeriod,
@@ -90,7 +94,7 @@ func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
 		},
 		Coinbase:   "0x0000000000000000000000000000000000000000",
 		Difficulty: "0x1",
-		ExtraData:  "0x00000000000000000000000000000000000000000000000000000000000000004592c8e45706cc08b8f44b11e43cba0cfc5892cb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		ExtraData:  extraData,
 		GasLimit:   "0xffffffff",
 		MixHash:    "0x0000000000000000000000000000000000000000000000000000000000000000",
 		Nonce:      "0x0",

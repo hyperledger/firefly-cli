@@ -17,7 +17,6 @@
 package stacks
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -30,8 +29,8 @@ import (
 	"syscall"
 	"time"
 
-	secp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
@@ -43,7 +42,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
-	"golang.org/x/crypto/sha3"
 
 	"gopkg.in/yaml.v2"
 
@@ -383,23 +381,13 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 }
 
 func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
-	privateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
-	privateKeyBytes := privateKey.Serialize()
-	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
-	// Remove the "04" Suffix byte when computing the address. This byte indicates that it is an uncompressed public key.
-	publicKeyBytes := privateKey.PubKey().SerializeUncompressed()[1:]
-	// Take the hash of the public key to generate the address
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write(publicKeyBytes)
-	// Ethereum addresses only use the lower 20 bytes, so toss the rest away
-	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
-
+	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 	serviceBase := options.ServicesBasePort + (index * 100)
 	member := &types.Member{
 		ID:                      id,
 		Index:                   &index,
-		Address:                 encodedAddress,
-		PrivateKey:              encodedPrivateKey,
+		Address:                 address,
+		PrivateKey:              privateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
 		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
 		ExposedConnectorPort:    serviceBase + 2,
@@ -914,7 +902,7 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 			Stack:   s.Stack,
 		}
 	case types.HyperledgerBesu.String():
-		return &besu.BesuProvider{
+		return &besu.NewBesuProvider{
 			Verbose: verbose,
 			Log:     s.Log,
 			Stack:   s.Stack,

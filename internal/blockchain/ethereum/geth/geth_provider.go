@@ -95,7 +95,17 @@ func (p *GethProvider) FirstTimeSetup() error {
 
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	for _, member := range p.Stack.Members {
-		if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/geth", gethConfigDir), "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "account", "import", "--password", "/geth/password", "--keystore", "/data/keystore", fmt.Sprintf("/geth/%s/keyfile", member.ID)); err != nil {
+		if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose,
+			"run", "--rm",
+			"-v", fmt.Sprintf("%s:/geth", gethConfigDir),
+			"-v", fmt.Sprintf("%s:/data", gethVolumeName),
+			gethImage,
+			"account",
+			"import",
+			"--password", "/geth/password",
+			"--keystore", "/data/keystore",
+			fmt.Sprintf("/geth/%s/keyfile", member.ID),
+		); err != nil {
 			return err
 		}
 	}
