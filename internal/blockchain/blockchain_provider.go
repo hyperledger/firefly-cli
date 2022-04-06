@@ -32,5 +32,5 @@ type IBlockchainProvider interface {
 	GetFireflyConfig(stack *types.Stack, member *types.Member) (blockchainConfig *core.BlockchainConfig, coreConfig *core.OrgConfig)
 	Reset() error
 	GetContracts(filename string, extraArgs []string) ([]string, error)
-	DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error)
+	DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error)
 }

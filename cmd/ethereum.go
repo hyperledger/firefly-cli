@@ -55,7 +55,7 @@ solc --combined-json abi,bin contract.sol > contract.json
 		}
 
 		fmt.Print("done\n\n")
-		fmt.Printf("contract address: %s\n", contractAddress)
+		fmt.Print(contractAddress)
 		fmt.Print("\n")
 		return nil
 	},

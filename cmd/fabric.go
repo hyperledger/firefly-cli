@@ -34,7 +34,7 @@ var fabricCmd = &cobra.Command{
 			return err
 		}
 		fmt.Print("done\n\n")
-		fmt.Printf("deployed to: %s\n", contractAddress)
+		fmt.Print(contractAddress)
 		fmt.Print("\n")
 		return nil
 	},

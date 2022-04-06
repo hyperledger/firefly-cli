@@ -434,7 +434,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return "", err
@@ -481,7 +481,10 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 	if err := p.commitChaincode(channel, chaincode, version); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("\n{\n\t\"channel\": \"%s\",\n\t\"chaincode\": \"%s\"\n}", channel, chaincode), nil
+	return map[string]string{
+		"channel":   channel,
+		"chaincode": chaincode,
+	}, nil
 }
 
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images

@@ -271,8 +271,14 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
-	return ethconnect.DeployCustomContract(member, filename, contractName)
+func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
+	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"address": contractAddres,
+	}, nil
 }
 
 func (p *BesuProvider) getEthconnectURL(member *types.Member) string {

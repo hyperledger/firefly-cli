@@ -28,9 +28,9 @@ type Stack struct {
 	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
 	ExposedPrometheusPort int              `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress       string           `json:"contractAddress,omitempty"`
-	InitDir               string           `json:-`
-	RuntimeDir            string           `json:-`
-	StackDir              string           `json:-`
+	InitDir               string           `json:"-"`
+	RuntimeDir            string           `json:"-"`
+	StackDir              string           `json:"-"`
 }
 
 type Member struct {

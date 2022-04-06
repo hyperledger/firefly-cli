@@ -53,6 +53,7 @@ import (
 type StackManager struct {
 	Log                    log.Logger
 	Stack                  *types.Stack
+	StackState             *types.StackState
 	blockchainProvider     blockchain.IBlockchainProvider
 	tokenProviders         []tokens.ITokensProvider
 	fireflyCoreEntrypoints [][]string
@@ -260,7 +261,48 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 			},
 		}
 	}
+
+	stackHasRunBefore, err := s.StackHasRunBefore()
+	if err != nil {
+		return nil
+	}
+	if stackHasRunBefore {
+		return s.loadStackStateJSON()
+	} else {
+		s.StackState = &types.StackState{}
+	}
 	return nil
+}
+
+func (s *StackManager) loadStackStateJSON() error {
+	stackStatePath := filepath.Join(s.Stack.RuntimeDir, "stackState.json")
+	_, err := os.Stat(stackStatePath)
+	if os.IsNotExist(err) {
+		// Initialize with an empty StackState
+		s.StackState = &types.StackState{}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	b, err := ioutil.ReadFile(stackStatePath)
+	if err != nil {
+		return err
+	}
+	var stackState *types.StackState
+	if err := json.Unmarshal(b, &stackState); err != nil {
+		return err
+	}
+	s.StackState = stackState
+	return nil
+}
+
+func (s *StackManager) writeStackStateJSON() error {
+	stackStateBytes, err := json.MarshalIndent(s.StackState, "", " ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(s.Stack.RuntimeDir, "stackState.json"), stackStateBytes, 0755)
 }
 
 func (s *StackManager) ensureInitDirectories() error {
@@ -292,7 +334,10 @@ func (s *StackManager) writeDockerCompose(workingDir string, compose *docker.Doc
 }
 
 func (s *StackManager) writeStackConfig() error {
-	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
+	stackConfigBytes, err := json.MarshalIndent(s.Stack, "", " ")
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
@@ -643,6 +688,10 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
+	if err := s.writeStackStateJSON(); err != nil {
+		return err
+	}
+
 	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
 		return err
 	}
@@ -890,7 +939,26 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	return s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	contractLocation, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	if err != nil {
+		return "", err
+	}
+	// Update the stackState.json file with the newly deployed contract
+	deployedContract := &types.DeployedContract{
+		Name:     contractName,
+		Location: contractLocation,
+	}
+	s.StackState.DeployedContracts = append(s.StackState.DeployedContracts, deployedContract)
+	if err = s.writeStackStateJSON(); err != nil {
+		return "", err
+	}
+
+	// Serialize the contract location to JSON to print on the command line
+	b, err := json.Marshal(contractLocation)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
