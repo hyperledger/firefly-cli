@@ -31,6 +31,7 @@ type Stack struct {
 	InitDir               string           `json:"-"`
 	RuntimeDir            string           `json:"-"`
 	StackDir              string           `json:"-"`
+	State                 *StackState      `json:"-"`
 }
 
 type Member struct {

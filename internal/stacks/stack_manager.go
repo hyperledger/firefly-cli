@@ -53,7 +53,6 @@ import (
 type StackManager struct {
 	Log                    log.Logger
 	Stack                  *types.Stack
-	StackState             *types.StackState
 	blockchainProvider     blockchain.IBlockchainProvider
 	tokenProviders         []tokens.ITokensProvider
 	fireflyCoreEntrypoints [][]string
@@ -202,7 +201,6 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	if !exists {
 		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
-	fmt.Printf("reading stack config... ")
 	d, err := ioutil.ReadFile(filepath.Join(stackDir, "stack.json"))
 	if err != nil {
 		return err
@@ -211,7 +209,6 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	if err := json.Unmarshal(d, &stack); err != nil {
 		return err
 	}
-	fmt.Printf("done\n")
 	s.Stack = stack
 	s.Stack.StackDir = stackDir
 	s.blockchainProvider = s.getBlockchainProvider(verbose)
@@ -269,7 +266,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	if stackHasRunBefore {
 		return s.loadStackStateJSON()
 	} else {
-		s.StackState = &types.StackState{}
+		s.Stack.State = &types.StackState{}
 	}
 	return nil
 }
@@ -279,7 +276,7 @@ func (s *StackManager) loadStackStateJSON() error {
 	_, err := os.Stat(stackStatePath)
 	if os.IsNotExist(err) {
 		// Initialize with an empty StackState
-		s.StackState = &types.StackState{}
+		s.Stack.State = &types.StackState{}
 		return nil
 	} else if err != nil {
 		return err
@@ -293,12 +290,12 @@ func (s *StackManager) loadStackStateJSON() error {
 	if err := json.Unmarshal(b, &stackState); err != nil {
 		return err
 	}
-	s.StackState = stackState
+	s.Stack.State = stackState
 	return nil
 }
 
 func (s *StackManager) writeStackStateJSON() error {
-	stackStateBytes, err := json.MarshalIndent(s.StackState, "", " ")
+	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", " ")
 	if err != nil {
 		return err
 	}
@@ -314,9 +311,6 @@ func (s *StackManager) ensureInitDirectories() error {
 
 	for _, member := range s.Stack.Members {
 		if err := os.MkdirAll(filepath.Join(configDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Join(s.Stack.InitDir, "blockchain", member.ID), 0755); err != nil {
 			return err
 		}
 	}
@@ -688,11 +682,11 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
-	if err := s.writeStackStateJSON(); err != nil {
+	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
 		return err
 	}
 
-	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
+	if err := s.writeStackStateJSON(); err != nil {
 		return err
 	}
 
@@ -948,13 +942,31 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 		Name:     contractName,
 		Location: contractLocation,
 	}
-	s.StackState.DeployedContracts = append(s.StackState.DeployedContracts, deployedContract)
+	s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, deployedContract)
 	if err = s.writeStackStateJSON(); err != nil {
 		return "", err
 	}
 
 	// Serialize the contract location to JSON to print on the command line
-	b, err := json.Marshal(contractLocation)
+	b, err := json.MarshalIndent(contractLocation, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (s *StackManager) CreateAccount() (string, error) {
+	newAccount, err := s.blockchainProvider.CreateAccount()
+	if err != nil {
+		return "", err
+	}
+	s.Stack.State.Accounts = append(s.Stack.State.Accounts, newAccount)
+	if err = s.writeStackStateJSON(); err != nil {
+		return "", err
+	}
+
+	// Serialize the account to JSON to print on the command line
+	b, err := json.MarshalIndent(newAccount, "", "  ")
 	if err != nil {
 		return "", err
 	}

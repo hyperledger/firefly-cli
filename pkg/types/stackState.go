@@ -20,12 +20,7 @@ type DeployedContract struct {
 	Location interface{} `json:"location"`
 }
 
-type Identity struct {
-	PrivateKey string `json:"privateKey"`
-	Address    string `json:"address"`
-}
-
 type StackState struct {
 	DeployedContracts []*DeployedContract `json:"deployedContracts"`
-	Identities        []*Identity         `json:"identities"`
+	Accounts          []interface{}       `json:"accounts"`
 }

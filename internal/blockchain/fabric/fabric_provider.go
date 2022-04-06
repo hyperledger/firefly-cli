@@ -487,6 +487,10 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 	}, nil
 }
 
+func (p *FabricProvider) CreateAccount() (interface{}, error) {
+	return nil, fmt.Errorf("creating a new account on a FireFly Fabric is not yet supported")
+}
+
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images
 func getDockerPlatform() string {
 	return "linux/amd64"

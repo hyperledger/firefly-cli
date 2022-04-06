@@ -46,7 +46,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	for i, member := range p.Stack.Members {
 		// Write the private key to disk for each member
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
+		if err := p.writeAccountToDisk(p.Stack.InitDir, member.Address, member.PrivateKey); err != nil {
 			return err
 		}
 
@@ -79,7 +79,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 
 func (p *GethProvider) FirstTimeSetup() error {
 	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
-	gethConfigDir := path.Join(p.Stack.RuntimeDir, "blockchain")
+	blockchainDir := path.Join(p.Stack.RuntimeDir, "blockchain")
 	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
 
 	if err := os.MkdirAll(contractsDir, 0755); err != nil {
@@ -95,28 +95,16 @@ func (p *GethProvider) FirstTimeSetup() error {
 
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	for _, member := range p.Stack.Members {
-		if err := docker.RunDockerCommand(constants.StacksDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/geth", gethConfigDir),
-			"-v", fmt.Sprintf("%s:/data", gethVolumeName),
-			gethImage,
-			"account",
-			"import",
-			"--password", "/geth/password",
-			"--keystore", "/data/keystore",
-			fmt.Sprintf("/geth/%s/keyfile", member.ID),
-		); err != nil {
-			return err
-		}
+		p.importAccountToGeth(member.Address)
 	}
 
 	// Copy the genesis block information
-	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(gethConfigDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
 		return err
 	}
 
 	// Copy the password (to be used for decrypting private keys)
-	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(gethConfigDir, "password"), "password", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(blockchainDir, "password"), "password", p.Verbose); err != nil {
 		return err
 	}
 
@@ -134,23 +122,38 @@ func (p *GethProvider) PreStart() error {
 
 func (p *GethProvider) PostStart() error {
 	// Unlock accounts
-	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.Stack.ExposedBlockchainPort))
 	for _, m := range p.Stack.Members {
-		retries := 10
-		p.Log.Info(fmt.Sprintf("unlocking account for member %s", m.ID))
-		for {
-			if err := gethClient.UnlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
-				if p.Verbose {
-					p.Log.Debug(err.Error())
-				}
-				if retries == 0 {
-					return fmt.Errorf("unable to unlock account %s for member %s", m.Address, m.ID)
-				}
-				time.Sleep(time.Second * 1)
-				retries--
-			} else {
-				break
+		p.Log.Info(fmt.Sprintf("unlocking %s", m.Address))
+		if err := p.unlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
+			return err
+		}
+	}
+	for _, account := range p.Stack.State.Accounts {
+		address := account.(map[string]string)["address"]
+		p.Log.Info(fmt.Sprintf("unlocking account %s", address))
+		if err := p.unlockAccount(address, "correcthorsebatterystaple"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *GethProvider) unlockAccount(address, password string) error {
+	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.Stack.ExposedBlockchainPort))
+	retries := 10
+	for {
+		if err := gethClient.UnlockAccount(address, password); err != nil {
+			if p.Verbose {
+				p.Log.Debug(err.Error())
 			}
+			if retries == 0 {
+				return fmt.Errorf("unable to unlock account %s", address)
+			}
+			time.Sleep(time.Second * 1)
+			retries--
+		} else {
+			break
 		}
 	}
 	return nil
@@ -206,10 +209,6 @@ func (p *GethProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (bl
 	return
 }
 
-func (p *GethProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
-	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
-}
-
 func (p *GethProvider) Reset() error {
 	return nil
 }
@@ -235,6 +234,25 @@ func (p *GethProvider) DeployContract(filename, contractName string, member *typ
 	}
 	return map[string]string{
 		"address": contractAddres,
+	}, nil
+}
+
+func (p *GethProvider) CreateAccount() (interface{}, error) {
+	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+
+	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
+		return nil, err
+	}
+	if err := p.importAccountToGeth(address); err != nil {
+		return nil, err
+	}
+	if err := p.unlockAccount(address, "correcthorsebatterystaple"); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		"address":    address,
+		"privateKey": privateKey,
 	}, nil
 }
 

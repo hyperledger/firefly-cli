@@ -33,4 +33,5 @@ type IBlockchainProvider interface {
 	Reset() error
 	GetContracts(filename string, extraArgs []string) ([]string, error)
 	DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error)
+	CreateAccount() (interface{}, error)
 }

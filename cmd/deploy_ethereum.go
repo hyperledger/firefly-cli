@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ethereumCmd represents the ethereum command
-var ethereumCmd = &cobra.Command{
+// deployEthereumCmd represents the "deploy ethereum" command
+var deployEthereumCmd = &cobra.Command{
 	Use:   "ethereum <stack_name> <contract_json_file>",
 	Short: "Deploy a compiled solidity contract",
 	Long: `Deploy a solidity contract compiled with solc to the blockchain used by a FireFly stack
@@ -48,19 +48,15 @@ solc --combined-json abi,bin contract.sol > contract.json
 				return err
 			}
 		}
-		fmt.Printf("deploying %s... ", selectedContractName)
 		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
 			return err
 		}
-
-		fmt.Print("done\n\n")
 		fmt.Print(contractAddress)
-		fmt.Print("\n")
 		return nil
 	},
 }
 
 func init() {
-	deployCmd.AddCommand(ethereumCmd)
+	deployCmd.AddCommand(deployEthereumCmd)
 }

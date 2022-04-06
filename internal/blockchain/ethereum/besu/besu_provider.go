@@ -46,8 +46,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
 		// Write the private key to disk for each member
-		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
+		if err := p.writeAccountToDisk(p.Stack.InitDir, member.Address, member.PrivateKey); err != nil {
 			return err
 		}
 
@@ -57,7 +56,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 			return nil
 		}
 
-		if err := WriteTomlKeyFile(filepath.Join(initDir, "blockchain"), member); err != nil {
+		if err := p.writeTomlKeyFile(p.Stack.InitDir, member.Address); err != nil {
 			return err
 		}
 
@@ -88,8 +87,8 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 func (p *BesuProvider) FirstTimeSetup() error {
 	ethsignerVolumeName := fmt.Sprintf("%s_ethsigner", p.Stack.Name)
 	besuVolumeName := fmt.Sprintf("%s_besu", p.Stack.Name)
-	blockchainDir := path.Join(p.Stack.RuntimeDir, "blockchain")
-	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
+	blockchainDir := filepath.Join(p.Stack.RuntimeDir, "blockchain")
+	contractsDir := filepath.Join(p.Stack.RuntimeDir, "contracts")
 
 	if err := docker.CreateVolume(ethsignerVolumeName, p.Verbose); err != nil {
 		return err
@@ -112,41 +111,7 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
 	for _, member := range p.Stack.Members {
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/ethsigner", blockchainDir),
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			gethImage,
-			"account",
-			"import",
-			"--password", "/ethsigner/password",
-			"--keystore", "/data/keystore/output",
-			fmt.Sprintf("/ethsigner/%s/keyfile", member.ID),
-		); err != nil {
-			return err
-		}
-
-		// Move the file so we can reference it by name in the toml file and copy the toml file
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			"alpine",
-			"/bin/sh",
-			"-c",
-			fmt.Sprintf("mv /data/keystore/output/*%s  /data/keystore/%s.key", member.Address[2:], member.Address[2:]),
-		); err != nil {
-			return err
-		}
-
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/ethsigner", blockchainDir),
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			"alpine",
-			"cp",
-			fmt.Sprintf("/ethsigner/%s/%s.toml", member.ID, member.Address[2:]),
-			fmt.Sprintf("/data/keystore/%s.toml", member.Address[2:]),
-		); err != nil {
+		if err := p.importAccountToEthsigner(member.Address); err != nil {
 			return err
 		}
 	}
@@ -278,6 +243,27 @@ func (p *BesuProvider) DeployContract(filename, contractName string, member *typ
 	}
 	return map[string]string{
 		"address": contractAddres,
+	}, nil
+}
+
+func (p *BesuProvider) CreateAccount() (interface{}, error) {
+	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+
+	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
+		return nil, err
+	}
+
+	if err := p.writeTomlKeyFile(p.Stack.RuntimeDir, address); err != nil {
+		return nil, err
+	}
+
+	if err := p.importAccountToEthsigner(address); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		"address":    address,
+		"privateKey": privateKey,
 	}, nil
 }
 
