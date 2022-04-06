@@ -204,7 +204,6 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				"besu:/data",
 			},
 			Logging: docker.StandardLogOptions,
-			Ports:   []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
 		},
 
 		VolumeNames: []string{"besu"},
@@ -223,7 +222,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				Interval: "4s",
 				Retries:  30,
 			},
-			// Ports:         []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
+			Ports: []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
 		},
 		VolumeNames: []string{"ethsigner"},
 	}
