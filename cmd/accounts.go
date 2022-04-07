@@ -20,13 +20,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// accountCmd represents the deploy command
-var accountCmd = &cobra.Command{
-	Use:   "account",
+// accountsCmd represents the deploy command
+var accountsCmd = &cobra.Command{
+	Use:   "accounts",
 	Short: "Work with accounts in a FireFly stack",
 	Long:  `Work with accounts in a FireFly stack`,
 }
 
 func init() {
-	rootCmd.AddCommand(accountCmd)
+	rootCmd.AddCommand(accountsCmd)
 }

@@ -97,6 +97,10 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		StackDir:              filepath.Join(constants.StacksDir, stackName),
 		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
 		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
+		State: &types.StackState{
+			DeployedContracts: make([]*types.DeployedContract, 0),
+			Accounts:          make([]interface{}, memberCount),
+		},
 	}
 
 	if options.PrometheusEnabled {
@@ -134,6 +138,10 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
+		s.Stack.State.Accounts[i] = map[string]string{
+			"address":    s.Stack.Members[i].Address,
+			"privateKey": s.Stack.Members[i].PrivateKey,
+		}
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
@@ -294,12 +302,12 @@ func (s *StackManager) loadStackStateJSON() error {
 	return nil
 }
 
-func (s *StackManager) writeStackStateJSON() error {
+func (s *StackManager) writeStackStateJSON(directory string) error {
 	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", " ")
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.Stack.RuntimeDir, "stackState.json"), stackStateBytes, 0755)
+	return ioutil.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
 }
 
 func (s *StackManager) ensureInitDirectories() error {
@@ -332,7 +340,10 @@ func (s *StackManager) writeStackConfig() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
+	if err := ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+		return err
+	}
+	return s.writeStackStateJSON(s.Stack.InitDir)
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
@@ -686,10 +697,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return err
 	}
 
-	if err := s.writeStackStateJSON(); err != nil {
-		return err
-	}
-
 	if err := s.disableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
 		return err
 	}
@@ -943,7 +950,7 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 		Location: contractLocation,
 	}
 	s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, deployedContract)
-	if err = s.writeStackStateJSON(); err != nil {
+	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
 		return "", err
 	}
 
@@ -961,7 +968,7 @@ func (s *StackManager) CreateAccount() (string, error) {
 		return "", err
 	}
 	s.Stack.State.Accounts = append(s.Stack.State.Accounts, newAccount)
-	if err = s.writeStackStateJSON(); err != nil {
+	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
 		return "", err
 	}
 

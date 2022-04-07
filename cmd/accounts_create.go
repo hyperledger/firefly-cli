@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ethereumCmd represents the "account create" command
-var accountCreateCmd = &cobra.Command{
+// accountsCreateCmd represents the "accounts create" command
+var accountsCreateCmd = &cobra.Command{
 	Use:   "create <stack_name>",
 	Short: "Create a new account in the FireFly stack",
 	Long:  `Create a new account in the FireFly stack`,
@@ -38,5 +38,5 @@ var accountCreateCmd = &cobra.Command{
 }
 
 func init() {
-	accountCmd.AddCommand(accountCreateCmd)
+	accountsCmd.AddCommand(accountsCreateCmd)
 }
