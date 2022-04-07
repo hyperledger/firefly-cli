@@ -223,7 +223,7 @@ func deprecatedRegisterContract(ethconnectUrl string, abiId string, contractAddr
 
 func deployContract(member *types.Member, contract *ethereum.CompiledContract, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
-
+	address := member.Account.(*ethereum.Account).Address
 	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
 	if err != nil {
 		return "", err
@@ -234,7 +234,7 @@ func deployContract(member *types.Member, contract *ethereum.CompiledContract, a
 		Headers: EthconnectMessageHeaders{
 			Type: "DeployContract",
 		},
-		From:     member.Address,
+		From:     address,
 		ABI:      contract.ABI,
 		Bytecode: base64Bytecode,
 	}
@@ -257,10 +257,11 @@ func deployContract(member *types.Member, contract *ethereum.CompiledContract, a
 func DeprecatedDeployContract(member *types.Member, contract *ethereum.CompiledContract, name string, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
+	address := member.Account.(*ethereum.Account).Address
 	if err != nil {
 		return "", err
 	}
-	deployResponse, err := deprecatedDeployContract(ethconnectUrl, abiResponse.ID, member.Address, args, name)
+	deployResponse, err := deprecatedDeployContract(ethconnectUrl, abiResponse.ID, address, args, name)
 	if err != nil {
 		return "", err
 	}
@@ -270,10 +271,11 @@ func DeprecatedDeployContract(member *types.Member, contract *ethereum.CompiledC
 func DeprecatedRegisterContract(member *types.Member, contract *ethereum.CompiledContract, contractAddress string, name string, args map[string]string) error {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
+	address := member.Account.(*ethereum.Account).Address
 	if err != nil {
 		return err
 	}
-	_, err = deprecatedRegisterContract(ethconnectUrl, abiResponse.ID, contractAddress, member.Address, name, args)
+	_, err = deprecatedRegisterContract(ethconnectUrl, abiResponse.ID, contractAddress, address, name, args)
 	if err != nil {
 		return err
 	}

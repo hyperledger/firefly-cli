@@ -45,8 +45,9 @@ type BesuProvider struct {
 func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
+		account := member.Account.(*ethereum.Account)
 		// Write the private key to disk for each member
-		if err := p.writeAccountToDisk(p.Stack.InitDir, member.Address, member.PrivateKey); err != nil {
+		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
 			return err
 		}
 
@@ -56,7 +57,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 			return nil
 		}
 
-		if err := p.writeTomlKeyFile(p.Stack.InitDir, member.Address); err != nil {
+		if err := p.writeTomlKeyFile(p.Stack.InitDir, account.Address); err != nil {
 			return err
 		}
 
@@ -111,7 +112,8 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
 	for _, member := range p.Stack.Members {
-		if err := p.importAccountToEthsigner(member.Address); err != nil {
+		account := member.Account.(*ethereum.Account)
+		if err := p.importAccountToEthsigner(account.Address); err != nil {
 			return err
 		}
 	}
@@ -149,7 +151,8 @@ func (p *BesuProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	addresses := ""
 	for i, member := range p.Stack.Members {
-		addresses = addresses + member.Address
+		account := member.Account.(*ethereum.Account)
+		addresses = addresses + account.Address
 		if i+1 < len(p.Stack.Members) {
 			addresses = addresses + ","
 		}
@@ -196,9 +199,10 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 }
 
 func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	account := m.Account.(*ethereum.Account)
 	orgConfig = &core.OrgConfig{
 		Name: m.OrgName,
-		Key:  m.Address,
+		Key:  account.Address,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
@@ -212,10 +216,6 @@ func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (bl
 		},
 	}
 	return
-}
-
-func (p *BesuProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
-	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
 }
 
 func (p *BesuProvider) Reset() error {
@@ -246,7 +246,7 @@ func (p *BesuProvider) DeployContract(filename, contractName string, member *typ
 	}, nil
 }
 
-func (p *BesuProvider) CreateAccount() (interface{}, error) {
+func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {
 	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 
 	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
@@ -272,5 +272,13 @@ func (p *BesuProvider) getEthconnectURL(member *types.Member) string {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+	}
+}
+
+func (p *BesuProvider) ParseAccount(account interface{}) interface{} {
+	accountMap := account.(map[string]interface{})
+	return &ethereum.Account{
+		Address:    accountMap["address"].(string),
+		PrivateKey: accountMap["privateKey"].(string),
 	}
 }

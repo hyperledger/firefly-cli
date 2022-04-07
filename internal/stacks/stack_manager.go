@@ -138,9 +138,8 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
-		s.Stack.State.Accounts[i] = map[string]string{
-			"address":    s.Stack.Members[i].Address,
-			"privateKey": s.Stack.Members[i].PrivateKey,
+		if s.Stack.Members[i].Account != nil {
+			s.Stack.State.Accounts[i] = s.Stack.Members[i].Account
 		}
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
@@ -236,6 +235,12 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		s.Stack.RuntimeDir = s.Stack.StackDir
 	}
 
+	for _, member := range stack.Members {
+		if member.Account != nil {
+			member.Account = s.blockchainProvider.ParseAccount(member.Account)
+		}
+	}
+
 	// For backwards compatability, add a "default" VersionManifest
 	// in memory for stacks that were created with old CLI versions
 	if s.Stack.VersionManifest == nil {
@@ -298,6 +303,13 @@ func (s *StackManager) loadStackStateJSON() error {
 	if err := json.Unmarshal(b, &stackState); err != nil {
 		return err
 	}
+
+	for i, account := range stackState.Accounts {
+		if account != nil {
+			stackState.Accounts[i] = s.blockchainProvider.ParseAccount(account)
+		}
+	}
+
 	s.Stack.State = stackState
 	return nil
 }
@@ -431,18 +443,15 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 }
 
 func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
-	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 	serviceBase := options.ServicesBasePort + (index * 100)
 	member := &types.Member{
 		ID:                      id,
 		Index:                   &index,
-		Address:                 address,
-		PrivateKey:              privateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
 		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
 		ExposedConnectorPort:    serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
-		ExposedPostgresPort:     serviceBase + 4,
+		ExposedDatabasePort:     serviceBase + 4,
 		ExposedDataexchangePort: serviceBase + 5,
 		ExposedIPFSApiPort:      serviceBase + 6,
 		ExposedIPFSGWPort:       serviceBase + 7,
@@ -458,6 +467,17 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	for range options.TokenProviders {
 		member.ExposedTokensPorts = append(member.ExposedTokensPorts, nextPort)
 		nextPort++
+	}
+
+	switch options.BlockchainProvider {
+	case types.GoEthereum, types.HyperledgerBesu:
+		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+		member.Account = &ethereum.Account{
+			Address:    address,
+			PrivateKey: privateKey,
+		}
+	case types.HyperledgerFabric:
+		// This will be filled in by the Fabric blockchain provider
 	}
 	return member
 }
@@ -495,10 +515,11 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) err
 				return finalErr
 			}
 		}
-	}
-	err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
-	if err != nil {
-		return err
+	} else {
+		err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
+		if err != nil {
+			return err
+		}
 	}
 	return s.ensureFireflyNodesUp(true)
 }
@@ -622,7 +643,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		}
 		ports = append(ports, member.ExposedIPFSApiPort)
 		ports = append(ports, member.ExposedIPFSGWPort)
-		ports = append(ports, member.ExposedPostgresPort)
+		ports = append(ports, member.ExposedDatabasePort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
 	}
@@ -692,6 +713,12 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
+
+	for i := 0; i < len(s.Stack.Members); i++ {
+		if s.Stack.Members[i].Account != nil {
+			s.Stack.State.Accounts = append(s.Stack.State.Accounts, s.Stack.Members[i].Account)
+		}
+	}
 
 	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
 		return err
@@ -768,7 +795,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 			return err
 		}
 	}
-	return nil
+
+	// Update the stack state with any new state that was created as a part of the setup process
+	return s.writeStackStateJSON(s.Stack.RuntimeDir)
 }
 
 func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
@@ -962,8 +991,8 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 	return string(b), nil
 }
 
-func (s *StackManager) CreateAccount() (string, error) {
-	newAccount, err := s.blockchainProvider.CreateAccount()
+func (s *StackManager) CreateAccount(args []string) (string, error) {
+	newAccount, err := s.blockchainProvider.CreateAccount(args)
 	if err != nil {
 		return "", err
 	}

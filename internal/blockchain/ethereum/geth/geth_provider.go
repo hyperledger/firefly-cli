@@ -44,9 +44,10 @@ type GethProvider struct {
 func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
+		account := member.Account.(*ethereum.Account)
 		// Write the private key to disk for each member
 		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := p.writeAccountToDisk(p.Stack.InitDir, member.Address, member.PrivateKey); err != nil {
+		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
 			return err
 		}
 
@@ -60,8 +61,9 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	// Create genesis.json
 	addresses := make([]string, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
+		address := member.Account.(*ethereum.Account).Address
 		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
-		addresses[i] = member.Address[2:]
+		addresses[i] = address[2:]
 	}
 	genesis := CreateGenesis(addresses, options.BlockPeriod)
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
@@ -95,7 +97,8 @@ func (p *GethProvider) FirstTimeSetup() error {
 
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	for _, member := range p.Stack.Members {
-		p.importAccountToGeth(member.Address)
+		address := member.Account.(*ethereum.Account).Address
+		p.importAccountToGeth(address)
 	}
 
 	// Copy the genesis block information
@@ -122,14 +125,8 @@ func (p *GethProvider) PreStart() error {
 
 func (p *GethProvider) PostStart() error {
 	// Unlock accounts
-	for _, m := range p.Stack.Members {
-		p.Log.Info(fmt.Sprintf("unlocking %s", m.Address))
-		if err := p.unlockAccount(m.Address, "correcthorsebatterystaple"); err != nil {
-			return err
-		}
-	}
 	for _, account := range p.Stack.State.Accounts {
-		address := account.(map[string]string)["address"]
+		address := account.(*ethereum.Account).Address
 		p.Log.Info(fmt.Sprintf("unlocking account %s", address))
 		if err := p.unlockAccount(address, "correcthorsebatterystaple"); err != nil {
 			return err
@@ -164,13 +161,13 @@ func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	addresses := ""
-	for i, member := range p.Stack.Members {
-		addresses = addresses + member.Address
-		if i+1 < len(p.Stack.Members) {
-			addresses = addresses + ","
-		}
-	}
+	// addresses := ""
+	// for i, member := range p.Stack.Members {
+	// 	addresses = addresses + member.Address
+	// 	if i+1 < len(p.Stack.Members) {
+	// 		addresses = addresses + ","
+	// 	}
+	// }
 	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`)
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
@@ -191,9 +188,10 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 }
 
 func (p *GethProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	account := m.Account.(*ethereum.Account)
 	orgConfig = &core.OrgConfig{
 		Name: m.OrgName,
-		Key:  m.Address,
+		Key:  account.Address,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
@@ -237,7 +235,7 @@ func (p *GethProvider) DeployContract(filename, contractName string, member *typ
 	}, nil
 }
 
-func (p *GethProvider) CreateAccount() (interface{}, error) {
+func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 
 	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
@@ -261,5 +259,13 @@ func (p *GethProvider) getEthconnectURL(member *types.Member) string {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+	}
+}
+
+func (p *GethProvider) ParseAccount(account interface{}) interface{} {
+	accountMap := account.(map[string]interface{})
+	return &ethereum.Account{
+		Address:    accountMap["address"].(string),
+		PrivateKey: accountMap["privateKey"].(string),
 	}
 }

@@ -106,7 +106,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			compose.Services["postgres_"+member.ID] = &Service{
 				Image:         constants.PostgresImageName,
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
-				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedPostgresPort)},
+				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedDatabasePort)},
 				Environment: map[string]string{
 					"POSTGRES_PASSWORD": "f1refly",
 					"PGDATA":            "/var/lib/postgresql/data/pgdata",

@@ -24,7 +24,7 @@ all: build
 build: ## Builds all go code
 		cd ff && go build -ldflags="-X 'github.com/hyperledger/firefly-cli/cmd.BuildDate=$(DATE)' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit=$(GITREF)'"
 install: ## Installs the package
-		cd ff && go install
+		cd ff && go install -ldflags="-X 'github.com/hyperledger/firefly-cli/cmd.BuildDate=$(DATE)' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit=$(GITREF)'"
 
 lint: ${LINT} ## Checks and reports lint errors
 		GOGC=20 $(LINT) run -v --timeout 5m
