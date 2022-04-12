@@ -29,6 +29,7 @@ type VersionManifest struct {
 	DataExchange      *ManifestEntry `json:"dataexchange-https"`
 	TokensERC1155     *ManifestEntry `json:"tokens-erc1155"`
 	TokensERC20ERC721 *ManifestEntry `json:"tokens-erc20-erc721"`
+	Sandbox           *ManifestEntry `json:"sandbox"`
 }
 
 func (m *VersionManifest) Entries() []*ManifestEntry {
