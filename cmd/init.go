@@ -193,6 +193,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
 	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
+	initCmd.Flags().BoolVar(&initOptions.SandboxEnabled, "sandbox-enabled", true, "Enables the FireFly Sandbox to be started with your FireFly stack")
 	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
 	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
 	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
