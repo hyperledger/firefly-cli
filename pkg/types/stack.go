@@ -51,6 +51,4 @@ type Member struct {
 	External                  bool        `json:"external,omitempty"`
 	OrgName                   string      `json:"orgName,omitempty"`
 	NodeName                  string      `json:"nodeName,omitempty"`
-	// Address                   string `json:"address,omitempty"`
-	// PrivateKey                string `json:"privateKey,omitempty"`
 }

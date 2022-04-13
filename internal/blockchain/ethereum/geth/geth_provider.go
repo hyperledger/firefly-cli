@@ -161,13 +161,6 @@ func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	// addresses := ""
-	// for i, member := range p.Stack.Members {
-	// 	addresses = addresses + member.Address
-	// 	if i+1 < len(p.Stack.Members) {
-	// 		addresses = addresses + ","
-	// 	}
-	// }
 	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`)
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
