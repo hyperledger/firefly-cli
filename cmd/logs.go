@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
@@ -56,16 +55,15 @@ output with the -f flag.`,
 
 		if stackHasRunBefore {
 			fmt.Println("getting logs... ")
-			stackDir := filepath.Join(stackManager.Stack.RuntimeDir, stackName)
 			commandLine := []string{}
 			if fancyFeatures {
 				commandLine = append(commandLine, "--ansi", "always")
 			}
-			commandLine = append(commandLine, "logs")
+			commandLine = append(commandLine, "-p", stackName, "logs")
 			if follow {
 				commandLine = append(commandLine, "-f")
 			}
-			docker.RunDockerComposeCommand(stackDir, verbose, true, commandLine...)
+			docker.RunDockerComposeCommand(stackManager.Stack.RuntimeDir, verbose, true, commandLine...)
 		} else {
 			fmt.Println("no logs found - stack has not been started")
 		}
