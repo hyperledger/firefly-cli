@@ -80,6 +80,9 @@ This command will start a stack and run it in the background.
 		fmt.Print("\n\n")
 		for _, member := range stackManager.Stack.Members {
 			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
+			if stackManager.Stack.SandboxEnabled {
+				fmt.Printf("Sandbox UI for member '%v': http://127.0.0.1:%v\n\n", member.ID, member.ExposedSandboxPort)
+			}
 		}
 
 		if stackManager.Stack.PrometheusEnabled {

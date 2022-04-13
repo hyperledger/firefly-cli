@@ -101,6 +101,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, memberCount),
 		},
+		SandboxEnabled: options.SandboxEnabled,
 	}
 
 	if options.PrometheusEnabled {
@@ -479,6 +480,10 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	case types.HyperledgerFabric:
 		// This will be filled in by the Fabric blockchain provider
 	}
+	if options.SandboxEnabled {
+		member.ExposedSandboxPort = nextPort
+		nextPort++
+	}
 	return member
 }
 
@@ -646,6 +651,10 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedDatabasePort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
+
+		if s.Stack.SandboxEnabled {
+			ports = append(ports, member.ExposedSandboxPort)
+		}
 	}
 
 	if s.Stack.PrometheusEnabled {

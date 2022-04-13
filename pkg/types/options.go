@@ -42,6 +42,7 @@ type InitOptions struct {
 	ManifestPath              string
 	PrometheusEnabled         bool
 	PrometheusPort            int
+	SandboxEnabled            bool
 	ExtraCoreConfigPath       string
 	ExtraEthconnectConfigPath string
 	BlockPeriod               int
