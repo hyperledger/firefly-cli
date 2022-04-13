@@ -152,6 +152,16 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			Logging:       StandardLogOptions,
 		}
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
+		if s.SandboxEnabled {
+			compose.Services["sandbox_"+member.ID] = &Service{
+				Image:         "ghcr.io/hyperledger/firefly-sandbox:latest",
+				ContainerName: fmt.Sprintf("%s_sandbox_%s", s.Name, member.ID),
+				Ports:         []string{fmt.Sprintf("%d:3001", member.ExposedSandboxPort)},
+				Environment: map[string]string{
+					"FF_ENDPOINT": fmt.Sprintf("http://firefly_core_%d:%d", *member.Index, member.ExposedFireflyPort),
+				},
+			}
+		}
 	}
 
 	if s.PrometheusEnabled {

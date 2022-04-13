@@ -97,6 +97,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		StackDir:              filepath.Join(constants.StacksDir, stackName),
 		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
 		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
+		SandboxEnabled:        options.SandboxEnabled,
 	}
 
 	if options.PrometheusEnabled {
@@ -409,6 +410,10 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 		member.ExposedTokensPorts = append(member.ExposedTokensPorts, nextPort)
 		nextPort++
 	}
+	if options.SandboxEnabled {
+		member.ExposedSandboxPort = nextPort
+		nextPort++
+	}
 	return member
 }
 
@@ -575,6 +580,10 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedPostgresPort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
+
+		if s.Stack.SandboxEnabled {
+			ports = append(ports, member.ExposedSandboxPort)
+		}
 	}
 
 	if s.Stack.PrometheusEnabled {
