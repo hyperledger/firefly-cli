@@ -1,7 +1,19 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2022 Kaleido, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-*/
 package cmd
 
 import (
@@ -12,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// fabricCmd represents the fabric command
-var fabricCmd = &cobra.Command{
+// deployFabricCmd represents the "deploy fabric" command
+var deployFabricCmd = &cobra.Command{
 	Use:   "fabric <stack_name> <chaincode_package> <channel> <chaincodeName> <version>",
 	Short: "Deploy fabric chaincode",
 	Long:  `Deploy a packaged chaincode to the Fabric network used by a FireFly stack`,
@@ -28,18 +40,15 @@ var fabricCmd = &cobra.Command{
 		if err := stackManager.LoadStack(stackName, verbose); err != nil {
 			return err
 		}
-		fmt.Printf("deploying %s... ", filename)
 		contractAddress, err := stackManager.DeployContract(filename, filename, 0, args[2:])
 		if err != nil {
 			return err
 		}
-		fmt.Print("done\n\n")
-		fmt.Printf("deployed to: %s\n", contractAddress)
-		fmt.Print("\n")
+		fmt.Print(contractAddress)
 		return nil
 	},
 }
 
 func init() {
-	deployCmd.AddCommand(fabricCmd)
+	deployCmd.AddCommand(deployFabricCmd)
 }

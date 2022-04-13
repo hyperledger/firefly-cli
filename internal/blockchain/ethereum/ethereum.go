@@ -23,6 +23,11 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+type Account struct {
+	Address    string `json:"address"`
+	PrivateKey string `json:"privateKey"`
+}
+
 func GenerateAddressAndPrivateKey() (address string, privateKey string) {
 	newPrivateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
 	privateKeyBytes := newPrivateKey.Serialize()

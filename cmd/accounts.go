@@ -14,27 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package besu
+package cmd
 
 import (
-	"fmt"
-	"io/ioutil"
-	"path/filepath"
-
-	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/spf13/cobra"
 )
 
-func WriteTomlKeyFile(directory string, member *types.Member) error {
-	toml := fmt.Sprintf(`
-[metadata]
-createdAt = 2019-11-05T08:15:30-05:00
-description = "File based configuration"
+// accountsCmd represents the deploy command
+var accountsCmd = &cobra.Command{
+	Use:   "accounts",
+	Short: "Work with accounts in a FireFly stack",
+	Long:  `Work with accounts in a FireFly stack`,
+}
 
-[signing]
-type = "file-based-signer"
-key-file = "/data/keystore/%s.key"
-password-file = "/data/password"
-`, member.Address[2:])
-	filename := filepath.Join(directory, member.ID, fmt.Sprintf("%s.toml", member.Address[2:]))
-	return ioutil.WriteFile(filename, []byte(toml), 0755)
+func init() {
+	rootCmd.AddCommand(accountsCmd)
 }

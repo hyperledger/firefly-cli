@@ -45,9 +45,9 @@ type BesuProvider struct {
 func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
+		account := member.Account.(*ethereum.Account)
 		// Write the private key to disk for each member
-		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", member.ID, "keyfile"), []byte(member.PrivateKey[2:]), 0755); err != nil {
+		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
 			return err
 		}
 
@@ -57,7 +57,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 			return nil
 		}
 
-		if err := WriteTomlKeyFile(filepath.Join(initDir, "blockchain"), member); err != nil {
+		if err := p.writeTomlKeyFile(p.Stack.InitDir, account.Address); err != nil {
 			return err
 		}
 
@@ -88,8 +88,8 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 func (p *BesuProvider) FirstTimeSetup() error {
 	ethsignerVolumeName := fmt.Sprintf("%s_ethsigner", p.Stack.Name)
 	besuVolumeName := fmt.Sprintf("%s_besu", p.Stack.Name)
-	blockchainDir := path.Join(p.Stack.RuntimeDir, "blockchain")
-	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
+	blockchainDir := filepath.Join(p.Stack.RuntimeDir, "blockchain")
+	contractsDir := filepath.Join(p.Stack.RuntimeDir, "contracts")
 
 	if err := docker.CreateVolume(ethsignerVolumeName, p.Verbose); err != nil {
 		return err
@@ -112,41 +112,8 @@ func (p *BesuProvider) FirstTimeSetup() error {
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
 	for _, member := range p.Stack.Members {
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/ethsigner", blockchainDir),
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			gethImage,
-			"account",
-			"import",
-			"--password", "/ethsigner/password",
-			"--keystore", "/data/keystore/output",
-			fmt.Sprintf("/ethsigner/%s/keyfile", member.ID),
-		); err != nil {
-			return err
-		}
-
-		// Move the file so we can reference it by name in the toml file and copy the toml file
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			"alpine",
-			"/bin/sh",
-			"-c",
-			fmt.Sprintf("mv /data/keystore/output/*%s  /data/keystore/%s.key", member.Address[2:], member.Address[2:]),
-		); err != nil {
-			return err
-		}
-
-		if err := docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
-			"run", "--rm",
-			"-v", fmt.Sprintf("%s:/ethsigner", blockchainDir),
-			"-v", fmt.Sprintf("%s:/data", ethsignerVolumeName),
-			"alpine",
-			"cp",
-			fmt.Sprintf("/ethsigner/%s/%s.toml", member.ID, member.Address[2:]),
-			fmt.Sprintf("/data/keystore/%s.toml", member.Address[2:]),
-		); err != nil {
+		account := member.Account.(*ethereum.Account)
+		if err := p.importAccountToEthsigner(account.Address); err != nil {
 			return err
 		}
 	}
@@ -184,7 +151,8 @@ func (p *BesuProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	addresses := ""
 	for i, member := range p.Stack.Members {
-		addresses = addresses + member.Address
+		account := member.Account.(*ethereum.Account)
+		addresses = addresses + account.Address
 		if i+1 < len(p.Stack.Members) {
 			addresses = addresses + ","
 		}
@@ -231,9 +199,10 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 }
 
 func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
+	account := m.Account.(*ethereum.Account)
 	orgConfig = &core.OrgConfig{
 		Name: m.OrgName,
-		Key:  m.Address,
+		Key:  account.Address,
 	}
 
 	blockchainConfig = &core.BlockchainConfig{
@@ -247,10 +216,6 @@ func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (bl
 		},
 	}
 	return
-}
-
-func (p *BesuProvider) getSmartContractAddressPatchJSON(contractAddress string) []byte {
-	return []byte(fmt.Sprintf(`{"blockchain":{"ethereum":{"ethconnect":{"instance":"%s"}}}}`, contractAddress))
 }
 
 func (p *BesuProvider) Reset() error {
@@ -271,8 +236,35 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
-	return ethconnect.DeployCustomContract(member, filename, contractName)
+func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
+	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"address": contractAddres,
+	}, nil
+}
+
+func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {
+	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+
+	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
+		return nil, err
+	}
+
+	if err := p.writeTomlKeyFile(p.Stack.RuntimeDir, address); err != nil {
+		return nil, err
+	}
+
+	if err := p.importAccountToEthsigner(address); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		"address":    address,
+		"privateKey": privateKey,
+	}, nil
 }
 
 func (p *BesuProvider) getEthconnectURL(member *types.Member) string {
@@ -280,5 +272,13 @@ func (p *BesuProvider) getEthconnectURL(member *types.Member) string {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+	}
+}
+
+func (p *BesuProvider) ParseAccount(account interface{}) interface{} {
+	accountMap := account.(map[string]interface{})
+	return &ethereum.Account{
+		Address:    accountMap["address"].(string),
+		PrivateKey: accountMap["privateKey"].(string),
 	}
 }

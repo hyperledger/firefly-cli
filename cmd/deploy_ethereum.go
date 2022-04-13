@@ -1,7 +1,19 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2022 Kaleido, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-*/
 package cmd
 
 import (
@@ -12,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ethereumCmd represents the ethereum command
-var ethereumCmd = &cobra.Command{
+// deployEthereumCmd represents the "deploy ethereum" command
+var deployEthereumCmd = &cobra.Command{
 	Use:   "ethereum <stack_name> <contract_json_file>",
 	Short: "Deploy a compiled solidity contract",
 	Long: `Deploy a solidity contract compiled with solc to the blockchain used by a FireFly stack
@@ -48,19 +60,15 @@ solc --combined-json abi,bin contract.sol > contract.json
 				return err
 			}
 		}
-		fmt.Printf("deploying %s... ", selectedContractName)
 		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
 			return err
 		}
-
-		fmt.Print("done\n\n")
-		fmt.Printf("contract address: %s\n", contractAddress)
-		fmt.Print("\n")
+		fmt.Print(contractAddress)
 		return nil
 	},
 }
 
 func init() {
-	deployCmd.AddCommand(ethereumCmd)
+	deployCmd.AddCommand(deployEthereumCmd)
 }

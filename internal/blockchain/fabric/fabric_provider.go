@@ -33,6 +33,11 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+type Account struct {
+	Name    string `json:"name"`
+	OrgName string `json:"orgName"`
+}
+
 type FabricProvider struct {
 	Verbose bool
 	Log     log.Logger
@@ -45,6 +50,8 @@ var configtxYaml string
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.Stack.InitDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
+
+	os.MkdirAll(blockchainDirectory, 0755)
 
 	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenYamlPath); err != nil {
 		return err
@@ -148,8 +155,13 @@ func (p *FabricProvider) deploySmartContracts() error {
 		return err
 	}
 
-	if err := p.registerIdentities(); err != nil {
-		return err
+	p.Log.Info("registering identities")
+	for _, m := range p.Stack.Members {
+		account, err := p.registerIdentity(m, m.OrgName)
+		if err != nil {
+			return err
+		}
+		p.Stack.State.Accounts = append(p.Stack.State.Accounts, account)
 	}
 
 	return nil
@@ -415,26 +427,26 @@ func (p *FabricProvider) commitChaincode(channel, chaincode, version string) err
 	)
 }
 
-func (p *FabricProvider) registerIdentities() error {
-	p.Log.Info("registering identities")
-	for _, m := range p.Stack.Members {
-		res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedConnectorPort), m.OrgName)
-		if err != nil {
-			return err
-		}
-		_, err = fabconnect.EnrollIdentity(fmt.Sprintf("http://127.0.0.1:%v", m.ExposedConnectorPort), m.OrgName, res.Secret)
-		if err != nil {
-			return err
-		}
+func (p *FabricProvider) registerIdentity(member *types.Member, name string) (*Account, error) {
+	res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), name)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	_, err = fabconnect.EnrollIdentity(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), name, res.Secret)
+	if err != nil {
+		return nil, err
+	}
+	return &Account{
+		Name:    name,
+		OrgName: member.OrgName,
+	}, nil
 }
 
 func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (string, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return "", err
@@ -481,10 +493,39 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 	if err := p.commitChaincode(channel, chaincode, version); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("\n{\n\t\"channel\": \"%s\",\n\t\"chaincode\": \"%s\"\n}", channel, chaincode), nil
+	return map[string]string{
+		"channel":   channel,
+		"chaincode": chaincode,
+	}, nil
+}
+
+func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
+	switch {
+	case len(args) < 1:
+		return "", fmt.Errorf("org name not set. usage: ff accounts create <stack_name> <org_name> <account_name>")
+	case len(args) < 2:
+		return "", fmt.Errorf("account name not set. usage: ff accounts create <stack_name> <org_name> <account_name>")
+	}
+	orgName := args[0]
+	accountName := args[1]
+	// Find the FireFly member by the org name
+	for _, member := range p.Stack.Members {
+		if member.OrgName == orgName {
+			return p.registerIdentity(member, accountName)
+		}
+	}
+	return nil, fmt.Errorf("unable to find a FireFly org with name: '%s'", orgName)
 }
 
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images
 func getDockerPlatform() string {
 	return "linux/amd64"
+}
+
+func (p *FabricProvider) ParseAccount(account interface{}) interface{} {
+	accountMap := account.(map[string]interface{})
+	return &Account{
+		Name:    accountMap["name"].(string),
+		OrgName: accountMap["orgName"].(string),
+	}
 }

@@ -276,7 +276,7 @@ func getPostgresURL(member *types.Member) string {
 	if !member.External {
 		return fmt.Sprintf("postgres://postgres:f1refly@postgres_%s:5432?sslmode=disable", member.ID)
 	} else {
-		return fmt.Sprintf("postgres://postgres:f1refly@127.0.0.1:%v?sslmode=disable", member.ExposedPostgresPort)
+		return fmt.Sprintf("postgres://postgres:f1refly@127.0.0.1:%v?sslmode=disable", member.ExposedDatabasePort)
 	}
 }
 

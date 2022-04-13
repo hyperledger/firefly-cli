@@ -97,7 +97,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		StackDir:              filepath.Join(constants.StacksDir, stackName),
 		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
 		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
-		SandboxEnabled:        options.SandboxEnabled,
+		State: &types.StackState{
+			DeployedContracts: make([]*types.DeployedContract, 0),
+			Accounts:          make([]interface{}, memberCount),
+		},
+		SandboxEnabled: options.SandboxEnabled,
 	}
 
 	if options.PrometheusEnabled {
@@ -135,6 +139,9 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
+		if s.Stack.Members[i].Account != nil {
+			s.Stack.State.Accounts[i] = s.Stack.Members[i].Account
+		}
 	}
 	compose := docker.CreateDockerCompose(s.Stack)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
@@ -202,7 +209,6 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	if !exists {
 		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
-	fmt.Printf("reading stack config... ")
 	d, err := ioutil.ReadFile(filepath.Join(stackDir, "stack.json"))
 	if err != nil {
 		return err
@@ -211,7 +217,6 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	if err := json.Unmarshal(d, &stack); err != nil {
 		return err
 	}
-	fmt.Printf("done\n")
 	s.Stack = stack
 	s.Stack.StackDir = stackDir
 	s.blockchainProvider = s.getBlockchainProvider(verbose)
@@ -229,6 +234,12 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		s.IsOldFileStructure = true
 		s.Stack.InitDir = s.Stack.StackDir
 		s.Stack.RuntimeDir = s.Stack.StackDir
+	}
+
+	for _, member := range stack.Members {
+		if member.Account != nil {
+			member.Account = s.blockchainProvider.ParseAccount(member.Account)
+		}
 	}
 
 	// For backwards compatability, add a "default" VersionManifest
@@ -261,7 +272,55 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 			},
 		}
 	}
+
+	stackHasRunBefore, err := s.StackHasRunBefore()
+	if err != nil {
+		return nil
+	}
+	if stackHasRunBefore {
+		return s.loadStackStateJSON()
+	} else {
+		s.Stack.State = &types.StackState{}
+	}
 	return nil
+}
+
+func (s *StackManager) loadStackStateJSON() error {
+	stackStatePath := filepath.Join(s.Stack.RuntimeDir, "stackState.json")
+	_, err := os.Stat(stackStatePath)
+	if os.IsNotExist(err) {
+		// Initialize with an empty StackState
+		s.Stack.State = &types.StackState{}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	b, err := ioutil.ReadFile(stackStatePath)
+	if err != nil {
+		return err
+	}
+	var stackState *types.StackState
+	if err := json.Unmarshal(b, &stackState); err != nil {
+		return err
+	}
+
+	for i, account := range stackState.Accounts {
+		if account != nil {
+			stackState.Accounts[i] = s.blockchainProvider.ParseAccount(account)
+		}
+	}
+
+	s.Stack.State = stackState
+	return nil
+}
+
+func (s *StackManager) writeStackStateJSON(directory string) error {
+	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", " ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
 }
 
 func (s *StackManager) ensureInitDirectories() error {
@@ -273,9 +332,6 @@ func (s *StackManager) ensureInitDirectories() error {
 
 	for _, member := range s.Stack.Members {
 		if err := os.MkdirAll(filepath.Join(configDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Join(s.Stack.InitDir, "blockchain", member.ID), 0755); err != nil {
 			return err
 		}
 	}
@@ -293,8 +349,14 @@ func (s *StackManager) writeDockerCompose(workingDir string, compose *docker.Doc
 }
 
 func (s *StackManager) writeStackConfig() error {
-	stackConfigBytes, _ := json.MarshalIndent(s.Stack, "", " ")
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
+	stackConfigBytes, err := json.MarshalIndent(s.Stack, "", " ")
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
+		return err
+	}
+	return s.writeStackStateJSON(s.Stack.InitDir)
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
@@ -382,18 +444,15 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 }
 
 func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
-	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 	serviceBase := options.ServicesBasePort + (index * 100)
 	member := &types.Member{
 		ID:                      id,
 		Index:                   &index,
-		Address:                 address,
-		PrivateKey:              privateKey,
 		ExposedFireflyPort:      options.FireFlyBasePort + index,
 		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
 		ExposedConnectorPort:    serviceBase + 2,
 		ExposedUIPort:           serviceBase + 3,
-		ExposedPostgresPort:     serviceBase + 4,
+		ExposedDatabasePort:     serviceBase + 4,
 		ExposedDataexchangePort: serviceBase + 5,
 		ExposedIPFSApiPort:      serviceBase + 6,
 		ExposedIPFSGWPort:       serviceBase + 7,
@@ -409,6 +468,17 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	for range options.TokenProviders {
 		member.ExposedTokensPorts = append(member.ExposedTokensPorts, nextPort)
 		nextPort++
+	}
+
+	switch options.BlockchainProvider {
+	case types.GoEthereum, types.HyperledgerBesu:
+		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+		member.Account = &ethereum.Account{
+			Address:    address,
+			PrivateKey: privateKey,
+		}
+	case types.HyperledgerFabric:
+		// This will be filled in by the Fabric blockchain provider
 	}
 	if options.SandboxEnabled {
 		member.ExposedSandboxPort = nextPort
@@ -450,10 +520,11 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) err
 				return finalErr
 			}
 		}
-	}
-	err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
-	if err != nil {
-		return err
+	} else {
+		err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
+		if err != nil {
+			return err
+		}
 	}
 	return s.ensureFireflyNodesUp(true)
 }
@@ -577,7 +648,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		}
 		ports = append(ports, member.ExposedIPFSApiPort)
 		ports = append(ports, member.ExposedIPFSGWPort)
-		ports = append(ports, member.ExposedPostgresPort)
+		ports = append(ports, member.ExposedDatabasePort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
 
@@ -651,6 +722,12 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
+
+	for i := 0; i < len(s.Stack.Members); i++ {
+		if s.Stack.Members[i].Account != nil {
+			s.Stack.State.Accounts = append(s.Stack.State.Accounts, s.Stack.Members[i].Account)
+		}
+	}
 
 	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
 		return err
@@ -727,7 +804,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 			return err
 		}
 	}
-	return nil
+
+	// Update the stack state with any new state that was created as a part of the setup process
+	return s.writeStackStateJSON(s.Stack.RuntimeDir)
 }
 
 func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
@@ -899,7 +978,44 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	return s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	contractLocation, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	if err != nil {
+		return "", err
+	}
+	// Update the stackState.json file with the newly deployed contract
+	deployedContract := &types.DeployedContract{
+		Name:     contractName,
+		Location: contractLocation,
+	}
+	s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, deployedContract)
+	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
+		return "", err
+	}
+
+	// Serialize the contract location to JSON to print on the command line
+	b, err := json.MarshalIndent(contractLocation, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (s *StackManager) CreateAccount(args []string) (string, error) {
+	newAccount, err := s.blockchainProvider.CreateAccount(args)
+	if err != nil {
+		return "", err
+	}
+	s.Stack.State.Accounts = append(s.Stack.State.Accounts, newAccount)
+	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
+		return "", err
+	}
+
+	// Serialize the account to JSON to print on the command line
+	b, err := json.MarshalIndent(newAccount, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
