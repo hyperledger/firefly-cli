@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,11 +28,23 @@ type GethClient struct {
 	rpcUrl string
 }
 
-type RpcRequest struct {
+type JSONRPCRequest struct {
 	JsonRPC string        `json:"jsonrpc"`
 	ID      int           `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
+}
+
+type JSONRPCResponse struct {
+	JsonRPC string        `json:"jsonrpc"`
+	ID      int           `json:"id"`
+	Error   *JSONRPCError `json:"error,omitempty"`
+	Result  interface{}   `json:"result,omitempty"`
+}
+
+type JSONRPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 func NewGethClient(rpcUrl string) *GethClient {
@@ -42,7 +54,7 @@ func NewGethClient(rpcUrl string) *GethClient {
 }
 
 func (g *GethClient) UnlockAccount(address string, password string) error {
-	requestBody, err := json.Marshal(&RpcRequest{
+	requestBody, err := json.Marshal(&JSONRPCRequest{
 		JsonRPC: "2.0",
 		ID:      0,
 		Method:  "personal_unlockAccount",
@@ -68,6 +80,14 @@ func (g *GethClient) UnlockAccount(address string, password string) error {
 	}
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
+	}
+	var rpcResponse *JSONRPCResponse
+	err = json.Unmarshal(responseBody, &rpcResponse)
+	if err != nil {
+		return err
+	}
+	if rpcResponse.Error != nil {
+		return fmt.Errorf(rpcResponse.Error.Message)
 	}
 	return nil
 }
