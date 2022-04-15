@@ -21,6 +21,7 @@ go 1.16
 require (
 	github.com/briandowns/spinner v1.12.0
 	github.com/btcsuite/btcd v0.21.0-beta
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-isatty v0.0.13
 	github.com/miracl/conflate v1.2.1 // indirect
