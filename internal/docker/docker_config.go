@@ -154,7 +154,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 		if s.SandboxEnabled {
 			compose.Services["sandbox_"+member.ID] = &Service{
-				Image:         "ghcr.io/hyperledger/firefly-sandbox:latest",
+				Image:         constants.SandboxImageName,
 				ContainerName: fmt.Sprintf("%s_sandbox_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:3001", member.ExposedSandboxPort)},
 				Environment: map[string]string{
