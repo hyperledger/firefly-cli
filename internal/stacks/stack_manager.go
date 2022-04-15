@@ -863,14 +863,14 @@ func (s *StackManager) UpgradeStack(verbose bool) error {
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "images"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "-p", s.Stack.Name, "images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "ps"); err != nil {
+	if err := docker.RunDockerComposeCommand(s.Stack.RuntimeDir, verbose, true, "-p", s.Stack.Name, "ps"); err != nil {
 		return err
 	}
-	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(constants.StacksDir, s.Stack.Name, "docker-compose.yml"))
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.InitDir, "docker-compose.yml"))
 	return nil
 }
 
