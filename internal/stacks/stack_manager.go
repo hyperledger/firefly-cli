@@ -552,6 +552,11 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 		images = append(images, constants.PostgresImageName)
 	}
 
+	// Also pull the Sandbox if we're using it
+	if s.Stack.SandboxEnabled {
+		images = append(images, constants.SandboxImageName)
+	}
+
 	// Iterate over all images used by the blockchain provider
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
 		images = append(images, service.Service.Image)
@@ -751,6 +756,13 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	if err := s.copyDataExchangeConfigToVolumes(verbose); err != nil {
+		return err
+	}
+
+	pullOptions := &types.PullOptions{
+		Retries: 2,
+	}
+	if err := s.PullStack(verbose, pullOptions); err != nil {
 		return err
 	}
 
