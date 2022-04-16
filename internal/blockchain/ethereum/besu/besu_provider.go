@@ -157,7 +157,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			addresses = addresses + ","
 		}
 	}
-	besuCommand := `--genesis-file=/data/genesis.json --network-id 2021 --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`
+	besuCommand := `--genesis-file=/data/genesis.json --network-id 2021 --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0 --miner.gaslimit 16777215`
 	ethsignerCommand := `--chain-id=2021 --downstream-http-host="besu" --downstream-http-port=8545 multikey-signer --directory=/data/keystore`
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 2)

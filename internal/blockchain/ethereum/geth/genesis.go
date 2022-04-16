@@ -95,7 +95,7 @@ func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
 		Nonce:      "0x0",
 		Timestamp:  "0x60edb1c7",
 		ExtraData:  extraData,
-		GasLimit:   "0xffffffff",
+		GasLimit:   "0xffffff",
 		Difficulty: "0x1",
 		MixHash:    "0x0000000000000000000000000000000000000000000000000000000000000000",
 		Coinbase:   "0x0000000000000000000000000000000000000000",
