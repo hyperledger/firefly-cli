@@ -531,15 +531,15 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) err
 
 func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
 	var images []string
+	manifestImages := make(map[string]bool)
 
 	// Collect FireFly docker image names
 	for _, entry := range s.Stack.VersionManifest.Entries() {
+		fullImage := entry.GetDockerImageString()
+		s.Log.Info(fmt.Sprintf("Manifest entry image='%s' local=%t", fullImage, entry.Local))
+		manifestImages[fullImage] = true
 		if entry.Local {
 			continue
-		}
-		fullImage := fmt.Sprintf("%s@sha256:%s", entry.Image, entry.SHA)
-		if entry.SHA == "" {
-			fullImage = fmt.Sprintf("%s:%s", entry.Image, entry.Tag)
 		}
 		images = append(images, fullImage)
 	}
@@ -559,19 +559,23 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 
 	// Iterate over all images used by the blockchain provider
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
-		images = append(images, service.Service.Image)
+		if !manifestImages[service.Service.Image] {
+			images = append(images, service.Service.Image)
+		}
 	}
 
 	// Iterate over all images used by the tokens provider
 	for iTok, tp := range s.tokenProviders {
 		for _, service := range tp.GetDockerServiceDefinitions(iTok) {
-			images = append(images, service.Service.Image)
+			if !manifestImages[service.Service.Image] {
+				images = append(images, service.Service.Image)
+			}
 		}
 	}
 
 	// Use docker to pull every image - retry on failure
 	for _, image := range images {
-		s.Log.Info(fmt.Sprintf("pulling '%s", image))
+		s.Log.Info(fmt.Sprintf("pulling '%s'", image))
 		if err := docker.RunDockerCommandRetry(s.Stack.InitDir, verbose, verbose, options.Retries, "pull", image); err != nil {
 			return err
 		}
