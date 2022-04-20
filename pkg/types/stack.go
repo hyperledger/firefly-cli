@@ -27,6 +27,7 @@ type Stack struct {
 	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
 	SandboxEnabled        bool             `json:"sandboxEnabled,omitempty"`
+	FFTMEnabled           bool             `json:"fftypEnabled,omitempty"`
 	ExposedPrometheusPort int              `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress       string           `json:"contractAddress,omitempty"`
 	InitDir               string           `json:"-"`
@@ -49,6 +50,7 @@ type Member struct {
 	ExposedIPFSGWPort         int         `json:"exposedIPFSGWPort,omitempty"`
 	ExposedUIPort             int         `json:"exposedUiPort,omitempty"`
 	ExposedSandboxPort        int         `json:"exposedSandboxPort,omitempty"`
+	ExposedFFTMPort           int         `json:"exposedFFTMPort,omitempty"`
 	ExposedTokensPorts        []int       `json:"exposedTokensPorts,omitempty"`
 	External                  bool        `json:"external,omitempty"`
 	OrgName                   string      `json:"orgName,omitempty"`

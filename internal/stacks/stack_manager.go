@@ -102,6 +102,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			Accounts:          make([]interface{}, memberCount),
 		},
 		SandboxEnabled: options.SandboxEnabled,
+		FFTMEnabled:    options.FFTMEnabled,
 	}
 
 	if options.PrometheusEnabled {
@@ -374,6 +375,13 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
 		}
+		if s.Stack.FFTMEnabled {
+			fftmConfig := NewFFTMConfig(s.Stack, member)
+			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
+			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename); err != nil {
+				return err
+			}
+		}
 	}
 
 	if err := s.writeStackConfig(); err != nil {
@@ -484,6 +492,10 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 		member.ExposedSandboxPort = nextPort
 		nextPort++
 	}
+	if options.FFTMEnabled {
+		member.ExposedFFTMPort = nextPort
+		nextPort++
+	}
 	return member
 }
 
@@ -556,6 +568,11 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	if s.Stack.SandboxEnabled {
 		images = append(images, constants.SandboxImageName)
 	}
+
+	// Also pull the FFTM if we're using it
+	// if s.Stack.FFTMEnabled {
+	// 	images = append(images, constants.FFTMImageName)
+	// }
 
 	// Iterate over all images used by the blockchain provider
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
@@ -664,6 +681,9 @@ func (s *StackManager) checkPortsAvailable() error {
 		if s.Stack.SandboxEnabled {
 			ports = append(ports, member.ExposedSandboxPort)
 		}
+		if s.Stack.FFTMEnabled {
+			ports = append(ports, member.ExposedFFTMPort)
+		}
 	}
 
 	if s.Stack.PrometheusEnabled {
@@ -723,6 +743,17 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 		s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
 		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
 		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core.yml", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+	if s.Stack.FFTMEnabled {
+		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
+		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
+		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm", verbose); err != nil {
 			return err
 		}
 	}
@@ -794,6 +825,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	for _, member := range s.Stack.Members {
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
+			return err
+		}
+		if err := s.copyFFTMConfigToContainer(verbose, configDir, member); err != nil {
 			return err
 		}
 	}
