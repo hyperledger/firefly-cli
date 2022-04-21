@@ -17,23 +17,33 @@
 package types
 
 type Stack struct {
-	Name                  string           `json:"name,omitempty"`
-	Members               []*Member        `json:"members,omitempty"`
-	SwarmKey              string           `json:"swarmKey,omitempty"`
-	ExposedBlockchainPort int              `json:"exposedBlockchainPort,omitempty"`
-	Database              string           `json:"database"`
-	BlockchainProvider    string           `json:"blockchainProvider"`
-	TokenProviders        TokenProviders   `json:"tokenProviders"`
-	VersionManifest       *VersionManifest `json:"versionManifest,omitempty"`
-	PrometheusEnabled     bool             `json:"prometheusEnabled,omitempty"`
-	SandboxEnabled        bool             `json:"sandboxEnabled,omitempty"`
-	FFTMEnabled           bool             `json:"fftypEnabled,omitempty"`
-	ExposedPrometheusPort int              `json:"exposedPrometheusPort,omitempty"`
-	ContractAddress       string           `json:"contractAddress,omitempty"`
-	InitDir               string           `json:"-"`
-	RuntimeDir            string           `json:"-"`
-	StackDir              string           `json:"-"`
-	State                 *StackState      `json:"-"`
+	Name                   string           `json:"name,omitempty"`
+	Members                []*Member        `json:"members,omitempty"`
+	SwarmKey               string           `json:"swarmKey,omitempty"`
+	ExposedBlockchainPort  int              `json:"exposedBlockchainPort,omitempty"`
+	Database               string           `json:"database"`
+	BlockchainProvider     string           `json:"blockchainProvider"`
+	BlockchainNodeProvider string           `json:"blockchainNodeProvider"`
+	TokenProviders         TokenProviders   `json:"tokenProviders"`
+	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
+	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
+	SandboxEnabled         bool             `json:"sandboxEnabled,omitempty"`
+	FFTMEnabled            bool             `json:"fftypEnabled,omitempty"`
+	ExposedPrometheusPort  int              `json:"exposedPrometheusPort,omitempty"`
+	ContractAddress        string           `json:"contractAddress,omitempty"`
+	ChainIDPtr             *int64           `json:"chainID,omitempty"`
+	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
+	InitDir                string           `json:"-"`
+	RuntimeDir             string           `json:"-"`
+	StackDir               string           `json:"-"`
+	State                  *StackState      `json:"-"`
+}
+
+func (s *Stack) ChainID() int64 {
+	if s.ChainIDPtr == nil {
+		return 2021 // the original default, before it could be customized
+	}
+	return *s.ChainIDPtr
 }
 
 type Member struct {

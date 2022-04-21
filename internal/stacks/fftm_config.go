@@ -55,13 +55,18 @@ type FFTMSimplePolicyEngineConfig struct {
 	FixedGasPrice string
 }
 
+type FFTMConfirmationsConfig struct {
+	Required int64 `json:"required"`
+}
+
 type FFTMConfig struct {
-	Log          FFTMLogConfig          `json:"log"`
-	API          FFTMAPIConfig          `json:"api"`
-	Connector    FFTMConnectorConfig    `json:"connector"`
-	FFCore       FFTMFFCoreConfig       `json:"ffcore"`
-	Manager      FFTMManagerConfig      `json:"manager"`
-	PolicyEngine FFTMPolicyEngineConfig `json:"policyengine"`
+	Log           FFTMLogConfig           `json:"log"`
+	API           FFTMAPIConfig           `json:"api"`
+	Connector     FFTMConnectorConfig     `json:"connector"`
+	FFCore        FFTMFFCoreConfig        `json:"ffcore"`
+	Manager       FFTMManagerConfig       `json:"manager"`
+	PolicyEngine  FFTMPolicyEngineConfig  `json:"policyengine"`
+	Confirmations FFTMConfirmationsConfig `json:"confirmations"`
 }
 
 func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
@@ -88,6 +93,9 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 			Simple: FFTMSimplePolicyEngineConfig{
 				FixedGasPrice: "1000000000",
 			},
+		},
+		Confirmations: FFTMConfirmationsConfig{
+			Required: 3,
 		},
 	}
 }

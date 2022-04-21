@@ -33,6 +33,7 @@ import (
 var initOptions types.InitOptions
 var databaseSelection string
 var blockchainProviderInput string
+var blockchainNodeProviderInput string
 var tokenProvidersSelection []string
 var promptNames bool
 
@@ -100,7 +101,7 @@ var initCmd = &cobra.Command{
 		}
 
 		initOptions.Verbose = verbose
-		initOptions.BlockchainProvider, _ = types.BlockchainProviderFromString(blockchainProviderInput)
+		initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider, _ = types.BlockchainFromStrings(blockchainProviderInput, blockchainNodeProviderInput)
 		initOptions.DatabaseSelection, _ = types.DatabaseSelectionFromString(databaseSelection)
 		initOptions.TokenProviders, _ = types.TokenProvidersFromStrings(tokenProvidersSelection)
 
@@ -186,7 +187,8 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", types.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainNodeProviderInput, "blockchain-node-provider", "n", "geth", fmt.Sprintf("Blockchain node provider to use. Options are: %v", types.BlockchainProviderStrings))
 	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155"}, fmt.Sprintf("Token providers to use. Options are: %v", types.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
@@ -200,6 +202,8 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
 	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
 	initCmd.Flags().StringVarP(&initOptions.ContractAddress, "contract-address", "", "", "Do not automatically deploy a contract, instead use a pre-configured address")
+	initCmd.Flags().StringVarP(&initOptions.RemoteNodeURL, "remote-node-url", "", "", "For cases where the node is pre-existing and running remotely")
+	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
 
 	rootCmd.AddCommand(initCmd)
 }

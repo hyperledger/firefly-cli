@@ -32,7 +32,9 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
@@ -479,7 +481,7 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	}
 
 	switch options.BlockchainProvider {
-	case types.GoEthereum, types.HyperledgerBesu:
+	case types.Ethereum:
 		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 		member.Account = &ethereum.Account{
 			Address:    address,
@@ -1069,18 +1071,50 @@ func (s *StackManager) CreateAccount(args []string) (string, error) {
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
+
+	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainProvider = types.GoEthereum.String()
+	}
+
+	if s.Stack.BlockchainProvider == types.HyperledgerBesu.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainProvider = types.HyperledgerBesu.String()
+	}
+
 	switch s.Stack.BlockchainProvider {
-	case types.GoEthereum.String():
-		return &geth.GethProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
-		}
-	case types.HyperledgerBesu.String():
-		return &besu.BesuProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
+	case types.Ethereum.String():
+		switch s.Stack.BlockchainNodeProvider {
+		case types.GoEthereum.String():
+			return &geth.GethProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+			}
+		case types.HyperledgerBesu.String():
+			return &besu.BesuProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		case types.RemoteRPC.String():
+			return &remoterpc.RemoteRPCProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		default:
+			return nil
 		}
 	case types.HyperledgerFabric.String():
 		return &fabric.FabricProvider{

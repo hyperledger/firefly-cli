@@ -37,6 +37,7 @@ type InitOptions struct {
 	OrgNames                  []string
 	NodeNames                 []string
 	BlockchainProvider        BlockchainProvider
+	BlockchainNodeProvider    BlockchainNodeProvider
 	TokenProviders            TokenProviders
 	FireFlyVersion            string
 	ManifestPath              string
@@ -48,30 +49,83 @@ type InitOptions struct {
 	ExtraEthconnectConfigPath string
 	BlockPeriod               int
 	ContractAddress           string
+	RemoteNodeURL             string
+	ChainID                   int64
 }
 
 type BlockchainProvider int
 
 const (
-	GoEthereum BlockchainProvider = iota
-	HyperledgerBesu
+	Ethereum BlockchainProvider = iota
 	HyperledgerFabric
 	Corda
 )
 
-var BlockchainProviderStrings = []string{"geth", "besu", "fabric", "corda"}
+var BlockchainProviderStrings = []string{"ethereum", "fabric", "corda"}
 
 func (blockchainProvider BlockchainProvider) String() string {
 	return BlockchainProviderStrings[blockchainProvider]
 }
 
-func BlockchainProviderFromString(s string) (BlockchainProvider, error) {
+type BlockchainNodeProvider int
+
+const (
+	GoEthereum BlockchainNodeProvider = iota
+	HyperledgerBesu
+	RemoteRPC
+)
+
+var BlockchainNodeProviderStrings = []string{"geth", "besu", "remote-rpc"}
+
+func (blockchainNodeProvider BlockchainNodeProvider) String() string {
+	return BlockchainNodeProviderStrings[blockchainNodeProvider]
+}
+
+func BlockchainFromStrings(blockchainString, nodeString string) (blockchain BlockchainProvider, node BlockchainNodeProvider, err error) {
+	blockchain = -1
 	for i, blockchainProviderSelection := range BlockchainProviderStrings {
-		if strings.ToLower(s) == blockchainProviderSelection {
-			return BlockchainProvider(i), nil
+		if strings.ToLower(blockchainString) == blockchainProviderSelection {
+			blockchain = BlockchainProvider(i)
+			break
 		}
 	}
-	return GoEthereum, fmt.Errorf("\"%s\" is not a valid blockchain provider selection. valid options are: %v", s, BlockchainProviderStrings)
+	if blockchain < 0 {
+		// Migration cases for how we did things previously:
+		// - For when "-b geth" or "-b besu" used to be the thing to do
+		// - For when we persisted integers into the stack.json
+		switch blockchainString {
+		case "0", "geth":
+			blockchain = Ethereum
+			node = GoEthereum
+		case "1", "besu":
+			blockchain = Ethereum
+			node = HyperledgerBesu
+		case "2":
+			blockchain = HyperledgerFabric
+		case "3":
+			blockchain = HyperledgerFabric
+		default:
+			return -1, -1, fmt.Errorf("\"%s\" is not a valid blockchain provider selection. valid options are: %v", blockchainString, BlockchainProviderStrings)
+		}
+	}
+	if blockchain == Ethereum {
+		if nodeString == "" {
+			node = GoEthereum
+		} else {
+			for i, blockchainNodeProviderSelection := range BlockchainNodeProviderStrings {
+				if strings.ToLower(nodeString) == blockchainNodeProviderSelection {
+					node = BlockchainNodeProvider(i)
+					break
+				}
+			}
+		}
+		if node == -1 {
+			return -1, -1, fmt.Errorf("\"%s\" is not a valid blockchain node selection. valid options are: %v", nodeString, BlockchainNodeProviderStrings)
+		}
+	} else {
+		node = -1 // not currently applicable
+	}
+	return blockchain, node, nil
 }
 
 type DatabaseSelection int

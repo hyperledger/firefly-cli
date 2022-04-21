@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package besu
+package ethsigner
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-func (p *BesuProvider) writeAccountToDisk(directory, address, privateKey string) error {
+func (p *EthSignerProvider) writeAccountToDisk(directory, address, privateKey string) error {
 	outputDirectory := filepath.Join(directory, "blockchain", "accounts", address[2:])
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err
@@ -35,7 +35,7 @@ func (p *BesuProvider) writeAccountToDisk(directory, address, privateKey string)
 	return ioutil.WriteFile(filename, []byte(privateKey[2:]), 0755)
 }
 
-func (p *BesuProvider) writeTomlKeyFile(directory, address string) error {
+func (p *EthSignerProvider) writeTomlKeyFile(directory, address string) error {
 	outputDirectory := filepath.Join(directory, "blockchain", "accounts", address[2:])
 	address = address[2:]
 	toml := fmt.Sprintf(`[metadata]
@@ -51,7 +51,7 @@ password-file = "/data/password"
 	return ioutil.WriteFile(filename, []byte(toml), 0755)
 }
 
-func (p *BesuProvider) importAccountToEthsigner(address string) error {
+func (p *EthSignerProvider) importAccountToEthsigner(address string) error {
 	blockchainDir := filepath.Join(p.Stack.RuntimeDir, "blockchain")
 	ethsignerVolumeName := fmt.Sprintf("%s_ethsigner", p.Stack.Name)
 	address = address[2:]
