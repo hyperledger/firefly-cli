@@ -88,23 +88,25 @@ func NewStackManager(logger log.Logger) *StackManager {
 
 func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
-		Name:                  stackName,
-		Members:               make([]*types.Member, memberCount),
-		SwarmKey:              GenerateSwarmKey(),
-		ExposedBlockchainPort: options.ServicesBasePort,
-		Database:              options.DatabaseSelection.String(),
-		BlockchainProvider:    options.BlockchainProvider.String(),
-		TokenProviders:        options.TokenProviders,
-		ContractAddress:       options.ContractAddress,
-		StackDir:              filepath.Join(constants.StacksDir, stackName),
-		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
-		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
+		Name:                   stackName,
+		Members:                make([]*types.Member, memberCount),
+		SwarmKey:               GenerateSwarmKey(),
+		ExposedBlockchainPort:  options.ServicesBasePort,
+		Database:               options.DatabaseSelection.String(),
+		BlockchainProvider:     options.BlockchainProvider.String(),
+		BlockchainNodeProvider: options.BlockchainNodeProvider.String(),
+		TokenProviders:         options.TokenProviders,
+		ContractAddress:        options.ContractAddress,
+		StackDir:               filepath.Join(constants.StacksDir, stackName),
+		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
+		RuntimeDir:             filepath.Join(constants.StacksDir, stackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, memberCount),
 		},
 		SandboxEnabled: options.SandboxEnabled,
 		FFTMEnabled:    options.FFTMEnabled,
+		ChainIDPtr:     &options.ChainID,
 	}
 
 	if options.PrometheusEnabled {
@@ -1074,12 +1076,12 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 
 	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
 		s.Stack.BlockchainProvider = types.Ethereum.String()
-		s.Stack.BlockchainProvider = types.GoEthereum.String()
+		s.Stack.BlockchainNodeProvider = types.GoEthereum.String()
 	}
 
 	if s.Stack.BlockchainProvider == types.HyperledgerBesu.String() {
 		s.Stack.BlockchainProvider = types.Ethereum.String()
-		s.Stack.BlockchainProvider = types.HyperledgerBesu.String()
+		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
 	}
 
 	switch s.Stack.BlockchainProvider {

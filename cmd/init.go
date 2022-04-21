@@ -53,7 +53,7 @@ var initCmd = &cobra.Command{
 		if err := validateDatabaseProvider(databaseSelection); err != nil {
 			return err
 		}
-		if err := validateBlockchainProvider(blockchainProviderInput); err != nil {
+		if err := validateBlockchainProvider(blockchainProviderInput, blockchainNodeProviderInput); err != nil {
 			return err
 		}
 		if err := validateTokensProvider(tokenProvidersSelection); err != nil {
@@ -157,8 +157,8 @@ func validateDatabaseProvider(input string) error {
 	return nil
 }
 
-func validateBlockchainProvider(input string) error {
-	blockchainSelection, err := types.BlockchainProviderFromString(input)
+func validateBlockchainProvider(providerString, nodeString string) error {
+	blockchainSelection, _, err := types.BlockchainFromStrings(providerString, nodeString)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", types.DBSelectionStrings))
 	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", types.BlockchainProviderStrings))
-	initCmd.Flags().StringVarP(&blockchainNodeProviderInput, "blockchain-node-provider", "n", "geth", fmt.Sprintf("Blockchain node provider to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainNodeProviderInput, "blockchain-node-provider", "n", "geth", fmt.Sprintf("Blockchain node provider to use. Options are: %v", types.BlockchainNodeProviderStrings))
 	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc1155"}, fmt.Sprintf("Token providers to use. Options are: %v", types.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
