@@ -91,7 +91,7 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 		PolicyEngine: FFTMPolicyEngineConfig{
 			Name: "simple",
 			Simple: FFTMSimplePolicyEngineConfig{
-				FixedGasPrice: "1000000000",
+				FixedGasPrice: "2000000000",
 			},
 		},
 		Confirmations: FFTMConfirmationsConfig{

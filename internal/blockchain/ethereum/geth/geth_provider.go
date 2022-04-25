@@ -176,7 +176,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 		},
 		VolumeNames: []string{"geth"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "geth")...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"geth": "service_started"})...)
 	return serviceDefinitions
 }
 

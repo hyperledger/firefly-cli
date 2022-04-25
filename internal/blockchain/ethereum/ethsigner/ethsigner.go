@@ -18,6 +18,7 @@ package ethsigner
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -25,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -41,6 +43,18 @@ type EthSignerProvider struct {
 }
 
 func (p *EthSignerProvider) WriteConfig(options *types.InitOptions) error {
+
+	// Write the password that will be used to encrypt the private key
+	// TODO: Probably randomize this and make it differnet per member?
+	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
+	blockchainDirectory := filepath.Join(initDir, "blockchain")
+	if err := os.MkdirAll(blockchainDirectory, 0755); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
+		return err
+	}
+
 	for _, member := range p.Stack.Members {
 		account := member.Account.(*ethereum.Account)
 		// Write the private key to disk for each member
@@ -108,12 +122,20 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 		panic(fmt.Errorf("RPC URL invalid '%s': %s", rpcURL, err))
 	}
 	ethsignerCommand := []string{}
+	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--logging=DEBUG`))
 	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--chain-id=%d`, p.Stack.ChainID()))
 	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-host=%s`, u.Hostname()))
-	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-port=%s`, u.Port()))
-	if u.Scheme == "https:" {
+	port := u.Port()
+	if u.Scheme == "https" {
 		ethsignerCommand = append(ethsignerCommand, `--downstream-http-tls-enabled`)
+		if port == "" {
+			port = "443"
+		}
 	}
+	if u.Path != "" && u.Path != "/" {
+		ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-path=%s`, u.Path))
+	}
+	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-port=%s`, port))
 	ethsignerCommand = append(ethsignerCommand, `multikey-signer`)
 	ethsignerCommand = append(ethsignerCommand, `--directory=/data/keystore`)
 

@@ -53,7 +53,18 @@ func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
-	return p.Signer.FirstTimeSetup()
+	if err := p.Signer.FirstTimeSetup(); err != nil {
+
+	}
+
+	for i := range p.Stack.Members {
+		// Copy ethconnect config to each member's volume
+		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
+		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
+		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	}
+
+	return nil
 }
 
 func (p *RemoteRPCProvider) PreStart() error {
@@ -69,9 +80,11 @@ func (p *RemoteRPCProvider) DeployFireFlyContract() (*core.BlockchainConfig, err
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	return []*docker.ServiceDefinition{
+	defs := []*docker.ServiceDefinition{
 		p.Signer.GetDockerServiceDefinition(p.Stack.RemoteNodeURL),
 	}
+	defs = append(defs, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"ethsigner": "service_healthy"})...)
+	return defs
 }
 
 func (p *RemoteRPCProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
@@ -90,6 +103,11 @@ func (p *RemoteRPCProvider) GetFireflyConfig(stack *types.Stack, m *types.Member
 				Topic:    m.ID,
 			},
 		},
+	}
+	if stack.FFTMEnabled {
+		blockchainConfig.Ethereum.FFTM = &core.FFTMConfig{
+			URL: fmt.Sprintf("http://fftm_%s:5008", m.ID),
+		}
 	}
 	return
 }

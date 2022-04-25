@@ -72,12 +72,6 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 		return err
 	}
 
-	// Write the password that will be used to encrypt the private key
-	// TODO: Probably randomize this and make it differnet per member?
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -158,7 +152,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 		VolumeNames: []string{"besu"},
 	}
 	serviceDefinitions[1] = p.Signer.GetDockerServiceDefinition("http://besu:8545")
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "ethsigner")...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"ethsigner": "service_healthy"})...)
 	return serviceDefinitions
 }
 
