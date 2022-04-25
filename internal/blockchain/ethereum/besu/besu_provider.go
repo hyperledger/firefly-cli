@@ -223,7 +223,7 @@ func (p *BesuProvider) Reset() error {
 }
 
 func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return []string{}, err
 	}

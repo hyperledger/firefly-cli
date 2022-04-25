@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
@@ -31,7 +32,7 @@ type ERC20ERC721Provider struct {
 	Stack   *types.Stack
 }
 
-func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) error {
+func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (tokens.ITokenDeploymentResult, error) {
 	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 

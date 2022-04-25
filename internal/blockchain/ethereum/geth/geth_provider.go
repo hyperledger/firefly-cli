@@ -205,7 +205,7 @@ func (p *GethProvider) Reset() error {
 }
 
 func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return []string{}, err
 	}

@@ -301,15 +301,17 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.
 		return nil, err
 	}
 
-	contracts, err := ethereum.ReadCombinedABIJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
+	var fireflyContract *ethereum.CompiledContract
+	contracts, err := ethereum.ReadContractJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
 	if err != nil {
 		return nil, err
 	}
+
 	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
 	if !ok {
-		fireflyContract, err = ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
-		if err != nil {
-			return nil, err
+		fireflyContract, ok = contracts.Contracts["Firefly"]
+		if !ok {
+			return nil, fmt.Errorf("unable to find compiled FireFly contract")
 		}
 	}
 
@@ -328,7 +330,7 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.
 }
 
 func DeployCustomContract(member *types.Member, filename, contractName string) (string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return "", nil
 	}

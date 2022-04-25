@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,15 +16,7 @@
 
 package tokens
 
-import (
-	"github.com/hyperledger/firefly-cli/internal/core"
-	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/pkg/types"
-)
-
-type ITokensProvider interface {
-	DeploySmartContracts(tokenIndex int) (ITokenDeploymentResult, error)
-	FirstTimeSetup(tokenIdx int) error
-	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector
+type ITokenDeploymentResult interface {
+	GetTokenDeploymentMessage() string
+	GetTokenDeploymentResult() interface{}
 }

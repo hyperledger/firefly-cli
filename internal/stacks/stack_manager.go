@@ -775,8 +775,16 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	for i, tp := range s.tokenProviders {
-		if err := tp.DeploySmartContracts(i); err != nil {
+		result, err := tp.DeploySmartContracts(i)
+		if err != nil {
 			return err
+		}
+		if result != nil {
+			msg := result.GetTokenDeploymentMessage()
+			if msg != "" {
+				// TODO: move this to the end somehow
+				fmt.Println(msg)
+			}
 		}
 	}
 

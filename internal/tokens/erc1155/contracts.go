@@ -24,12 +24,26 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 const TOKEN_URI_PATTERN = "firefly://token/{id}"
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) error {
+type TokenDeploymentResult struct {
+	Message string
+	Result  interface{}
+}
+
+func (t *TokenDeploymentResult) GetTokenDeploymentMessage() string {
+	return t.Message
+}
+
+func (t *TokenDeploymentResult) GetTokenDeploymentResult() interface{} {
+	return t.Result
+}
+
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (tokens.ITokenDeploymentResult, error) {
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
@@ -38,17 +52,21 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 		}
 	}
 	if containerName == "" {
-		return errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
 	if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
-		return err
+		return nil, err
 	}
 
-	tokenContract, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
+	contracts, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
 	if err != nil {
-		return err
+		return nil, err
+	}
+	tokenContract, ok := contracts.Contracts["ERC1155MixedFungible"]
+	if !ok {
+		return nil, fmt.Errorf("unable to find ERC1155MixedFungible in compiled contracts")
 	}
 
 	var tokenContractAddress string
@@ -58,16 +76,20 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
 			tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
 			err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	return nil
+	result := &TokenDeploymentResult{
+		Message: "i deployed an ERC1155 contract",
+	}
+
+	return result, nil
 }
