@@ -75,8 +75,8 @@ func (p *RemoteRPCProvider) PostStart() error {
 	return nil
 }
 
-func (p *RemoteRPCProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
-	return nil, fmt.Errorf("You must pre-deploy your FireFly contract when using a remote RPC endpoint")
+func (p *RemoteRPCProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
+	return nil, nil, fmt.Errorf("You must pre-deploy your FireFly contract when using a remote RPC endpoint")
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
@@ -117,27 +117,11 @@ func (p *RemoteRPCProvider) Reset() error {
 }
 
 func (p *RemoteRPCProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
-	if err != nil {
-		return []string{}, err
-	}
-	contractNames := make([]string, len(contracts.Contracts))
-	i := 0
-	for contractName := range contracts.Contracts {
-		contractNames[i] = contractName
-		i++
-	}
-	return contractNames, err
+	return []string{}, nil
 }
 
-func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
-	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"address": contractAddres,
-	}, nil
+func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
+	return nil, fmt.Errorf("Contract deployment not supported for Remote RPC URL connections")
 }
 
 func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {

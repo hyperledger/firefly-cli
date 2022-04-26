@@ -156,12 +156,12 @@ func (p *GethProvider) unlockAccount(address, password string) error {
 	return nil
 }
 
-func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
 	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`, p.Stack.ChainID())
+	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`, p.Stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
@@ -205,7 +205,7 @@ func (p *GethProvider) Reset() error {
 }
 
 func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return []string{}, err
 	}
@@ -218,14 +218,21 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
+func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{
-		"address": contractAddres,
-	}, nil
+
+	result := &types.ContractDeploymentResult{
+		DeployedContract: &types.DeployedContract{
+			Name: contractName,
+			Location: map[string]string{
+				"address": contractAddres,
+			},
+		},
+	}
+	return result, nil
 }
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {

@@ -17,23 +17,45 @@
 package erc20erc721
 
 import (
+	"errors"
+	"fmt"
+	"path/filepath"
+
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) error {
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
+	var containerName string
+	for _, member := range s.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", s.Name, member.ID, tokenIndex)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	}
+	log.Info("extracting smart contracts")
 
-	// Currently the act of creating and deploying a suitable ERC20 or ERC721 compliant
-	// contract, or contract factory, is an exercise left to the user.
-	//
-	// For users simply experimenting with how tokens work, the ERC1155 standard is recommended
-	// as a flexbile and fully formed sample implementation of fungible and non-fungible tokens
-	// with a set of features you would expect.
-	//
-	// For users looking to take the next step and create a "proper" coin or NFT collection,
-	// you really can't bypass the step of investigating the right OpenZeppelin (or other)
-	// base class and determining the tokenomics (around supply / minting / burning / governance)
-	// on top of that base class using the examples and standards out there.
+	if err := ethereum.ExtractContracts(containerName, "/home/node/contracts", s.RuntimeDir, verbose); err != nil {
+		return nil, err
+	}
 
-	return nil
+	contractAddress, err := ethconnect.DeployCustomContract(s.Members[0], filepath.Join(s.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory")
+	if err != nil {
+		return nil, err
+	}
+
+	result := &types.ContractDeploymentResult{
+		Message: fmt.Sprintf("Deployed TokenFactory contract to: %s\nSource code for this contract can be found at %s", contractAddress, filepath.Join(s.RuntimeDir, "contracts", "source")),
+		DeployedContract: &types.DeployedContract{
+			Name:     "TokenFactory",
+			Location: map[string]string{"address": contractAddress},
+		},
+	}
+
+	return result, nil
 }

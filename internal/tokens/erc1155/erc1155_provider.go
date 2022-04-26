@@ -31,7 +31,7 @@ type ERC1155Provider struct {
 	Stack   *types.Stack
 }
 
-func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) error {
+func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
 	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 

@@ -29,7 +29,7 @@ import (
 
 const TOKEN_URI_PATTERN = "firefly://token/{id}"
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) error {
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
@@ -38,17 +38,21 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 		}
 	}
 	if containerName == "" {
-		return errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
 	if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
-		return err
+		return nil, err
 	}
 
-	tokenContract, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
+	contracts, err := ethereum.ReadTruffleCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "ERC1155MixedFungible.json"))
 	if err != nil {
-		return err
+		return nil, err
+	}
+	tokenContract, ok := contracts.Contracts["ERC1155MixedFungible"]
+	if !ok {
+		return nil, fmt.Errorf("unable to find ERC1155MixedFungible in compiled contracts")
 	}
 
 	var tokenContractAddress string
@@ -58,16 +62,24 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
 			tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
 			err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	return nil
+	result := &types.ContractDeploymentResult{
+		Message: fmt.Sprintf("Deployed ERC-1155 contract to: %s", tokenContractAddress),
+		DeployedContract: &types.DeployedContract{
+			Name:     "erc1155",
+			Location: map[string]string{"address": tokenContractAddress},
+		},
+	}
+
+	return result, nil
 }
