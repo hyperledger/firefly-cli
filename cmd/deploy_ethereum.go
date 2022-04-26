@@ -60,11 +60,11 @@ solc --combined-json abi,bin contract.sol > contract.json
 				return err
 			}
 		}
-		contractAddress, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
+		location, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
 			return err
 		}
-		fmt.Print(contractAddress)
+		fmt.Print(location)
 		return nil
 	},
 }

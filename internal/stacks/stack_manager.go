@@ -316,7 +316,7 @@ func (s *StackManager) loadStackStateJSON() error {
 }
 
 func (s *StackManager) writeStackStateJSON(directory string) error {
-	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", " ")
+	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -487,23 +487,24 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	return member
 }
 
-func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (messages []string, err error) {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
-	err := s.checkPortsAvailable()
+	err = s.checkPortsAvailable()
 	if err != nil {
-		return err
+		return messages, err
 	}
 	hasBeenRun, err := s.StackHasRunBefore()
 	if err != nil {
-		return err
+		return messages, err
 	}
 	if !hasBeenRun {
-		err := s.runFirstTimeSetup(verbose, options)
+		setupMessages, err := s.runFirstTimeSetup(verbose, options)
+		messages = append(messages, setupMessages...)
 		if err != nil {
 			// Something bad happened during setup
 			if options.NoRollback {
-				return err
+				return messages, err
 			} else {
 				// Rollback changes
 				s.Log.Error(fmt.Errorf("an error occurred - rolling back changes"))
@@ -517,16 +518,16 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) err
 					finalErr = fmt.Errorf("%s - all changes rolled back", err.Error())
 				}
 
-				return finalErr
+				return messages, finalErr
 			}
 		}
 	} else {
 		err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
 		if err != nil {
-			return err
+			return messages, err
 		}
 	}
-	return s.ensureFireflyNodesUp(true)
+	return messages, s.ensureFireflyNodesUp(true)
 }
 
 func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
@@ -729,7 +730,7 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 	return nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
 	for i := 0; i < len(s.Stack.Members); i++ {
@@ -739,52 +740,65 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
-		return err
+		return messages, err
 	}
 
 	if err := s.disableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
-		return err
+		return messages, err
 	}
 
 	s.Log.Info("initializing blockchain node")
 	if err := s.blockchainProvider.FirstTimeSetup(); err != nil {
-		return err
+		return messages, err
 	}
 
 	if s.Stack.PrometheusEnabled {
 		s.Log.Info("copying prometheus.yml to prometheus_config")
 		volumeName := fmt.Sprintf("%s_prometheus_config", s.Stack.Name)
 		if err := docker.CopyFileToVolume(volumeName, path.Join(configDir, "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
-			return err
+			return messages, err
 		}
 	}
 
 	if err := s.copyDataExchangeConfigToVolumes(verbose); err != nil {
-		return err
+		return messages, err
 	}
 
 	pullOptions := &types.PullOptions{
 		Retries: 2,
 	}
 	if err := s.PullStack(verbose, pullOptions); err != nil {
-		return err
+		return messages, err
 	}
 
 	if err := s.runStartupSequence(s.Stack.RuntimeDir, verbose, true); err != nil {
-		return err
+		return messages, err
 	}
 
 	for i, tp := range s.tokenProviders {
-		if err := tp.DeploySmartContracts(i); err != nil {
-			return err
+		result, err := tp.DeploySmartContracts(i)
+		if err != nil {
+			return messages, err
+		}
+		if result != nil {
+			if result.Message != "" {
+				messages = append(messages, result.Message)
+			}
+			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
 		}
 	}
 
 	if s.Stack.ContractAddress == "" {
 		s.Log.Info("deploying FireFly smart contracts")
-		blockchainConfig, err := s.blockchainProvider.DeployFireFlyContract()
+		blockchainConfig, result, err := s.blockchainProvider.DeployFireFlyContract()
 		if err != nil {
-			return err
+			return messages, err
+		}
+		if result != nil {
+			if result.Message != "" {
+				messages = append(messages, result.Message)
+			}
+			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
 		}
 		newConfig := &core.FireflyConfig{
 			Blockchain: blockchainConfig,
@@ -794,35 +808,35 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	for _, member := range s.Stack.Members {
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
-			return err
+			return messages, err
 		}
 	}
 
 	if err := s.enableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
-		return err
+		return messages, err
 	}
 
 	// Bring up the FireFly Core containers now that we've finalized the runtime config
 	docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d")
 
 	if err := s.ensureFireflyNodesUp(true); err != nil {
-		return err
+		return messages, err
 	}
 
 	s.Log.Info("registering FireFly identities")
 	if err := s.registerFireflyIdentities(verbose); err != nil {
-		return err
+		return messages, err
 	}
 
 	s.Log.Info("initializing token providers")
 	for iTok, tp := range s.tokenProviders {
 		if err := tp.FirstTimeSetup(iTok); err != nil {
-			return err
+			return messages, err
 		}
 	}
 
 	// Update the stack state with any new state that was created as a part of the setup process
-	return s.writeStackStateJSON(s.Stack.RuntimeDir)
+	return messages, s.writeStackStateJSON(s.Stack.RuntimeDir)
 }
 
 func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
@@ -994,14 +1008,14 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	contractLocation, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	result, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
 	if err != nil {
 		return "", err
 	}
 	// Update the stackState.json file with the newly deployed contract
 	deployedContract := &types.DeployedContract{
 		Name:     contractName,
-		Location: contractLocation,
+		Location: result.DeployedContract.Location,
 	}
 	s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, deployedContract)
 	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
@@ -1009,7 +1023,7 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 	}
 
 	// Serialize the contract location to JSON to print on the command line
-	b, err := json.MarshalIndent(contractLocation, "", "  ")
+	b, err := json.MarshalIndent(result.DeployedContract.Location, "", "  ")
 	if err != nil {
 		return "", err
 	}

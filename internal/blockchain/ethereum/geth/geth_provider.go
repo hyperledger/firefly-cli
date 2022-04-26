@@ -156,7 +156,7 @@ func (p *GethProvider) unlockAccount(address, password string) error {
 	return nil
 }
 
-func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
 	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
@@ -205,7 +205,7 @@ func (p *GethProvider) Reset() error {
 }
 
 func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	contracts, err := ethereum.ReadCombinedABIJSON(filename)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return []string{}, err
 	}
@@ -218,14 +218,21 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
+func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{
-		"address": contractAddres,
-	}, nil
+
+	result := &types.ContractDeploymentResult{
+		DeployedContract: &types.DeployedContract{
+			Name: contractName,
+			Location: map[string]string{
+				"address": contractAddres,
+			},
+		},
+	}
+	return result, nil
 }
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
