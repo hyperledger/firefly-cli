@@ -23,7 +23,7 @@ import (
 )
 
 type ITokensProvider interface {
-	DeploySmartContracts(tokenIndex int) (ITokenDeploymentResult, error)
+	DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error)
 	FirstTimeSetup(tokenIdx int) error
 	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
 	GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector

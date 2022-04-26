@@ -71,13 +71,17 @@ This command will start a stack and run it in the background.
 		if spin != nil {
 			spin.Start()
 		}
-		if err := stackManager.StartStack(verbose, &startOptions); err != nil {
+		messages, err := stackManager.StartStack(verbose, &startOptions)
+		if err != nil {
 			return err
 		}
 		if spin != nil {
 			spin.Stop()
 		}
 		fmt.Print("\n\n")
+		for _, message := range messages {
+			fmt.Printf("%s\n\n", message)
+		}
 		for _, member := range stackManager.Stack.Members {
 			fmt.Printf("Web UI for member '%v': http://127.0.0.1:%v/ui\n", member.ID, member.ExposedFireflyPort)
 			if stackManager.Stack.SandboxEnabled {

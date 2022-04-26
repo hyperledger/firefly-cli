@@ -17,68 +17,45 @@
 package erc20erc721
 
 import (
+	"errors"
+	"fmt"
+	"path/filepath"
+
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
-	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-type TokenDeploymentResult struct {
-	Message string
-	Result  interface{}
-}
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
+	var containerName string
+	for _, member := range s.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", s.Name, member.ID, tokenIndex)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	}
+	log.Info("extracting smart contracts")
 
-func (t *TokenDeploymentResult) GetTokenDeploymentMessage() string {
-	return t.Message
-}
+	if err := ethereum.ExtractContracts(containerName, "/home/node/contracts", s.RuntimeDir, verbose); err != nil {
+		return nil, err
+	}
 
-func (t *TokenDeploymentResult) GetTokenDeploymentResult() interface{} {
-	return t.Result
-}
+	contractAddress, err := ethconnect.DeployCustomContract(s.Members[0], filepath.Join(s.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory")
+	if err != nil {
+		return nil, err
+	}
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (tokens.ITokenDeploymentResult, error) {
-	// var containerName string
-	// for _, member := range s.Members {
-	// 	if !member.External {
-	// 		containerName = fmt.Sprintf("%s_tokens_%s_%d", s.Name, member.ID, tokenIndex)
-	// 		break
-	// 	}
-	// }
-	// if containerName == "" {
-	// 	return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
-	// }
-	// log.Info("extracting smart contracts")
+	result := &types.ContractDeploymentResult{
+		Message: fmt.Sprintf("Deployed TokenFactory contract to: %s\nSource code for this contract can be found at %s", contractAddress, filepath.Join(s.RuntimeDir, "contracts", "source")),
+		DeployedContract: &types.DeployedContract{
+			Name:     "TokenFactory",
+			Location: map[string]string{"address": contractAddress},
+		},
+	}
 
-	// if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
-	// 	return nil, err
-	// }
-
-	// tokenContract, err := ethereum.ReadSolcCompiledContract(filepath.Join(s.RuntimeDir, "contracts", "TokenFactory.json"))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// var tokenContractAddress string
-	// for _, member := range s.Members {
-	// 	// TODO: move to address based contract deployment, once ERC-1155 connector is updated to not require an EthConnect REST API registration
-	// 	if tokenContractAddress == "" {
-	// 		log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
-	// 		tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "ERC20WithData", map[string]string{"uri": TOKEN_URI_PATTERN})
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 	} else {
-	// 		log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
-	// 		err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 	}
-	// }
-
-	// deploymentResult := &TokenDeploymentResult{
-	// 	Message: "hey, I deployed a contract!",
-	// }
-
-	// return deploymentResult, nil
-	return nil, nil
+	return result, nil
 }

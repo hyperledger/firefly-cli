@@ -24,26 +24,12 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
-	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 const TOKEN_URI_PATTERN = "firefly://token/{id}"
 
-type TokenDeploymentResult struct {
-	Message string
-	Result  interface{}
-}
-
-func (t *TokenDeploymentResult) GetTokenDeploymentMessage() string {
-	return t.Message
-}
-
-func (t *TokenDeploymentResult) GetTokenDeploymentResult() interface{} {
-	return t.Result
-}
-
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (tokens.ITokenDeploymentResult, error) {
+func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
@@ -87,8 +73,12 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 		}
 	}
 
-	result := &TokenDeploymentResult{
-		Message: "i deployed an ERC1155 contract",
+	result := &types.ContractDeploymentResult{
+		Message: fmt.Sprintf("Deployed ERC-1155 contract to: %s", tokenContractAddress),
+		DeployedContract: &types.DeployedContract{
+			Name:     "erc1155",
+			Location: map[string]string{"address": tokenContractAddress},
+		},
 	}
 
 	return result, nil

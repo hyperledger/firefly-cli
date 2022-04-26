@@ -112,59 +112,69 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *FabricProvider) DeployFireFlyContract() (*core.BlockchainConfig, error) {
+func (p *FabricProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
 	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
-	return nil, p.deploySmartContracts()
+	result, err := p.deploySmartContracts()
+	return nil, result, err
 }
 
-func (p *FabricProvider) deploySmartContracts() error {
+func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
 	packageFilename := path.Join(p.Stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
 	chaincode := "firefly"
 	channel := "firefly"
 	version := "1.0"
 
 	if err := p.extractChaincode(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := p.createChannel(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := p.joinChannel(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := p.installChaincode(packageFilename); err != nil {
-		return err
+		return nil, err
 	}
 
 	res, err := p.queryInstalled()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(res.InstalledChaincodes) == 0 {
-		return fmt.Errorf("failed to find installed chaincode")
+		return nil, fmt.Errorf("failed to find installed chaincode")
 	}
 
 	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := p.commitChaincode(channel, chaincode, version); err != nil {
-		return err
+		return nil, err
 	}
 
 	p.Log.Info("registering identities")
 	for _, m := range p.Stack.Members {
 		account, err := p.registerIdentity(m, m.OrgName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		p.Stack.State.Accounts = append(p.Stack.State.Accounts, account)
 	}
 
-	return nil
+	result := &types.ContractDeploymentResult{
+		DeployedContract: &types.DeployedContract{
+			Name: "FireFly",
+			Location: map[string]string{
+				"channel":   channel,
+				"chaincode": chaincode,
+			},
+		},
+	}
+	return result, nil
 }
 
 func (p *FabricProvider) PreStart() error {
@@ -446,30 +456,30 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (interface{}, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	switch {
 	case len(extraArgs) < 1:
-		return "", fmt.Errorf("channel not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("channel not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
 	case len(extraArgs) < 2:
-		return "", fmt.Errorf("chaincode not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("chaincode not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
 	case len(extraArgs) < 3:
-		return "", fmt.Errorf("version not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("version not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
 	}
 	channel := extraArgs[0]
 	chaincode := extraArgs[1]
 	version := extraArgs[2]
 
 	if err := p.installChaincode(filename); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	res, err := p.queryInstalled()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	chaincodeInstalled := false
@@ -483,20 +493,26 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 	}
 
 	if !chaincodeInstalled {
-		return "", fmt.Errorf("failed to find installed chaincode")
+		return nil, fmt.Errorf("failed to find installed chaincode")
 	}
 
 	if err := p.approveChaincode(channel, chaincode, version, packageID); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := p.commitChaincode(channel, chaincode, version); err != nil {
-		return "", err
+		return nil, err
 	}
-	return map[string]string{
-		"channel":   channel,
-		"chaincode": chaincode,
-	}, nil
+	result := &types.ContractDeploymentResult{
+		DeployedContract: &types.DeployedContract{
+			Name: "FireFly",
+			Location: map[string]string{
+				"channel":   channel,
+				"chaincode": chaincode,
+			},
+		},
+	}
+	return result, nil
 }
 
 func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {

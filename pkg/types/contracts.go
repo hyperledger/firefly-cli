@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokens
+package types
 
-type ITokenDeploymentResult interface {
-	GetTokenDeploymentMessage() string
-	GetTokenDeploymentResult() interface{}
+type ContractDeploymentResult struct {
+	Message          string
+	DeployedContract *DeployedContract
 }
