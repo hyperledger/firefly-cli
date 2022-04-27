@@ -23,7 +23,7 @@ import (
 
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {

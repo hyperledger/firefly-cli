@@ -27,6 +27,10 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+func contractName(tokenIndex int) string {
+	return fmt.Sprintf("erc20erc721_TokenFactory_%d", tokenIndex)
+}
+
 func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
 	var containerName string
 	for _, member := range s.Members {
@@ -52,7 +56,7 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	result := &types.ContractDeploymentResult{
 		Message: fmt.Sprintf("Deployed TokenFactory contract to: %s\nSource code for this contract can be found at %s", contractAddress, filepath.Join(s.RuntimeDir, "contracts", "source")),
 		DeployedContract: &types.DeployedContract{
-			Name:     "TokenFactory",
+			Name:     contractName(tokenIndex),
 			Location: map[string]string{"address": contractAddress},
 		},
 	}
