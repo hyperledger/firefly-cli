@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/miracl/conflate"
 	"gopkg.in/yaml.v2"
 )
 
@@ -100,10 +101,23 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 	}
 }
 
-func WriteFFTMConfig(config *FFTMConfig, filePath string) error {
+func WriteFFTMConfig(config *FFTMConfig, filePath string, extraCoreConfigPath string) error {
 	bytes, err := yaml.Marshal(config)
 	if err != nil {
 		return err
+	}
+	if extraCoreConfigPath != "" {
+		c, err := conflate.FromFiles(filePath, extraCoreConfigPath)
+		if err != nil {
+			return err
+		}
+		bytes, err := c.MarshalYAML()
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+			return err
+		}
 	}
 	return ioutil.WriteFile(filePath, bytes, 0755)
 }

@@ -28,11 +28,12 @@ type Stack struct {
 	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
 	SandboxEnabled         bool             `json:"sandboxEnabled,omitempty"`
-	FFTMEnabled            bool             `json:"fftypEnabled,omitempty"`
+	FFTMEnabled            bool             `json:"fftmEnabled,omitempty"`
 	ExposedPrometheusPort  int              `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress        string           `json:"contractAddress,omitempty"`
 	ChainIDPtr             *int64           `json:"chainID,omitempty"`
 	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
+	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`

@@ -107,6 +107,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		SandboxEnabled: options.SandboxEnabled,
 		FFTMEnabled:    options.FFTMEnabled,
 		ChainIDPtr:     &options.ChainID,
+		RemoteNodeURL:  options.RemoteNodeURL,
 	}
 
 	if options.PrometheusEnabled {
@@ -382,7 +383,7 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		if s.Stack.FFTMEnabled {
 			fftmConfig := NewFFTMConfig(s.Stack, member)
 			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
-			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename); err != nil {
+			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename, options.ExtraFFTMConfigPath); err != nil {
 				return err
 			}
 		}
@@ -811,15 +812,17 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	for i, tp := range s.tokenProviders {
-		result, err := tp.DeploySmartContracts(i)
-		if err != nil {
-			return messages, err
-		}
-		if result != nil {
-			if result.Message != "" {
-				messages = append(messages, result.Message)
+		if !s.Stack.DisableTokenFactories {
+			result, err := tp.DeploySmartContracts(i)
+			if err != nil {
+				return messages, err
 			}
-			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			if result != nil {
+				if result.Message != "" {
+					messages = append(messages, result.Message)
+				}
+				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			}
 		}
 	}
 
@@ -1098,16 +1101,20 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
 	}
 
+	s.Stack.DisableTokenFactories = true
+
 	switch s.Stack.BlockchainProvider {
 	case types.Ethereum.String():
 		switch s.Stack.BlockchainNodeProvider {
 		case types.GoEthereum.String():
+			s.Stack.DisableTokenFactories = false
 			return &geth.GethProvider{
 				Verbose: verbose,
 				Log:     s.Log,
 				Stack:   s.Stack,
 			}
 		case types.HyperledgerBesu.String():
+			s.Stack.DisableTokenFactories = false
 			return &besu.BesuProvider{
 				Verbose: verbose,
 				Log:     s.Log,

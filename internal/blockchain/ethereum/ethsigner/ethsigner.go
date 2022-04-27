@@ -118,7 +118,7 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 	}
 
 	u, err := url.Parse(rpcURL)
-	if err != nil {
+	if err != nil || rpcURL == "" {
 		panic(fmt.Errorf("RPC URL invalid '%s': %s", rpcURL, err))
 	}
 	ethsignerCommand := []string{}

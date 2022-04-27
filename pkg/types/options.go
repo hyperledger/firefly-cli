@@ -47,10 +47,12 @@ type InitOptions struct {
 	FFTMEnabled               bool
 	ExtraCoreConfigPath       string
 	ExtraEthconnectConfigPath string
+	ExtraFFTMConfigPath       string
 	BlockPeriod               int
 	ContractAddress           string
 	RemoteNodeURL             string
 	ChainID                   int64
+	DisableTokenFactories     bool
 }
 
 type BlockchainProvider int
