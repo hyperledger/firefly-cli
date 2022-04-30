@@ -30,44 +30,49 @@ type FFTMLogConfig struct {
 }
 
 type FFTMAPIConfig struct {
-	Address string `json:"address"`
-	Port    int64  `json:"port"`
+	Address string `yaml:"address,omitempty"`
+	Port    int64  `yaml:"port,omitempty"`
 }
 
 type FFTMConnectorConfig struct {
-	URL     string `json:"url"`
-	Variant string `json:"variant,omitempty"`
+	URL     string `yaml:"url,omitempty"`
+	Variant string `yaml:"variant,omitempty"`
 }
 
 type FFTMFFCoreConfig struct {
-	URL string `json:"url"`
+	URL string `yaml:"url,omitempty"`
 }
 
 type FFTMManagerConfig struct {
-	Name string `json:"name"`
+	Name string `yaml:"name,omitempty"`
 }
 
 type FFTMPolicyEngineConfig struct {
-	Name   string                       `json:"name"`
-	Simple FFTMSimplePolicyEngineConfig `json:"simple"`
+	Name   string                       `yaml:"name,omitempty"`
+	Simple FFTMSimplePolicyEngineConfig `yaml:"simple,omitempty"`
+}
+
+type FFTMSimplePolicyEngineGasOracleConfig struct {
+	Type string `yaml:"mode,omitempty"`
 }
 
 type FFTMSimplePolicyEngineConfig struct {
-	FixedGasPrice string
+	FixedGasPrice string                                `yaml:"fixedGasPrice,omitempty"`
+	GasOracle     FFTMSimplePolicyEngineGasOracleConfig `yaml:"gasOracle,omitempty"`
 }
 
 type FFTMConfirmationsConfig struct {
-	Required int64 `json:"required"`
+	Required int64 `yaml:"required,omitempty"`
 }
 
 type FFTMConfig struct {
-	Log           FFTMLogConfig           `json:"log"`
-	API           FFTMAPIConfig           `json:"api"`
-	Connector     FFTMConnectorConfig     `json:"connector"`
-	FFCore        FFTMFFCoreConfig        `json:"ffcore"`
-	Manager       FFTMManagerConfig       `json:"manager"`
-	PolicyEngine  FFTMPolicyEngineConfig  `json:"policyengine"`
-	Confirmations FFTMConfirmationsConfig `json:"confirmations"`
+	Log           FFTMLogConfig           `yaml:"log"`
+	API           FFTMAPIConfig           `yaml:"api"`
+	Connector     FFTMConnectorConfig     `yaml:"connector"`
+	FFCore        FFTMFFCoreConfig        `yaml:"ffcore"`
+	Manager       FFTMManagerConfig       `yaml:"manager"`
+	PolicyEngine  FFTMPolicyEngineConfig  `yaml:"policyengine"`
+	Confirmations FFTMConfirmationsConfig `yaml:"confirmations"`
 }
 
 func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
@@ -90,10 +95,8 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 			Variant: "evm",
 		},
 		PolicyEngine: FFTMPolicyEngineConfig{
-			Name: "simple",
-			Simple: FFTMSimplePolicyEngineConfig{
-				FixedGasPrice: "2000000000",
-			},
+			Name:   "simple",
+			Simple: FFTMSimplePolicyEngineConfig{},
 		},
 		Confirmations: FFTMConfirmationsConfig{
 			Required: 3,
