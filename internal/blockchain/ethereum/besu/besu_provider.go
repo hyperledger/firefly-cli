@@ -44,7 +44,7 @@ type BesuProvider struct {
 }
 
 func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
-	if err := p.Signer.WriteConfig(options); err != nil {
+	if err := p.Signer.WriteConfig(options, "http://besu:8545"); err != nil {
 		return err
 	}
 

@@ -576,9 +576,9 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	}
 
 	// Also pull the FFTM if we're using it
-	// if s.Stack.FFTMEnabled {
-	// 	images = append(images, constants.FFTMImageName)
-	// }
+	if s.Stack.FFTMEnabled {
+		images = append(images, constants.FFTMImageName)
+	}
 
 	// Iterate over all images used by the blockchain provider
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {

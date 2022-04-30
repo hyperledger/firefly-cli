@@ -32,9 +32,10 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var besuImage = "hyperledger/besu:22.4"
-var ethsignerImage = "consensys/ethsigner:22.1"
+var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:latest"
 var gethImage = "ethereum/client-go:release-1.10"
+
+const useJavaSigner = false // also need to change the image appropriately if you recompile to use the Java signer
 
 type EthSignerProvider struct {
 	Log     log.Logger
@@ -42,7 +43,7 @@ type EthSignerProvider struct {
 	Stack   *types.Stack
 }
 
-func (p *EthSignerProvider) WriteConfig(options *types.InitOptions) error {
+func (p *EthSignerProvider) WriteConfig(options *types.InitOptions, rpcURL string) error {
 
 	// Write the password that will be used to encrypt the private key
 	// TODO: Probably randomize this and make it differnet per member?
@@ -53,6 +54,11 @@ func (p *EthSignerProvider) WriteConfig(options *types.InitOptions) error {
 	}
 	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
 		return err
+	}
+
+	signerConfigPath := filepath.Join(initDir, "config", "ethsigner.yaml")
+	if err := GenerateSignerConfig(options.ChainID, rpcURL).WriteConfig(signerConfigPath); err != nil {
+		return nil
 	}
 
 	for _, member := range p.Stack.Members {
@@ -83,12 +89,10 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 		return err
 	}
 
-	for i := range p.Stack.Members {
-		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
-		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
-	}
+	// Copy the signer config to the volume
+	signerConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", "ethsigner.yaml")
+	signerConfigVolumeName := fmt.Sprintf("%s_ethsigner_config", p.Stack.Name)
+	docker.CopyFileToVolume(signerConfigVolumeName, signerConfigPath, "firefly.ffsigner", p.Verbose)
 
 	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
 	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
@@ -107,16 +111,12 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.ServiceDefinition {
-	addresses := ""
-	for i, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		addresses = addresses + account.Address
-		if i+1 < len(p.Stack.Members) {
-			addresses = addresses + ","
-		}
+func (p *EthSignerProvider) getCommand(rpcURL string) string {
+	if !useJavaSigner {
+		return ""
 	}
 
+	// The Java based signing runtime if swapped in, requires these command line parameters
 	u, err := url.Parse(rpcURL)
 	if err != nil || rpcURL == "" {
 		panic(fmt.Errorf("RPC URL invalid '%s': %s", rpcURL, err))
@@ -138,6 +138,18 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-port=%s`, port))
 	ethsignerCommand = append(ethsignerCommand, `multikey-signer`)
 	ethsignerCommand = append(ethsignerCommand, `--directory=/data/keystore`)
+	return strings.Join(ethsignerCommand, " ")
+}
+
+func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.ServiceDefinition {
+	addresses := ""
+	for i, member := range p.Stack.Members {
+		account := member.Account.(*ethereum.Account)
+		addresses = addresses + account.Address
+		if i+1 < len(p.Stack.Members) {
+			addresses = addresses + ","
+		}
+	}
 
 	return &docker.ServiceDefinition{
 		ServiceName: "ethsigner",
@@ -145,9 +157,12 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 			Image:         ethsignerImage,
 			ContainerName: fmt.Sprintf("%s_ethsigner", p.Stack.Name),
 			User:          "root",
-			Command:       strings.Join(ethsignerCommand, " "),
-			Volumes:       []string{"ethsigner:/data"},
-			Logging:       docker.StandardLogOptions,
+			Command:       p.getCommand(rpcURL),
+			Volumes: []string{
+				"ethsigner:/data",
+				fmt.Sprintf("ethsigner_config:/etc/firefly"),
+			},
+			Logging: docker.StandardLogOptions,
 			HealthCheck: &docker.HealthCheck{
 				Test: []string{
 					"CMD",
@@ -160,12 +175,15 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 					"--fail",
 					"http://localhost:8545/",
 				},
-				Interval: "5s",
+				Interval: "15s", // 6000 requests in a day
 				Retries:  60,
 			},
 			Ports: []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
 		},
-		VolumeNames: []string{"ethsigner"},
+		VolumeNames: []string{
+			"ethsigner",
+			"ethsigner_config",
+		},
 	}
 }
 

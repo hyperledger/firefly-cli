@@ -106,6 +106,9 @@ func WriteFFTMConfig(config *FFTMConfig, filePath string, extraCoreConfigPath st
 	if err != nil {
 		return err
 	}
+	if err = ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+		return err
+	}
 	if extraCoreConfigPath != "" {
 		c, err := conflate.FromFiles(filePath, extraCoreConfigPath)
 		if err != nil {
@@ -119,5 +122,5 @@ func WriteFFTMConfig(config *FFTMConfig, filePath string, extraCoreConfigPath st
 			return err
 		}
 	}
-	return ioutil.WriteFile(filePath, bytes, 0755)
+	return nil
 }

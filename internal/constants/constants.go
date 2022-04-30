@@ -29,5 +29,4 @@ var PostgresImageName = "postgres"
 var PrometheusImageName = "prom/prometheus"
 var SandboxImageName = "ghcr.io/hyperledger/firefly-sandbox:latest"
 
-// var FFTMImageName = "ghcr.io/hyperledger/firefly-transaction-manager:latest"
-var FFTMImageName = "hyperledger/firefly-transaction-manager"
+var FFTMImageName = "ghcr.io/hyperledger/firefly-transaction-manager:latest"

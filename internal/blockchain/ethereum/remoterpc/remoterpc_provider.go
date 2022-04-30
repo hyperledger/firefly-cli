@@ -49,12 +49,12 @@ func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
 
 	}
 
-	return p.Signer.WriteConfig(options)
+	return p.Signer.WriteConfig(options, options.RemoteNodeURL)
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
 	if err := p.Signer.FirstTimeSetup(); err != nil {
-
+		return err
 	}
 
 	for i := range p.Stack.Members {

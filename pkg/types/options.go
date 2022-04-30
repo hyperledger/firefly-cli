@@ -98,10 +98,10 @@ func BlockchainFromStrings(blockchainString, nodeString string) (blockchain Bloc
 		switch blockchainString {
 		case "0", "geth":
 			blockchain = Ethereum
-			node = GoEthereum
+			nodeString = "geth"
 		case "1", "besu":
 			blockchain = Ethereum
-			node = HyperledgerBesu
+			nodeString = "besu"
 		case "2":
 			blockchain = HyperledgerFabric
 		case "3":
