@@ -23,12 +23,24 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"gopkg.in/yaml.v3"
 )
 
 type ERC20ERC721Provider struct {
 	Log     log.Logger
 	Verbose bool
 	Stack   *types.Stack
+}
+
+type HexAddress string
+
+// Explicitly quote hex addresses so that they are interpreted as string (not int)
+func (h HexAddress) MarshalYAML() (interface{}, error) {
+	return yaml.Node{
+		Value: string(h),
+		Kind:  yaml.ScalarNode,
+		Style: yaml.DoubleQuotedStyle,
+	}, nil
 }
 
 func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
@@ -50,14 +62,27 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
-		env := map[string]string{
-			"ETHCONNECT_URL":   p.getEthconnectURL(member),
-			"ETHCONNECT_TOPIC": connectorName,
-			"AUTO_INIT":        "false",
+
+		var factoryAddress HexAddress
+		for _, contract := range p.Stack.State.DeployedContracts {
+			if contract.Name == contractName(tokenIdx) {
+				switch loc := contract.Location.(type) {
+				case map[string]string:
+					factoryAddress = HexAddress(loc["address"])
+				}
+			}
+		}
+
+		env := map[string]interface{}{
+			"ETHCONNECT_URL":           p.getEthconnectURL(member),
+			"ETHCONNECT_TOPIC":         connectorName,
+			"FACTORY_CONTRACT_ADDRESS": factoryAddress,
+			"AUTO_INIT":                "false",
 		}
 		if p.Stack.FFTMEnabled {
 			env["FFTM_URL"] = p.getFFTMURL(member)
 		}
+
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
 			Service: &docker.Service{

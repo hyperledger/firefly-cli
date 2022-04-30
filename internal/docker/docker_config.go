@@ -49,7 +49,7 @@ type Service struct {
 	Build         string                       `yaml:"build,omitempty"`
 	User          string                       `yaml:"user,omitempty"`
 	Command       string                       `yaml:"command,omitempty"`
-	Environment   map[string]string            `yaml:"environment,omitempty"`
+	Environment   map[string]interface{}       `yaml:"environment,omitempty"`
 	Volumes       []string                     `yaml:"volumes,omitempty"`
 	Ports         []string                     `yaml:"ports,omitempty"`
 	DependsOn     map[string]map[string]string `yaml:"depends_on,omitempty"`
@@ -107,7 +107,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.PostgresImageName,
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedDatabasePort)},
-				Environment: map[string]string{
+				Environment: map[string]interface{}{
 					"POSTGRES_PASSWORD": "f1refly",
 					"PGDATA":            "/var/lib/postgresql/data/pgdata",
 				},
@@ -132,7 +132,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
 				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
 			},
-			Environment: map[string]string{
+			Environment: map[string]interface{}{
 				"IPFS_SWARM_KEY":    s.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
@@ -157,7 +157,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.SandboxImageName,
 				ContainerName: fmt.Sprintf("%s_sandbox_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:3001", member.ExposedSandboxPort)},
-				Environment: map[string]string{
+				Environment: map[string]interface{}{
 					"FF_ENDPOINT": fmt.Sprintf("http://firefly_core_%d:%d", *member.Index, member.ExposedFireflyPort),
 				},
 			}

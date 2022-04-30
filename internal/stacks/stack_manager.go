@@ -45,7 +45,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/hyperledger/firefly-cli/internal/log"
 
@@ -53,12 +53,11 @@ import (
 )
 
 type StackManager struct {
-	Log                    log.Logger
-	Stack                  *types.Stack
-	blockchainProvider     blockchain.IBlockchainProvider
-	tokenProviders         []tokens.ITokensProvider
-	fireflyCoreEntrypoints [][]string
-	IsOldFileStructure     bool
+	Log                log.Logger
+	Stack              *types.Stack
+	blockchainProvider blockchain.IBlockchainProvider
+	tokenProviders     []tokens.ITokensProvider
+	IsOldFileStructure bool
 }
 
 func ListStacks() ([]string, error) {
@@ -149,6 +148,34 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			s.Stack.State.Accounts[i] = s.Stack.Members[i].Account
 		}
 	}
+
+	if err := s.ensureInitDirectories(); err != nil {
+		return err
+	}
+
+	compose := s.buildDockerCompose()
+	if err := s.writeDockerCompose(compose); err != nil {
+		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
+	}
+	if err := s.writeDockerComposeOverride(compose); err != nil {
+		return fmt.Errorf("failed to write docker-compose.override.yml: %s", err)
+	}
+	return s.writeConfig(options)
+}
+
+func (s *StackManager) runDockerComposeCommand(showCommand, pipeStdout bool, command ...string) error {
+	baseCompose := filepath.Join(s.Stack.StackDir, "docker-compose.yml")
+	runtimeCompose := filepath.Join(s.Stack.RuntimeDir, "docker-compose.yml")
+	if _, err := os.Stat(baseCompose); os.IsNotExist(err) {
+		if _, err := os.Stat(runtimeCompose); err == nil {
+			// Handle copying the docker-compose file out of the old "runtime" directory
+			copy.Copy(runtimeCompose, baseCompose)
+		}
+	}
+	return docker.RunDockerComposeCommand(s.Stack.StackDir, showCommand, pipeStdout, command...)
+}
+
+func (s *StackManager) buildDockerCompose() *docker.DockerComposeConfig {
 	compose := docker.CreateDockerCompose(s.Stack)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
 	for i, tp := range s.tokenProviders {
@@ -174,14 +201,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			}
 		}
 	}
-
-	if err := s.ensureInitDirectories(); err != nil {
-		return err
-	}
-	if err := s.writeDockerCompose(s.Stack.InitDir, compose); err != nil {
-		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
-	}
-	return s.writeConfig(options)
+	return compose
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -345,13 +365,26 @@ func (s *StackManager) ensureInitDirectories() error {
 	return nil
 }
 
-func (s *StackManager) writeDockerCompose(workingDir string, compose *docker.DockerComposeConfig) error {
-	bytes, err := yaml.Marshal(compose)
+func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) error {
+	comments := "# This file is generated - DO NOT EDIT!\n# To override config, edit docker-compose.override.yml\n"
+	bytes := []byte(comments)
+	yamlBytes, err := yaml.Marshal(compose)
 	if err != nil {
 		return err
 	}
+	bytes = append(bytes, yamlBytes...)
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
+}
 
-	return ioutil.WriteFile(filepath.Join(workingDir, "docker-compose.yml"), bytes, 0755)
+func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeConfig) error {
+	comments := "# Add custom config overrides here\n# See https://docs.docker.com/compose/extends\n"
+	bytes := []byte(comments)
+	yamlBytes, err := yaml.Marshal(map[string]interface{}{"version": compose.Version})
+	if err != nil {
+		return err
+	}
+	bytes = append(bytes, yamlBytes...)
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeStackConfig() error {
@@ -539,7 +572,7 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 			}
 		}
 	} else {
-		err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
+		err = s.runStartupSequence(verbose, false)
 		if err != nil {
 			return messages, err
 		}
@@ -624,13 +657,13 @@ func (s *StackManager) removeVolumes(verbose bool) {
 	}
 }
 
-func (s *StackManager) runStartupSequence(workingDir string, verbose bool, firstTimeSetup bool) error {
+func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
 	}
 
 	s.Log.Info("starting FireFly dependencies")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
 
@@ -642,11 +675,11 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 }
 
 func (s *StackManager) StopStack(verbose bool) error {
-	return docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "stop")
+	return s.runDockerComposeCommand(verbose, verbose, "stop")
 }
 
 func (s *StackManager) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(s.Stack.RuntimeDir); err != nil {
@@ -660,7 +693,7 @@ func (s *StackManager) ResetStack(verbose bool) error {
 }
 
 func (s *StackManager) RemoveStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
 	s.removeVolumes(verbose)
@@ -779,7 +812,8 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return messages, err
 	}
 
-	if err := s.disableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
+	// Re-write the docker-compose config to temporariliy short-circuit the core runtimes
+	if err := s.disableFireflyCoreContainers(verbose); err != nil {
 		return messages, err
 	}
 
@@ -807,7 +841,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return messages, err
 	}
 
-	if err := s.runStartupSequence(s.Stack.RuntimeDir, verbose, true); err != nil {
+	if err := s.runStartupSequence(verbose, true); err != nil {
 		return messages, err
 	}
 
@@ -853,12 +887,20 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		}
 	}
 
-	if err := s.enableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
+	// Re-write the docker-compose config again, in case new values have been added
+	compose := s.buildDockerCompose()
+	if err := s.writeDockerCompose(compose); err != nil {
 		return messages, err
 	}
 
-	// Bring up the FireFly Core containers now that we've finalized the runtime config
-	docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d")
+	// Restart all containers now that we've finalized the runtime config
+	s.Log.Info("restarting containers")
+	if err := s.runDockerComposeCommand(verbose, verbose, "stop"); err != nil {
+		return messages, err
+	}
+	if err := s.runStartupSequence(verbose, false); err != nil {
+		return messages, err
+	}
 
 	if err := s.ensureFireflyNodesUp(true); err != nil {
 		return messages, err
@@ -925,70 +967,34 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 }
 
 func (s *StackManager) UpgradeStack(verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
-	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
+	return s.runDockerComposeCommand(verbose, verbose, "pull")
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "-p", s.Stack.Name, "images"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, true, "images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.RuntimeDir, verbose, true, "-p", s.Stack.Name, "ps"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, true, "ps"); err != nil {
 		return err
 	}
-	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.InitDir, "docker-compose.yml"))
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
 	return nil
 }
 
-func (s *StackManager) disableFireflyCoreContainers(verbose bool, workingDir string) error {
-	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
-	if err != nil {
-		return err
-	}
-	var dockerComposeYAML *docker.DockerComposeConfig
-	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
-		return err
-	}
-
-	// Cache any currently set entrypoint
-	s.fireflyCoreEntrypoints = make([][]string, len(s.Stack.Members))
+func (s *StackManager) disableFireflyCoreContainers(verbose bool) error {
+	compose := s.buildDockerCompose()
 	for _, member := range s.Stack.Members {
 		if !member.External {
-			s.fireflyCoreEntrypoints[*member.Index] = dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint
 			// Temporarily set the entrypoint to not run anything
-			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = []string{"/bin/sh", "-c", "exit", "0"}
+			compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = []string{"/bin/sh", "-c", "exit", "0"}
 		}
 	}
-	return s.writeDockerCompose(workingDir, dockerComposeYAML)
-}
-
-func (s *StackManager) enableFireflyCoreContainers(verbose bool, workingDir string) error {
-	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
-	if err != nil {
-		return err
-	}
-	var dockerComposeYAML *docker.DockerComposeConfig
-	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
-		return err
-	}
-
-	for _, member := range s.Stack.Members {
-		if !member.External {
-			// If there was a cached entrypoint for this service, restore it
-			// Otherwise default to the entrypoint of "firefly" as defined in the Dockerfile for FireFly Core
-			entrypoint := []string{"firefly"}
-			if len(s.fireflyCoreEntrypoints[*member.Index]) > 0 {
-				entrypoint = s.fireflyCoreEntrypoints[*member.Index]
-			}
-			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = entrypoint
-		}
-	}
-	return s.writeDockerCompose(workingDir, dockerComposeYAML)
+	return s.writeDockerCompose(compose)
 }
 
 func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, newConfig *core.FireflyConfig) error {
