@@ -53,6 +53,7 @@ type InitOptions struct {
 	RemoteNodeURL             string
 	ChainID                   int64
 	DisableTokenFactories     bool
+	RequestTimeout            int
 }
 
 type BlockchainProvider int

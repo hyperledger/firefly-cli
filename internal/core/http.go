@@ -26,6 +26,12 @@ import (
 	"time"
 )
 
+var requestTimeout int = -1
+
+func SetRequestTimeout(customRequestTimeoutSecs int) {
+	requestTimeout = customRequestTimeoutSecs
+}
+
 func RequestWithRetry(method, url string, body, result interface{}, logRetries bool) (err error) {
 	retries := 30
 	for {
@@ -62,6 +68,9 @@ func request(method, url string, body, result interface{}) (err error) {
 	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		return err
+	}
+	if requestTimeout > 0 {
+		req.Header.Set("Request-Timeout", fmt.Sprintf("%d", requestTimeout))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {

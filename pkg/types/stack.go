@@ -34,6 +34,7 @@ type Stack struct {
 	ChainIDPtr             *int64           `json:"chainID,omitempty"`
 	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
+	RequestTimeout         int              `json:"requestTimeout,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`

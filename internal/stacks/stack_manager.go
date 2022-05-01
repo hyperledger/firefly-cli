@@ -107,6 +107,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		FFTMEnabled:    options.FFTMEnabled,
 		ChainIDPtr:     &options.ChainID,
 		RemoteNodeURL:  options.RemoteNodeURL,
+		RequestTimeout: options.RequestTimeout,
 	}
 
 	if options.PrometheusEnabled {
@@ -247,6 +248,10 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	s.Stack.StackDir = stackDir
 	s.blockchainProvider = s.getBlockchainProvider(verbose)
 	s.tokenProviders = s.getITokenProviders(verbose)
+
+	if s.Stack.RequestTimeout > 0 {
+		core.SetRequestTimeout(s.Stack.RequestTimeout)
+	}
 
 	isOldFileStructure, err := isOldFileStructure(s.Stack.StackDir)
 	if err != nil {
