@@ -53,7 +53,7 @@ type FFTMPolicyEngineConfig struct {
 }
 
 type FFTMSimplePolicyEngineGasOracleConfig struct {
-	Type string `yaml:"mode,omitempty"`
+	Mode string `yaml:"mode,omitempty"`
 }
 
 type FFTMSimplePolicyEngineConfig struct {
@@ -95,8 +95,12 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 			Variant: "evm",
 		},
 		PolicyEngine: FFTMPolicyEngineConfig{
-			Name:   "simple",
-			Simple: FFTMSimplePolicyEngineConfig{},
+			Name: "simple",
+			Simple: FFTMSimplePolicyEngineConfig{
+				GasOracle: FFTMSimplePolicyEngineGasOracleConfig{
+					Mode: "connector",
+				},
+			},
 		},
 		Confirmations: FFTMConfirmationsConfig{
 			Required: 3,

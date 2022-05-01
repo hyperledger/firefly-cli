@@ -32,7 +32,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:latest"
+var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:head"
 var gethImage = "ethereum/client-go:release-1.10"
 
 const useJavaSigner = false // also need to change the image appropriately if you recompile to use the Java signer
