@@ -81,6 +81,9 @@ const (
 var BlockchainNodeProviderStrings = []string{"geth", "besu", "remote-rpc"}
 
 func (blockchainNodeProvider BlockchainNodeProvider) String() string {
+	if blockchainNodeProvider < 0 {
+		return ""
+	}
 	return BlockchainNodeProviderStrings[blockchainNodeProvider]
 }
 
