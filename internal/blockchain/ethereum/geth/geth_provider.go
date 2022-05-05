@@ -161,7 +161,7 @@ func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.C
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`, p.Stack.ChainID())
+	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique,debug' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4`, p.Stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
