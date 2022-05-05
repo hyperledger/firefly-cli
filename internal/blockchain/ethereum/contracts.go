@@ -33,11 +33,12 @@ type CompiledContract struct {
 }
 
 type truffleCompiledContract struct {
-	ABI      interface{} `json:"abi"`
-	Bytecode string      `json:"bytecode"`
+	ABI          interface{} `json:"abi"`
+	Bytecode     string      `json:"bytecode"`
+	ContractName string      `json:"contractName"`
 }
 
-func ReadTruffleCompiledContract(filePath string) (*CompiledContract, error) {
+func ReadTruffleCompiledContract(filePath string) (*CompiledContracts, error) {
 	d, _ := ioutil.ReadFile(filePath)
 	var truffleCompiledContract *truffleCompiledContract
 	err := json.Unmarshal(d, &truffleCompiledContract)
@@ -48,10 +49,15 @@ func ReadTruffleCompiledContract(filePath string) (*CompiledContract, error) {
 		ABI:      truffleCompiledContract.ABI,
 		Bytecode: truffleCompiledContract.Bytecode,
 	}
-	return contract, nil
+	contracts := &CompiledContracts{
+		Contracts: map[string]*CompiledContract{
+			truffleCompiledContract.ContractName: contract,
+		},
+	}
+	return contracts, nil
 }
 
-func ReadCombinedABIJSON(filePath string) (*CompiledContracts, error) {
+func ReadSolcCompiledContract(filePath string) (*CompiledContracts, error) {
 	d, _ := ioutil.ReadFile(filePath)
 	var contracts *CompiledContracts
 	err := json.Unmarshal(d, &contracts)
@@ -59,6 +65,17 @@ func ReadCombinedABIJSON(filePath string) (*CompiledContracts, error) {
 		return nil, err
 	}
 	return contracts, nil
+}
+
+func ReadContractJSON(filePath string) (*CompiledContracts, error) {
+	contracts, err := ReadSolcCompiledContract(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if len(contracts.Contracts) > 0 {
+		return contracts, nil
+	}
+	return ReadTruffleCompiledContract(filePath)
 }
 
 func ExtractContracts(containerName, sourceDir, destinationDir string, verbose bool) error {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type LogConfig struct {
@@ -86,8 +86,13 @@ type FabconnectConfig struct {
 	Signer    string `yaml:"signer,omitempty"`
 }
 
+type FFTMConfig struct {
+	URL string `yaml:"url,omitempty"`
+}
+
 type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
+	FFTM       *FFTMConfig       `yaml:"fftm,omitempty"`
 }
 
 type FabricConfig struct {

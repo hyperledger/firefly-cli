@@ -32,7 +32,9 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
@@ -43,7 +45,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/hyperledger/firefly-cli/internal/log"
 
@@ -51,12 +53,11 @@ import (
 )
 
 type StackManager struct {
-	Log                    log.Logger
-	Stack                  *types.Stack
-	blockchainProvider     blockchain.IBlockchainProvider
-	tokenProviders         []tokens.ITokensProvider
-	fireflyCoreEntrypoints [][]string
-	IsOldFileStructure     bool
+	Log                log.Logger
+	Stack              *types.Stack
+	blockchainProvider blockchain.IBlockchainProvider
+	tokenProviders     []tokens.ITokensProvider
+	IsOldFileStructure bool
 }
 
 func ListStacks() ([]string, error) {
@@ -86,22 +87,27 @@ func NewStackManager(logger log.Logger) *StackManager {
 
 func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
-		Name:                  stackName,
-		Members:               make([]*types.Member, memberCount),
-		SwarmKey:              GenerateSwarmKey(),
-		ExposedBlockchainPort: options.ServicesBasePort,
-		Database:              options.DatabaseSelection.String(),
-		BlockchainProvider:    options.BlockchainProvider.String(),
-		TokenProviders:        options.TokenProviders,
-		ContractAddress:       options.ContractAddress,
-		StackDir:              filepath.Join(constants.StacksDir, stackName),
-		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
-		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
+		Name:                   stackName,
+		Members:                make([]*types.Member, memberCount),
+		SwarmKey:               GenerateSwarmKey(),
+		ExposedBlockchainPort:  options.ServicesBasePort,
+		Database:               options.DatabaseSelection.String(),
+		BlockchainProvider:     options.BlockchainProvider.String(),
+		BlockchainNodeProvider: options.BlockchainNodeProvider.String(),
+		TokenProviders:         options.TokenProviders,
+		ContractAddress:        options.ContractAddress,
+		StackDir:               filepath.Join(constants.StacksDir, stackName),
+		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
+		RuntimeDir:             filepath.Join(constants.StacksDir, stackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, memberCount),
 		},
 		SandboxEnabled: options.SandboxEnabled,
+		FFTMEnabled:    options.FFTMEnabled,
+		ChainIDPtr:     &options.ChainID,
+		RemoteNodeURL:  options.RemoteNodeURL,
+		RequestTimeout: options.RequestTimeout,
 	}
 
 	if options.PrometheusEnabled {
@@ -143,6 +149,34 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			s.Stack.State.Accounts[i] = s.Stack.Members[i].Account
 		}
 	}
+
+	if err := s.ensureInitDirectories(); err != nil {
+		return err
+	}
+
+	compose := s.buildDockerCompose()
+	if err := s.writeDockerCompose(compose); err != nil {
+		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
+	}
+	if err := s.writeDockerComposeOverride(compose); err != nil {
+		return fmt.Errorf("failed to write docker-compose.override.yml: %s", err)
+	}
+	return s.writeConfig(options)
+}
+
+func (s *StackManager) runDockerComposeCommand(showCommand, pipeStdout bool, command ...string) error {
+	baseCompose := filepath.Join(s.Stack.StackDir, "docker-compose.yml")
+	runtimeCompose := filepath.Join(s.Stack.RuntimeDir, "docker-compose.yml")
+	if _, err := os.Stat(baseCompose); os.IsNotExist(err) {
+		if _, err := os.Stat(runtimeCompose); err == nil {
+			// Handle copying the docker-compose file out of the old "runtime" directory
+			copy.Copy(runtimeCompose, baseCompose)
+		}
+	}
+	return docker.RunDockerComposeCommand(s.Stack.StackDir, showCommand, pipeStdout, command...)
+}
+
+func (s *StackManager) buildDockerCompose() *docker.DockerComposeConfig {
 	compose := docker.CreateDockerCompose(s.Stack)
 	extraServices := s.blockchainProvider.GetDockerServiceDefinitions()
 	for i, tp := range s.tokenProviders {
@@ -168,14 +202,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			}
 		}
 	}
-
-	if err := s.ensureInitDirectories(); err != nil {
-		return err
-	}
-	if err := s.writeDockerCompose(s.Stack.InitDir, compose); err != nil {
-		return fmt.Errorf("failed to write docker-compose.yml: %s", err)
-	}
-	return s.writeConfig(options)
+	return compose
 }
 
 func CheckExists(stackName string) (bool, error) {
@@ -221,6 +248,10 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	s.Stack.StackDir = stackDir
 	s.blockchainProvider = s.getBlockchainProvider(verbose)
 	s.tokenProviders = s.getITokenProviders(verbose)
+
+	if s.Stack.RequestTimeout > 0 {
+		core.SetRequestTimeout(s.Stack.RequestTimeout)
+	}
 
 	isOldFileStructure, err := isOldFileStructure(s.Stack.StackDir)
 	if err != nil {
@@ -316,7 +347,7 @@ func (s *StackManager) loadStackStateJSON() error {
 }
 
 func (s *StackManager) writeStackStateJSON(directory string) error {
-	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", " ")
+	stackStateBytes, err := json.MarshalIndent(s.Stack.State, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -339,13 +370,26 @@ func (s *StackManager) ensureInitDirectories() error {
 	return nil
 }
 
-func (s *StackManager) writeDockerCompose(workingDir string, compose *docker.DockerComposeConfig) error {
-	bytes, err := yaml.Marshal(compose)
+func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) error {
+	comments := "# This file is generated - DO NOT EDIT!\n# To override config, edit docker-compose.override.yml\n"
+	bytes := []byte(comments)
+	yamlBytes, err := yaml.Marshal(compose)
 	if err != nil {
 		return err
 	}
+	bytes = append(bytes, yamlBytes...)
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
+}
 
-	return ioutil.WriteFile(filepath.Join(workingDir, "docker-compose.yml"), bytes, 0755)
+func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeConfig) error {
+	comments := "# Add custom config overrides here\n# See https://docs.docker.com/compose/extends\n"
+	bytes := []byte(comments)
+	yamlBytes, err := yaml.Marshal(map[string]interface{}{"version": compose.Version})
+	if err != nil {
+		return err
+	}
+	bytes = append(bytes, yamlBytes...)
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeStackConfig() error {
@@ -373,6 +417,13 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		coreConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
 		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
+		}
+		if s.Stack.FFTMEnabled {
+			fftmConfig := NewFFTMConfig(s.Stack, member)
+			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
+			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename, options.ExtraFFTMConfigPath); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -471,7 +522,7 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	}
 
 	switch options.BlockchainProvider {
-	case types.GoEthereum, types.HyperledgerBesu:
+	case types.Ethereum:
 		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 		member.Account = &ethereum.Account{
 			Address:    address,
@@ -484,26 +535,31 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 		member.ExposedSandboxPort = nextPort
 		nextPort++
 	}
+	if options.FFTMEnabled {
+		member.ExposedFFTMPort = nextPort
+		nextPort++
+	}
 	return member
 }
 
-func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) error {
+func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (messages []string, err error) {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
-	err := s.checkPortsAvailable()
+	err = s.checkPortsAvailable()
 	if err != nil {
-		return err
+		return messages, err
 	}
 	hasBeenRun, err := s.StackHasRunBefore()
 	if err != nil {
-		return err
+		return messages, err
 	}
 	if !hasBeenRun {
-		err := s.runFirstTimeSetup(verbose, options)
+		setupMessages, err := s.runFirstTimeSetup(verbose, options)
+		messages = append(messages, setupMessages...)
 		if err != nil {
 			// Something bad happened during setup
 			if options.NoRollback {
-				return err
+				return messages, err
 			} else {
 				// Rollback changes
 				s.Log.Error(fmt.Errorf("an error occurred - rolling back changes"))
@@ -517,16 +573,16 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) err
 					finalErr = fmt.Errorf("%s - all changes rolled back", err.Error())
 				}
 
-				return finalErr
+				return messages, finalErr
 			}
 		}
 	} else {
-		err = s.runStartupSequence(s.Stack.RuntimeDir, verbose, false)
+		err = s.runStartupSequence(verbose, false)
 		if err != nil {
-			return err
+			return messages, err
 		}
 	}
-	return s.ensureFireflyNodesUp(true)
+	return messages, s.ensureFireflyNodesUp(true)
 }
 
 func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
@@ -555,6 +611,11 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	// Also pull the Sandbox if we're using it
 	if s.Stack.SandboxEnabled {
 		images = append(images, constants.SandboxImageName)
+	}
+
+	// Also pull the FFTM if we're using it
+	if s.Stack.FFTMEnabled {
+		images = append(images, constants.FFTMImageName)
 	}
 
 	// Iterate over all images used by the blockchain provider
@@ -601,13 +662,13 @@ func (s *StackManager) removeVolumes(verbose bool) {
 	}
 }
 
-func (s *StackManager) runStartupSequence(workingDir string, verbose bool, firstTimeSetup bool) error {
+func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
 	}
 
 	s.Log.Info("starting FireFly dependencies")
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "up", "-d"); err != nil {
 		return err
 	}
 
@@ -619,11 +680,11 @@ func (s *StackManager) runStartupSequence(workingDir string, verbose bool, first
 }
 
 func (s *StackManager) StopStack(verbose bool) error {
-	return docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "stop")
+	return s.runDockerComposeCommand(verbose, verbose, "stop")
 }
 
 func (s *StackManager) ResetStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(s.Stack.RuntimeDir); err != nil {
@@ -637,7 +698,7 @@ func (s *StackManager) ResetStack(verbose bool) error {
 }
 
 func (s *StackManager) RemoveStack(verbose bool) error {
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
 	s.removeVolumes(verbose)
@@ -663,6 +724,9 @@ func (s *StackManager) checkPortsAvailable() error {
 
 		if s.Stack.SandboxEnabled {
 			ports = append(ports, member.ExposedSandboxPort)
+		}
+		if s.Stack.FFTMEnabled {
+			ports = append(ports, member.ExposedFFTMPort)
 		}
 	}
 
@@ -729,7 +793,18 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 	return nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (err error) {
+func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+	if s.Stack.FFTMEnabled {
+		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
+		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
+		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
 	for i := 0; i < len(s.Stack.Members); i++ {
@@ -739,52 +814,68 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	if err := copy.Copy(s.Stack.InitDir, s.Stack.RuntimeDir); err != nil {
-		return err
+		return messages, err
 	}
 
-	if err := s.disableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
-		return err
+	// Re-write the docker-compose config to temporariliy short-circuit the core runtimes
+	if err := s.disableFireflyCoreContainers(verbose); err != nil {
+		return messages, err
 	}
 
 	s.Log.Info("initializing blockchain node")
 	if err := s.blockchainProvider.FirstTimeSetup(); err != nil {
-		return err
+		return messages, err
 	}
 
 	if s.Stack.PrometheusEnabled {
 		s.Log.Info("copying prometheus.yml to prometheus_config")
 		volumeName := fmt.Sprintf("%s_prometheus_config", s.Stack.Name)
 		if err := docker.CopyFileToVolume(volumeName, path.Join(configDir, "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
-			return err
+			return messages, err
 		}
 	}
 
 	if err := s.copyDataExchangeConfigToVolumes(verbose); err != nil {
-		return err
+		return messages, err
 	}
 
 	pullOptions := &types.PullOptions{
 		Retries: 2,
 	}
 	if err := s.PullStack(verbose, pullOptions); err != nil {
-		return err
+		return messages, err
 	}
 
-	if err := s.runStartupSequence(s.Stack.RuntimeDir, verbose, true); err != nil {
-		return err
+	if err := s.runStartupSequence(verbose, true); err != nil {
+		return messages, err
 	}
 
 	for i, tp := range s.tokenProviders {
-		if err := tp.DeploySmartContracts(i); err != nil {
-			return err
+		if !s.Stack.DisableTokenFactories {
+			result, err := tp.DeploySmartContracts(i)
+			if err != nil {
+				return messages, err
+			}
+			if result != nil {
+				if result.Message != "" {
+					messages = append(messages, result.Message)
+				}
+				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			}
 		}
 	}
 
 	if s.Stack.ContractAddress == "" {
 		s.Log.Info("deploying FireFly smart contracts")
-		blockchainConfig, err := s.blockchainProvider.DeployFireFlyContract()
+		blockchainConfig, result, err := s.blockchainProvider.DeployFireFlyContract()
 		if err != nil {
-			return err
+			return messages, err
+		}
+		if result != nil {
+			if result.Message != "" {
+				messages = append(messages, result.Message)
+			}
+			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
 		}
 		newConfig := &core.FireflyConfig{
 			Blockchain: blockchainConfig,
@@ -794,35 +885,46 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	for _, member := range s.Stack.Members {
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
-			return err
+			return messages, err
+		}
+		if err := s.copyFFTMConfigToContainer(verbose, configDir, member); err != nil {
+			return messages, err
 		}
 	}
 
-	if err := s.enableFireflyCoreContainers(verbose, s.Stack.RuntimeDir); err != nil {
-		return err
+	// Re-write the docker-compose config again, in case new values have been added
+	compose := s.buildDockerCompose()
+	if err := s.writeDockerCompose(compose); err != nil {
+		return messages, err
 	}
 
-	// Bring up the FireFly Core containers now that we've finalized the runtime config
-	docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, verbose, "-p", s.Stack.Name, "up", "-d")
+	// Restart all containers now that we've finalized the runtime config
+	s.Log.Info("restarting containers")
+	if err := s.runDockerComposeCommand(verbose, verbose, "stop"); err != nil {
+		return messages, err
+	}
+	if err := s.runStartupSequence(verbose, false); err != nil {
+		return messages, err
+	}
 
 	if err := s.ensureFireflyNodesUp(true); err != nil {
-		return err
+		return messages, err
 	}
 
 	s.Log.Info("registering FireFly identities")
 	if err := s.registerFireflyIdentities(verbose); err != nil {
-		return err
+		return messages, err
 	}
 
 	s.Log.Info("initializing token providers")
 	for iTok, tp := range s.tokenProviders {
 		if err := tp.FirstTimeSetup(iTok); err != nil {
-			return err
+			return messages, err
 		}
 	}
 
 	// Update the stack state with any new state that was created as a part of the setup process
-	return s.writeStackStateJSON(s.Stack.RuntimeDir)
+	return messages, s.writeStackStateJSON(s.Stack.RuntimeDir)
 }
 
 func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
@@ -870,70 +972,34 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 }
 
 func (s *StackManager) UpgradeStack(verbose bool) error {
-	workingDir := filepath.Join(constants.StacksDir, s.Stack.Name)
-	if err := docker.RunDockerComposeCommand(workingDir, verbose, verbose, "-p", s.Stack.Name, "down"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
 		return err
 	}
-	return docker.RunDockerComposeCommand(workingDir, verbose, verbose, "pull")
+	return s.runDockerComposeCommand(verbose, verbose, "pull")
 }
 
 func (s *StackManager) PrintStackInfo(verbose bool) error {
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.InitDir, verbose, true, "-p", s.Stack.Name, "images"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, true, "images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := docker.RunDockerComposeCommand(s.Stack.RuntimeDir, verbose, true, "-p", s.Stack.Name, "ps"); err != nil {
+	if err := s.runDockerComposeCommand(verbose, true, "ps"); err != nil {
 		return err
 	}
-	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.InitDir, "docker-compose.yml"))
+	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
 	return nil
 }
 
-func (s *StackManager) disableFireflyCoreContainers(verbose bool, workingDir string) error {
-	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
-	if err != nil {
-		return err
-	}
-	var dockerComposeYAML *docker.DockerComposeConfig
-	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
-		return err
-	}
-
-	// Cache any currently set entrypoint
-	s.fireflyCoreEntrypoints = make([][]string, len(s.Stack.Members))
+func (s *StackManager) disableFireflyCoreContainers(verbose bool) error {
+	compose := s.buildDockerCompose()
 	for _, member := range s.Stack.Members {
 		if !member.External {
-			s.fireflyCoreEntrypoints[*member.Index] = dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint
 			// Temporarily set the entrypoint to not run anything
-			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = []string{"/bin/sh", "-c", "exit", "0"}
+			compose.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = []string{"/bin/sh", "-c", "exit", "0"}
 		}
 	}
-	return s.writeDockerCompose(workingDir, dockerComposeYAML)
-}
-
-func (s *StackManager) enableFireflyCoreContainers(verbose bool, workingDir string) error {
-	d, err := ioutil.ReadFile(filepath.Join(workingDir, "docker-compose.yml"))
-	if err != nil {
-		return err
-	}
-	var dockerComposeYAML *docker.DockerComposeConfig
-	if err := yaml.Unmarshal(d, &dockerComposeYAML); err != nil {
-		return err
-	}
-
-	for _, member := range s.Stack.Members {
-		if !member.External {
-			// If there was a cached entrypoint for this service, restore it
-			// Otherwise default to the entrypoint of "firefly" as defined in the Dockerfile for FireFly Core
-			entrypoint := []string{"firefly"}
-			if len(s.fireflyCoreEntrypoints[*member.Index]) > 0 {
-				entrypoint = s.fireflyCoreEntrypoints[*member.Index]
-			}
-			dockerComposeYAML.Services[fmt.Sprintf("firefly_core_%v", *member.Index)].EntryPoint = entrypoint
-		}
-	}
-	return s.writeDockerCompose(workingDir, dockerComposeYAML)
+	return s.writeDockerCompose(compose)
 }
 
 func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, newConfig *core.FireflyConfig) error {
@@ -994,14 +1060,14 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	contractLocation, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	result, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
 	if err != nil {
 		return "", err
 	}
 	// Update the stackState.json file with the newly deployed contract
 	deployedContract := &types.DeployedContract{
 		Name:     contractName,
-		Location: contractLocation,
+		Location: result.DeployedContract.Location,
 	}
 	s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, deployedContract)
 	if err = s.writeStackStateJSON(s.Stack.RuntimeDir); err != nil {
@@ -1009,7 +1075,7 @@ func (s *StackManager) DeployContract(filename, contractName string, memberIndex
 	}
 
 	// Serialize the contract location to JSON to print on the command line
-	b, err := json.MarshalIndent(contractLocation, "", "  ")
+	b, err := json.MarshalIndent(result.DeployedContract.Location, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -1035,18 +1101,54 @@ func (s *StackManager) CreateAccount(args []string) (string, error) {
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
+
+	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainNodeProvider = types.GoEthereum.String()
+	}
+
+	if s.Stack.BlockchainProvider == types.HyperledgerBesu.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
+	}
+
+	s.Stack.DisableTokenFactories = true
+
 	switch s.Stack.BlockchainProvider {
-	case types.GoEthereum.String():
-		return &geth.GethProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
-		}
-	case types.HyperledgerBesu.String():
-		return &besu.BesuProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
+	case types.Ethereum.String():
+		switch s.Stack.BlockchainNodeProvider {
+		case types.GoEthereum.String():
+			s.Stack.DisableTokenFactories = false
+			return &geth.GethProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+			}
+		case types.HyperledgerBesu.String():
+			s.Stack.DisableTokenFactories = false
+			return &besu.BesuProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		case types.RemoteRPC.String():
+			return &remoterpc.RemoteRPCProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		default:
+			return nil
 		}
 	case types.HyperledgerFabric.String():
 		return &fabric.FabricProvider{

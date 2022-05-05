@@ -40,7 +40,7 @@ type Genesis struct {
 }
 
 type GenesisConfig struct {
-	ChainId             int           `json:"chainId"`
+	ChainId             int64         `json:"chainId"`
 	HomesteadBlock      int           `json:"homesteadBlock"`
 	Eip150Block         int           `json:"eip150Block"`
 	Eip150Hash          string        `json:"eip150Hash"`
@@ -62,7 +62,7 @@ type Alloc struct {
 	Balance string `json:"balance"`
 }
 
-func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
+func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis {
 	if blockPeriod == -1 {
 		blockPeriod = 0
 	}
@@ -78,7 +78,7 @@ func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
 
 	return &Genesis{
 		Config: &GenesisConfig{
-			ChainId:             2021,
+			ChainId:             chainID,
 			HomesteadBlock:      0,
 			Eip150Block:         0,
 			Eip150Hash:          "0x0000000000000000000000000000000000000000000000000000000000000000",

@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"gopkg.in/yaml.v3"
 )
 
 type ERC20ERC721Provider struct {
@@ -31,7 +32,18 @@ type ERC20ERC721Provider struct {
 	Stack   *types.Stack
 }
 
-func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) error {
+type HexAddress string
+
+// Explicitly quote hex addresses so that they are interpreted as string (not int)
+func (h HexAddress) MarshalYAML() (interface{}, error) {
+	return yaml.Node{
+		Value: string(h),
+		Kind:  yaml.ScalarNode,
+		Style: yaml.DoubleQuotedStyle,
+	}, nil
+}
+
+func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
 	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
 }
 
@@ -50,17 +62,34 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
 	for i, member := range p.Stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
+
+		var factoryAddress HexAddress
+		for _, contract := range p.Stack.State.DeployedContracts {
+			if contract.Name == contractName(tokenIdx) {
+				switch loc := contract.Location.(type) {
+				case map[string]string:
+					factoryAddress = HexAddress(loc["address"])
+				}
+			}
+		}
+
+		env := map[string]interface{}{
+			"ETHCONNECT_URL":           p.getEthconnectURL(member),
+			"ETHCONNECT_TOPIC":         connectorName,
+			"FACTORY_CONTRACT_ADDRESS": factoryAddress,
+			"AUTO_INIT":                "false",
+		}
+		if p.Stack.FFTMEnabled {
+			env["FFTM_URL"] = p.getFFTMURL(member)
+		}
+
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
 			Service: &docker.Service{
 				Image:         p.Stack.VersionManifest.TokensERC20ERC721.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
-				Environment: map[string]string{
-					"ETHCONNECT_URL":   p.getEthconnectURL(member, member.ExposedTokensPorts[tokenIdx]),
-					"ETHCONNECT_TOPIC": connectorName,
-					"AUTO_INIT":        "false",
-				},
+				Environment:   env,
 				DependsOn: map[string]map[string]string{
 					"ethconnect_" + member.ID: {"condition": "service_started"},
 				},
@@ -86,8 +115,12 @@ func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *c
 	}
 }
 
-func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Member, tokenIdx int) string {
+func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Member) string {
 	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+}
+
+func (p *ERC20ERC721Provider) getFFTMURL(member *types.Member) string {
+	return fmt.Sprintf("http://fftm_%s:5008", member.ID)
 }
 
 func (p *ERC20ERC721Provider) getTokensURL(member *types.Member, tokenIdx int) string {

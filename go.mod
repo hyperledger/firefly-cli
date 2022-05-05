@@ -34,4 +34,5 @@ require (
 	golang.org/x/sys v0.0.0-20210420205809-ac73e9fd8988 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
