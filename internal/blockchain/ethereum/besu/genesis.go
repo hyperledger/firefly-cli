@@ -46,7 +46,7 @@ type Genesis struct {
 }
 
 type GenesisConfig struct {
-	ChainId                int           `json:"chainId"`
+	ChainId                int64         `json:"chainId"`
 	ConstantinopleFixBlock int           `json:"constantinoplefixblock"`
 	Clique                 *CliqueConfig `json:"clique"`
 }
@@ -70,7 +70,7 @@ func (g *Genesis) WriteGenesisJson(filename string) error {
 	return nil
 }
 
-func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
+func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis {
 	if blockPeriod == -1 {
 		blockPeriod = 5
 	}
@@ -85,7 +85,7 @@ func CreateGenesis(addresses []string, blockPeriod int) *Genesis {
 	extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 	return &Genesis{
 		Config: &GenesisConfig{
-			ChainId:                2021,
+			ChainId:                chainID,
 			ConstantinopleFixBlock: 0,
 			Clique: &CliqueConfig{
 				Blockperiodseconds: blockPeriod,

@@ -33,6 +33,7 @@ import (
 var initOptions types.InitOptions
 var databaseSelection string
 var blockchainProviderInput string
+var blockchainNodeProviderInput string
 var tokenProvidersSelection []string
 var promptNames bool
 
@@ -52,7 +53,7 @@ var initCmd = &cobra.Command{
 		if err := validateDatabaseProvider(databaseSelection); err != nil {
 			return err
 		}
-		if err := validateBlockchainProvider(blockchainProviderInput); err != nil {
+		if err := validateBlockchainProvider(blockchainProviderInput, blockchainNodeProviderInput); err != nil {
 			return err
 		}
 		if err := validateTokensProvider(tokenProvidersSelection); err != nil {
@@ -100,7 +101,7 @@ var initCmd = &cobra.Command{
 		}
 
 		initOptions.Verbose = verbose
-		initOptions.BlockchainProvider, _ = types.BlockchainProviderFromString(blockchainProviderInput)
+		initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider, _ = types.BlockchainFromStrings(blockchainProviderInput, blockchainNodeProviderInput)
 		initOptions.DatabaseSelection, _ = types.DatabaseSelectionFromString(databaseSelection)
 		initOptions.TokenProviders, _ = types.TokenProvidersFromStrings(tokenProvidersSelection)
 
@@ -156,8 +157,8 @@ func validateDatabaseProvider(input string) error {
 	return nil
 }
 
-func validateBlockchainProvider(input string) error {
-	blockchainSelection, err := types.BlockchainProviderFromString(input)
+func validateBlockchainProvider(providerString, nodeString string) error {
+	blockchainSelection, _, err := types.BlockchainFromStrings(providerString, nodeString)
 	if err != nil {
 		return err
 	}
@@ -186,7 +187,8 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
 	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", types.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "geth", fmt.Sprintf("Blockchain provider to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", types.BlockchainProviderStrings))
+	initCmd.Flags().StringVarP(&blockchainNodeProviderInput, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", types.BlockchainNodeProviderStrings))
 	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", types.ValidTokenProviders))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
@@ -194,11 +196,16 @@ func init() {
 	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
 	initCmd.Flags().BoolVar(&initOptions.SandboxEnabled, "sandbox-enabled", true, "Enables the FireFly Sandbox to be started with your FireFly stack")
+	initCmd.Flags().BoolVar(&initOptions.FFTMEnabled, "fftm-enabled", false, "Starts a FireFly Transaction Manager runtime for each node")
 	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
 	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
 	initCmd.Flags().StringVarP(&initOptions.ExtraEthconnectConfigPath, "ethconnect-config", "", "", "The path to a yaml file containing extra config for Ethconnect")
+	initCmd.Flags().StringVarP(&initOptions.ExtraFFTMConfigPath, "fftm-config", "", "", "The path to a yaml file containing extra config for FireFly Transaction Manager")
 	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
 	initCmd.Flags().StringVarP(&initOptions.ContractAddress, "contract-address", "", "", "Do not automatically deploy a contract, instead use a pre-configured address")
+	initCmd.Flags().StringVarP(&initOptions.RemoteNodeURL, "remote-node-url", "", "", "For cases where the node is pre-existing and running remotely")
+	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
+	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
 
 	rootCmd.AddCommand(initCmd)
 }

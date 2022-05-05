@@ -25,6 +25,7 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -33,32 +34,27 @@ import (
 )
 
 var besuImage = "hyperledger/besu:22.4"
-var ethsignerImage = "consensys/ethsigner:22.1"
 var gethImage = "ethereum/client-go:release-1.10"
 
 type BesuProvider struct {
 	Log     log.Logger
 	Verbose bool
 	Stack   *types.Stack
+	Signer  *ethsigner.EthSignerProvider
 }
 
 func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
+	if err := p.Signer.WriteConfig(options, "http://besu:8545"); err != nil {
+		return err
+	}
+
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		// Write the private key to disk for each member
-		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
-			return err
-		}
 
 		// Generate the ethconnect config for each member
 		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
 			return nil
-		}
-
-		if err := p.writeTomlKeyFile(p.Stack.InitDir, account.Address); err != nil {
-			return err
 		}
 
 	}
@@ -71,14 +67,8 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 		return err
 	}
 	// Drop the 0x on the front of the address here because that's what is expected in the genesis.json
-	genesis := CreateGenesis([]string{nodeAddress[2:]}, options.BlockPeriod)
+	genesis := CreateGenesis([]string{nodeAddress[2:]}, options.BlockPeriod, p.Stack.ChainID())
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
-		return err
-	}
-
-	// Write the password that will be used to encrypt the private key
-	// TODO: Probably randomize this and make it differnet per member?
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
 		return err
 	}
 
@@ -86,14 +76,14 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *BesuProvider) FirstTimeSetup() error {
-	ethsignerVolumeName := fmt.Sprintf("%s_ethsigner", p.Stack.Name)
 	besuVolumeName := fmt.Sprintf("%s_besu", p.Stack.Name)
 	blockchainDir := filepath.Join(p.Stack.RuntimeDir, "blockchain")
 	contractsDir := filepath.Join(p.Stack.RuntimeDir, "contracts")
 
-	if err := docker.CreateVolume(ethsignerVolumeName, p.Verbose); err != nil {
+	if err := p.Signer.FirstTimeSetup(); err != nil {
 		return err
 	}
+
 	if err := docker.CreateVolume(besuVolumeName, p.Verbose); err != nil {
 		return err
 	}
@@ -107,20 +97,6 @@ func (p *BesuProvider) FirstTimeSetup() error {
 		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
 		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
-	}
-
-	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
-	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
-	for _, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		if err := p.importAccountToEthsigner(account.Address); err != nil {
-			return err
-		}
-	}
-
-	// Copy the password (to be used for decrypting private keys)
-	if err := docker.CopyFileToVolume(ethsignerVolumeName, path.Join(blockchainDir, "password"), "password", p.Verbose); err != nil {
-		return err
 	}
 
 	// Copy the genesis block information
@@ -157,8 +133,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			addresses = addresses + ","
 		}
 	}
-	besuCommand := `--genesis-file=/data/genesis.json --network-id 2021 --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`
-	ethsignerCommand := `--chain-id=2021 --downstream-http-host="besu" --downstream-http-port=8545 multikey-signer --directory=/data/keystore`
+	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`, p.Stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 2)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
@@ -176,25 +151,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 
 		VolumeNames: []string{"besu"},
 	}
-	serviceDefinitions[1] = &docker.ServiceDefinition{
-		ServiceName: "ethsigner",
-		Service: &docker.Service{
-			Image:         ethsignerImage,
-			ContainerName: fmt.Sprintf("%s_ethsigner", p.Stack.Name),
-			User:          "root",
-			Command:       ethsignerCommand,
-			Volumes:       []string{"ethsigner:/data"},
-			Logging:       docker.StandardLogOptions,
-			HealthCheck: &docker.HealthCheck{
-				Test:     []string{"CMD", "curl", "http://besu:8545/livenes"},
-				Interval: "4s",
-				Retries:  30,
-			},
-			Ports: []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
-		},
-		VolumeNames: []string{"ethsigner"},
-	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "ethsigner")...)
+	serviceDefinitions[1] = p.Signer.GetDockerServiceDefinition("http://besu:8545")
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"ethsigner": "service_healthy"})...)
 	return serviceDefinitions
 }
 
@@ -253,24 +211,7 @@ func (p *BesuProvider) DeployContract(filename, contractName string, member *typ
 }
 
 func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {
-	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
-
-	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
-		return nil, err
-	}
-
-	if err := p.writeTomlKeyFile(p.Stack.RuntimeDir, address); err != nil {
-		return nil, err
-	}
-
-	if err := p.importAccountToEthsigner(address); err != nil {
-		return nil, err
-	}
-
-	return map[string]string{
-		"address":    address,
-		"privateKey": privateKey,
-	}, nil
+	return p.Signer.CreateAccount(args)
 }
 
 func (p *BesuProvider) getEthconnectURL(member *types.Member) string {

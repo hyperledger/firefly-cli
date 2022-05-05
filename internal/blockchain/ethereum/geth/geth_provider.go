@@ -65,7 +65,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
 		addresses[i] = address[2:]
 	}
-	genesis := CreateGenesis(addresses, options.BlockPeriod)
+	genesis := CreateGenesis(addresses, options.BlockPeriod, p.Stack.ChainID())
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (p *GethProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.C
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" --http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid 2021 --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`)
+	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover`, p.Stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
@@ -176,7 +176,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 		},
 		VolumeNames: []string{"geth"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, "geth")...)
+	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"geth": "service_started"})...)
 	return serviceDefinitions
 }
 

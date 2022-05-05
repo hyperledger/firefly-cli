@@ -32,7 +32,9 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
@@ -85,22 +87,27 @@ func NewStackManager(logger log.Logger) *StackManager {
 
 func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
-		Name:                  stackName,
-		Members:               make([]*types.Member, memberCount),
-		SwarmKey:              GenerateSwarmKey(),
-		ExposedBlockchainPort: options.ServicesBasePort,
-		Database:              options.DatabaseSelection.String(),
-		BlockchainProvider:    options.BlockchainProvider.String(),
-		TokenProviders:        options.TokenProviders,
-		ContractAddress:       options.ContractAddress,
-		StackDir:              filepath.Join(constants.StacksDir, stackName),
-		InitDir:               filepath.Join(constants.StacksDir, stackName, "init"),
-		RuntimeDir:            filepath.Join(constants.StacksDir, stackName, "runtime"),
+		Name:                   stackName,
+		Members:                make([]*types.Member, memberCount),
+		SwarmKey:               GenerateSwarmKey(),
+		ExposedBlockchainPort:  options.ServicesBasePort,
+		Database:               options.DatabaseSelection.String(),
+		BlockchainProvider:     options.BlockchainProvider.String(),
+		BlockchainNodeProvider: options.BlockchainNodeProvider.String(),
+		TokenProviders:         options.TokenProviders,
+		ContractAddress:        options.ContractAddress,
+		StackDir:               filepath.Join(constants.StacksDir, stackName),
+		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
+		RuntimeDir:             filepath.Join(constants.StacksDir, stackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, memberCount),
 		},
 		SandboxEnabled: options.SandboxEnabled,
+		FFTMEnabled:    options.FFTMEnabled,
+		ChainIDPtr:     &options.ChainID,
+		RemoteNodeURL:  options.RemoteNodeURL,
+		RequestTimeout: options.RequestTimeout,
 	}
 
 	if options.PrometheusEnabled {
@@ -241,6 +248,10 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	s.Stack.StackDir = stackDir
 	s.blockchainProvider = s.getBlockchainProvider(verbose)
 	s.tokenProviders = s.getITokenProviders(verbose)
+
+	if s.Stack.RequestTimeout > 0 {
+		core.SetRequestTimeout(s.Stack.RequestTimeout)
+	}
 
 	isOldFileStructure, err := isOldFileStructure(s.Stack.StackDir)
 	if err != nil {
@@ -407,6 +418,13 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
 		}
+		if s.Stack.FFTMEnabled {
+			fftmConfig := NewFFTMConfig(s.Stack, member)
+			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
+			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename, options.ExtraFFTMConfigPath); err != nil {
+				return err
+			}
+		}
 	}
 
 	if err := s.writeStackConfig(); err != nil {
@@ -504,7 +522,7 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	}
 
 	switch options.BlockchainProvider {
-	case types.GoEthereum, types.HyperledgerBesu:
+	case types.Ethereum:
 		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
 		member.Account = &ethereum.Account{
 			Address:    address,
@@ -515,6 +533,10 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 	}
 	if options.SandboxEnabled {
 		member.ExposedSandboxPort = nextPort
+		nextPort++
+	}
+	if options.FFTMEnabled {
+		member.ExposedFFTMPort = nextPort
 		nextPort++
 	}
 	return member
@@ -589,6 +611,11 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	// Also pull the Sandbox if we're using it
 	if s.Stack.SandboxEnabled {
 		images = append(images, constants.SandboxImageName)
+	}
+
+	// Also pull the FFTM if we're using it
+	if s.Stack.FFTMEnabled {
+		images = append(images, constants.FFTMImageName)
 	}
 
 	// Iterate over all images used by the blockchain provider
@@ -698,6 +725,9 @@ func (s *StackManager) checkPortsAvailable() error {
 		if s.Stack.SandboxEnabled {
 			ports = append(ports, member.ExposedSandboxPort)
 		}
+		if s.Stack.FFTMEnabled {
+			ports = append(ports, member.ExposedFFTMPort)
+		}
 	}
 
 	if s.Stack.PrometheusEnabled {
@@ -763,6 +793,17 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 	return nil
 }
 
+func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+	if s.Stack.FFTMEnabled {
+		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
+		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
+		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm", verbose); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
@@ -810,15 +851,17 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	for i, tp := range s.tokenProviders {
-		result, err := tp.DeploySmartContracts(i)
-		if err != nil {
-			return messages, err
-		}
-		if result != nil {
-			if result.Message != "" {
-				messages = append(messages, result.Message)
+		if !s.Stack.DisableTokenFactories {
+			result, err := tp.DeploySmartContracts(i)
+			if err != nil {
+				return messages, err
 			}
-			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			if result != nil {
+				if result.Message != "" {
+					messages = append(messages, result.Message)
+				}
+				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			}
 		}
 	}
 
@@ -842,6 +885,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	for _, member := range s.Stack.Members {
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
+			return messages, err
+		}
+		if err := s.copyFFTMConfigToContainer(verbose, configDir, member); err != nil {
 			return messages, err
 		}
 	}
@@ -1055,18 +1101,54 @@ func (s *StackManager) CreateAccount(args []string) (string, error) {
 }
 
 func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
+
+	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainNodeProvider = types.GoEthereum.String()
+	}
+
+	if s.Stack.BlockchainProvider == types.HyperledgerBesu.String() {
+		s.Stack.BlockchainProvider = types.Ethereum.String()
+		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
+	}
+
+	s.Stack.DisableTokenFactories = true
+
 	switch s.Stack.BlockchainProvider {
-	case types.GoEthereum.String():
-		return &geth.GethProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
-		}
-	case types.HyperledgerBesu.String():
-		return &besu.BesuProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
+	case types.Ethereum.String():
+		switch s.Stack.BlockchainNodeProvider {
+		case types.GoEthereum.String():
+			s.Stack.DisableTokenFactories = false
+			return &geth.GethProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+			}
+		case types.HyperledgerBesu.String():
+			s.Stack.DisableTokenFactories = false
+			return &besu.BesuProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		case types.RemoteRPC.String():
+			return &remoterpc.RemoteRPCProvider{
+				Verbose: verbose,
+				Log:     s.Log,
+				Stack:   s.Stack,
+				Signer: &ethsigner.EthSignerProvider{
+					Verbose: verbose,
+					Log:     s.Log,
+					Stack:   s.Stack,
+				},
+			}
+		default:
+			return nil
 		}
 	case types.HyperledgerFabric.String():
 		return &fabric.FabricProvider{
