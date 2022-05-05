@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - e2e
     tags:
       - 'v*'
   pull_request:
@@ -18,7 +17,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       -
@@ -35,58 +34,3 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  e2e-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        test-suite: [TestEthereumE2ESuite, TestFabricE2ESuite]
-        blockchain-provider: [geth, fabric]
-        token-provider: [none, erc1155, erc20_erc721]
-        database-type: [sqlite3, postgres]
-        exclude:
-          - blockchain-provider: geth
-            test-suite: TestFabricE2ESuite
-          - blockchain-provider: fabric
-            test-suite: TestEthereumE2ESuite
-          - blockchain-provider: fabric
-            token-provider: erc1155
-          - blockchain-provider: fabric
-            token-provider: erc20_erc721
-          - blockchain-provider: geth
-            token-provider: none
-      fail-fast: false
-    steps:
-      - name: Checkout FireFly Core repo
-        uses: actions/checkout@v3
-        with:
-          repository: hyperledger/firefly
-          path: firefly
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
-      
-      - name: Compile FireFly CLI
-        run: make install
-
-      - name: Run E2E tests
-        working-directory: firefly
-        env:
-          TEST_SUITE: ${{ matrix.test-suite }}
-          BLOCKCHAIN_PROVIDER: ${{ matrix.blockchain-provider }}
-          TOKENS_PROVIDER: ${{ matrix.token-provider }}
-          DATABASE_TYPE: ${{ matrix.database-type }}
-          DOWNLOAD_CLI: false
-        run: ./test/e2e/run.sh
-
-      - name: Archive container logs
-        uses: actions/upload-artifact@v2
-        if: always()
-        with:
-          name: container-logs-${{ matrix.test-suite }}-${{ matrix.blockchain-provider }}-${{ matrix.database-type }}-${{ matrix.token-provider }}
-          path: containerlogs/logs.txt
