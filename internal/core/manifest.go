@@ -21,15 +21,21 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func GetLatestReleaseManifest() (*types.VersionManifest, error) {
-	latestRelease, err := getLatestFireFlyRelease()
+func GetManifestForReleaseChannel(releaseChannel types.ReleaseChannelSelection) (*types.VersionManifest, error) {
+	dockerTag := types.ReleaseChannelSelectionStrings[releaseChannel]
+	if releaseChannel == types.Stable {
+		dockerTag = "latest"
+	}
+	gitCommit, err := docker.GetImageLabel(fmt.Sprintf("%s:%s", constants.FireFlyCoreImageName, dockerTag), "commit")
 	if err != nil {
 		return nil, err
 	}
-	return GetReleaseManifest(latestRelease.TagName)
+	return GetReleaseManifest(gitCommit)
 }
 
 func GetReleaseManifest(version string) (*types.VersionManifest, error) {
@@ -45,14 +51,6 @@ func GetReleaseManifest(version string) (*types.VersionManifest, error) {
 		}
 	}
 	return manifest, nil
-}
-
-func getLatestFireFlyRelease() (*types.GitHubRelease, error) {
-	release := &types.GitHubRelease{}
-	if err := request("GET", "https://api.github.com/repos/hyperledger/firefly/releases/latest", nil, release); err != nil {
-		return nil, err
-	}
-	return release, nil
 }
 
 func ReadManifestFile(p string) (*types.VersionManifest, error) {

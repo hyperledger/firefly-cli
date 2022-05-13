@@ -36,6 +36,7 @@ var blockchainProviderInput string
 var blockchainNodeProviderInput string
 var tokenProvidersSelection []string
 var promptNames bool
+var releaseChannelInput string
 
 var ffNameValidator = regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z._-]{0,62}[0-9a-zA-Z])?$`)
 
@@ -57,6 +58,9 @@ var initCmd = &cobra.Command{
 			return err
 		}
 		if err := validateTokensProvider(tokenProvidersSelection); err != nil {
+			return err
+		}
+		if err := validateReleaseChannel(releaseChannelInput); err != nil {
 			return err
 		}
 
@@ -104,6 +108,7 @@ var initCmd = &cobra.Command{
 		initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider, _ = types.BlockchainFromStrings(blockchainProviderInput, blockchainNodeProviderInput)
 		initOptions.DatabaseSelection, _ = types.DatabaseSelectionFromString(databaseSelection)
 		initOptions.TokenProviders, _ = types.TokenProvidersFromStrings(tokenProvidersSelection)
+		initOptions.ReleaseChannel, _ = types.ReleaseChannelSelectionFromString(releaseChannelInput)
 
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
@@ -183,6 +188,14 @@ func validateTokensProvider(input []string) error {
 	return nil
 }
 
+func validateReleaseChannel(input string) error {
+	_, err := types.ReleaseChannelSelectionFromString(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
@@ -206,6 +219,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.RemoteNodeURL, "remote-node-url", "", "", "For cases where the node is pre-existing and running remotely")
 	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
 	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
+	initCmd.Flags().StringVarP(&releaseChannelInput, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", types.ReleaseChannelSelectionStrings))
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -54,6 +54,7 @@ type InitOptions struct {
 	ChainID                   int64
 	DisableTokenFactories     bool
 	RequestTimeout            int
+	ReleaseChannel            ReleaseChannelSelection
 }
 
 type BlockchainProvider int
@@ -193,4 +194,28 @@ func TokenProvidersFromStrings(strTokens []string) (tps TokenProviders, err erro
 		}
 	}
 	return tps, nil
+}
+
+type ReleaseChannelSelection int
+
+const (
+	Stable ReleaseChannelSelection = iota
+	Alpha
+	Beta
+	RC
+)
+
+var ReleaseChannelSelectionStrings = []string{"stable", "alpha", "beta", "rc"}
+
+func (rc ReleaseChannelSelection) String() string {
+	return ReleaseChannelSelectionStrings[rc]
+}
+
+func ReleaseChannelSelectionFromString(s string) (ReleaseChannelSelection, error) {
+	for i, releaseChannelSelection := range ReleaseChannelSelectionStrings {
+		if strings.ToLower(s) == releaseChannelSelection {
+			return ReleaseChannelSelection(i), nil
+		}
+	}
+	return Stable, fmt.Errorf("\"%s\" is not a valid release channel selection. valid options are: %v", s, ReleaseChannelSelectionStrings)
 }
