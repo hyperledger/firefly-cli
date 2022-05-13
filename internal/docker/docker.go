@@ -197,3 +197,7 @@ func GetImageLabel(image, label string) (string, error) {
 	}
 	return val.(string), nil
 }
+
+func GetImageDigest(image string) (string, error) {
+	return crane.Digest(image)
+}
