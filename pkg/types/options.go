@@ -205,7 +205,7 @@ const (
 	RC
 )
 
-var ReleaseChannelSelectionStrings = []string{"stable", "alpha", "beta", "rc"}
+var ReleaseChannelSelectionStrings = []string{"stable", "rc", "beta", "alpha", "head"}
 
 func (rc ReleaseChannelSelection) String() string {
 	return ReleaseChannelSelectionStrings[rc]
