@@ -126,7 +126,7 @@ type DatabaseConfig struct {
 	SQLite3    *CommonDBConfig `yaml:"sqlite3,omitempty"`
 }
 
-type PublicStorageConfig struct {
+type SharedStorageConfig struct {
 	Type string             `yaml:"type,omitempty"`
 	IPFS *FireflyIPFSConfig `yaml:"ipfs,omitempty"`
 }
@@ -163,7 +163,7 @@ type FireflyConfig struct {
 	Org          *OrgConfig           `yaml:"org,omitempty"`
 	Blockchain   *BlockchainConfig    `yaml:"blockchain,omitempty"`
 	Database     *DatabaseConfig      `yaml:"database,omitempty"`
-	P2PFS        *PublicStorageConfig `yaml:"publicstorage,omitempty"`
+	P2PFS        *SharedStorageConfig `yaml:"sharedstorage,omitempty"`
 	DataExchange *DataExchangeConfig  `yaml:"dataexchange,omitempty"`
 	Tokens       TokensConfig         `yaml:"tokens,omitempty"`
 	Event        *EventConfig         `yaml:"event,omitempty"`
@@ -196,7 +196,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 		Node: &NodeConfig{
 			Name: member.NodeName,
 		},
-		P2PFS: &PublicStorageConfig{
+		P2PFS: &SharedStorageConfig{
 			Type: "ipfs",
 			IPFS: &FireflyIPFSConfig{
 				API: &HttpEndpointConfig{
