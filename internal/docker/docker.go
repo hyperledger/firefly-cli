@@ -18,11 +18,14 @@ package docker
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
 	"path"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/crane"
 )
 
 func CreateVolume(volumeName string, verbose bool) error {
@@ -160,4 +163,41 @@ func readPipe(pipe io.ReadCloser, outputChan chan string, errChan chan error) {
 			outputChan <- line
 		}
 	}
+}
+
+func GetImageConfig(image string) (map[string]interface{}, error) {
+	b, err := crane.Config(image)
+	if err != nil {
+		return nil, err
+	}
+	var jsonMap map[string]interface{}
+	err = json.Unmarshal(b, &jsonMap)
+	if err != nil {
+		return nil, err
+	}
+	return jsonMap, nil
+}
+
+func GetImageLabel(image, label string) (string, error) {
+	config, err := GetImageConfig(image)
+	if err != nil {
+		return "", err
+	}
+	c, ok := config["config"]
+	if !ok {
+		return "", nil
+	}
+	labels, ok := c.(map[string]interface{})["Labels"]
+	if !ok {
+		return "", nil
+	}
+	val, ok := labels.(map[string]interface{})[label]
+	if !ok {
+		return "", nil
+	}
+	return val.(string), nil
+}
+
+func GetImageDigest(image string) (string, error) {
+	return crane.Digest(image)
 }

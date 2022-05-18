@@ -12,11 +12,13 @@ jobs:
     strategy:
       matrix:
         test-suite: [TestEthereumE2ESuite, TestFabricE2ESuite]
-        blockchain-provider: [geth, fabric]
+        blockchain-provider: [geth, fabric, besu]
         token-provider: [none, erc1155, erc20_erc721]
         database-type: [sqlite3, postgres]
         exclude:
           - blockchain-provider: geth
+            test-suite: TestFabricE2ESuite
+          - blockchain-provider: besu
             test-suite: TestFabricE2ESuite
           - blockchain-provider: fabric
             test-suite: TestEthereumE2ESuite
@@ -25,6 +27,8 @@ jobs:
           - blockchain-provider: fabric
             token-provider: erc20_erc721
           - blockchain-provider: geth
+            token-provider: none
+          - blockchain-provider: besu
             token-provider: none
       fail-fast: false
     steps:

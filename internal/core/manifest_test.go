@@ -19,15 +19,9 @@ package core
 import (
 	"testing"
 
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestGetLatestFireFlyRelease(T *testing.T) {
-	gitHubRelease, err := getLatestFireFlyRelease()
-	assert.NoError(T, err)
-	assert.NotNil(T, gitHubRelease)
-	assert.NotEmpty(T, gitHubRelease.TagName)
-}
 
 func TestGetFireFlyManifest(T *testing.T) {
 	manifest, err := GetReleaseManifest("main")
@@ -42,7 +36,7 @@ func TestGetFireFlyManifest(T *testing.T) {
 }
 
 func TestGetLatestReleaseManifest(T *testing.T) {
-	manifest, err := GetLatestReleaseManifest()
+	manifest, err := GetManifestForReleaseChannel(types.Stable)
 	assert.NoError(T, err)
 	assert.NotNil(T, manifest)
 	assert.NotNil(T, manifest.FireFly)

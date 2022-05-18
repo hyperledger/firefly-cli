@@ -21,15 +21,42 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func GetLatestReleaseManifest() (*types.VersionManifest, error) {
-	latestRelease, err := getLatestFireFlyRelease()
+func GetManifestForReleaseChannel(releaseChannel types.ReleaseChannelSelection) (*types.VersionManifest, error) {
+	dockerTag := types.ReleaseChannelSelectionStrings[releaseChannel]
+	if releaseChannel == types.Stable {
+		dockerTag = "latest"
+	}
+
+	imageName := fmt.Sprintf("%s:%s", constants.FireFlyCoreImageName, dockerTag)
+
+	gitCommit, err := docker.GetImageLabel(imageName, "commit")
 	if err != nil {
 		return nil, err
 	}
-	return GetReleaseManifest(latestRelease.TagName)
+
+	imageDigest, err := docker.GetImageDigest(imageName)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest, err := GetReleaseManifest(gitCommit)
+	if err != nil {
+		return nil, err
+	}
+
+	if manifest.FireFly == nil {
+		// Fill in the FireFly version number
+		manifest.FireFly = &types.ManifestEntry{
+			Image: "ghcr.io/hyperledger/firefly",
+			SHA:   imageDigest[7:],
+		}
+	}
+	return manifest, nil
 }
 
 func GetReleaseManifest(version string) (*types.VersionManifest, error) {
@@ -37,22 +64,8 @@ func GetReleaseManifest(version string) (*types.VersionManifest, error) {
 	if err := request("GET", fmt.Sprintf("https://raw.githubusercontent.com/hyperledger/firefly/%s/manifest.json", version), nil, &manifest); err != nil {
 		return nil, err
 	}
-	if manifest.FireFly == nil {
-		// Fill in the FireFly version number
-		manifest.FireFly = &types.ManifestEntry{
-			Image: "ghcr.io/hyperledger/firefly",
-			Tag:   version,
-		}
-	}
-	return manifest, nil
-}
 
-func getLatestFireFlyRelease() (*types.GitHubRelease, error) {
-	release := &types.GitHubRelease{}
-	if err := request("GET", "https://api.github.com/repos/hyperledger/firefly/releases/latest", nil, release); err != nil {
-		return nil, err
-	}
-	return release, nil
+	return manifest, nil
 }
 
 func ReadManifestFile(p string) (*types.VersionManifest, error) {

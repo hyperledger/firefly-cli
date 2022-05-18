@@ -126,7 +126,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	} else {
 		// Otherwise, fetch the manifest file from GitHub for the specified version
 		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
-			manifest, err = core.GetLatestReleaseManifest()
+			manifest, err = core.GetManifestForReleaseChannel(options.ReleaseChannel)
 			if err != nil {
 				return err
 			}

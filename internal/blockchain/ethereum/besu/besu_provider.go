@@ -133,7 +133,7 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			addresses = addresses + ","
 		}
 	}
-	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0 --miner.gaslimit 16777215`, p.Stack.ChainID())
+	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`, p.Stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 2)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
