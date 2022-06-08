@@ -62,7 +62,7 @@ This command will start a stack and run it in the background.
 			return err
 		}
 
-		if runBefore, err := stackManager.StackHasRunBefore(); err != nil {
+		if runBefore, err := stackManager.Stack.HasRunBefore(); err != nil {
 			return err
 		} else if !runBefore {
 			fmt.Println("this will take a few seconds longer since this is the first time you're running this stack...")

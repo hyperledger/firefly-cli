@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
@@ -144,7 +143,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
-		s.Stack.Members[i] = createMember(fmt.Sprint(i), i, options, externalProcess)
+		member, err := s.createMember(fmt.Sprint(i), i, options, externalProcess)
+		if err != nil {
+			return err
+		}
+		s.Stack.Members[i] = member
 		if s.Stack.Members[i].Account != nil {
 			s.Stack.State.Accounts[i] = s.Stack.Members[i].Account
 		}
@@ -216,17 +219,6 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
-func isOldFileStructure(stackDir string) (bool, error) {
-	_, err := os.Stat(filepath.Join(stackDir, "init"))
-	if os.IsNotExist(err) {
-		return true, nil
-	} else if err != nil {
-		return false, err
-	} else {
-		return false, nil
-	}
-}
-
 func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	stackDir := filepath.Join(constants.StacksDir, stackName)
 	exists, err := CheckExists(stackName)
@@ -253,7 +245,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		core.SetRequestTimeout(s.Stack.RequestTimeout)
 	}
 
-	isOldFileStructure, err := isOldFileStructure(s.Stack.StackDir)
+	isOldFileStructure, err := s.Stack.IsOldFileStructure()
 	if err != nil {
 		return err
 	}
@@ -304,7 +296,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		}
 	}
 
-	stackHasRunBefore, err := s.StackHasRunBefore()
+	stackHasRunBefore, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return nil
 	}
@@ -494,7 +486,7 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 	return nil
 }
 
-func createMember(id string, index int, options *types.InitOptions, external bool) *types.Member {
+func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Member, error) {
 	serviceBase := options.ServicesBasePort + (index * 100)
 	member := &types.Member{
 		ID:                      id,
@@ -521,16 +513,12 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 		nextPort++
 	}
 
-	switch options.BlockchainProvider {
-	case types.Ethereum:
-		address, privateKey := ethereum.GenerateAddressAndPrivateKey()
-		member.Account = &ethereum.Account{
-			Address:    address,
-			PrivateKey: privateKey,
-		}
-	case types.HyperledgerFabric:
-		// This will be filled in by the Fabric blockchain provider
+	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName})
+	if err != nil {
+		return nil, err
 	}
+	member.Account = account
+
 	if options.SandboxEnabled {
 		member.ExposedSandboxPort = nextPort
 		nextPort++
@@ -539,7 +527,7 @@ func createMember(id string, index int, options *types.InitOptions, external boo
 		member.ExposedFFTMPort = nextPort
 		nextPort++
 	}
-	return member
+	return member, nil
 }
 
 func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (messages []string, err error) {
@@ -549,7 +537,7 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 	if err != nil {
 		return messages, err
 	}
-	hasBeenRun, err := s.StackHasRunBefore()
+	hasBeenRun, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return messages, err
 	}
@@ -1029,30 +1017,6 @@ func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, 
 		}
 	}
 	return nil
-}
-
-func (s *StackManager) StackHasRunBefore() (bool, error) {
-	if s.IsOldFileStructure {
-		dataDir := filepath.Join(constants.StacksDir, s.Stack.Name, "data")
-		_, err := os.Stat(dataDir)
-		if os.IsNotExist(err) {
-			return false, nil
-		} else if err != nil {
-			return false, err
-		} else {
-			return true, nil
-		}
-	} else {
-		runtimeDir := filepath.Join(s.Stack.RuntimeDir)
-		_, err := os.Stat(runtimeDir)
-		if os.IsNotExist(err) {
-			return false, nil
-		} else if err != nil {
-			return false, err
-		} else {
-			return true, nil
-		}
-	}
 }
 
 func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]string, error) {

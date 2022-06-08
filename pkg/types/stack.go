@@ -16,6 +16,13 @@
 
 package types
 
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/hyperledger/firefly-cli/internal/constants"
+)
+
 type Stack struct {
 	Name                   string           `json:"name,omitempty"`
 	Members                []*Member        `json:"members,omitempty"`
@@ -46,6 +53,47 @@ func (s *Stack) ChainID() int64 {
 		return 2021 // the original default, before it could be customized
 	}
 	return *s.ChainIDPtr
+}
+
+func (s *Stack) HasRunBefore() (bool, error) {
+	stackDir := filepath.Join(constants.StacksDir, s.Name)
+	isOldFileStructure, err := s.IsOldFileStructure()
+	if err != nil {
+		return false, err
+	}
+	if isOldFileStructure {
+		dataDir := filepath.Join(stackDir, "data")
+		_, err := os.Stat(dataDir)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		} else {
+			return true, nil
+		}
+	} else {
+		runtimeDir := filepath.Join(stackDir, "runtime")
+		_, err := os.Stat(runtimeDir)
+		if os.IsNotExist(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		} else {
+			return true, nil
+		}
+	}
+}
+
+func (s *Stack) IsOldFileStructure() (bool, error) {
+	stackDir := filepath.Join(constants.StacksDir, s.Name)
+	_, err := os.Stat(filepath.Join(stackDir, "init"))
+	if os.IsNotExist(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	} else {
+		return false, nil
+	}
 }
 
 type Member struct {
