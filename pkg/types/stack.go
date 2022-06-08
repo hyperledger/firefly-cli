@@ -97,22 +97,22 @@ func (s *Stack) IsOldFileStructure() (bool, error) {
 }
 
 type Member struct {
-	ID                        string      `json:"id,omitempty"`
-	Index                     *int        `json:"index,omitempty"`
-	Account                   interface{} `json:"account,omitempty"`
-	ExposedFireflyPort        int         `json:"exposedFireflyPort,omitempty"`
-	ExposedFireflyAdminPort   int         `json:"exposedFireflyAdminPort,omitempty"`
-	ExposedFireflyMetricsPort int         `json:"exposedFireflyMetricsPort,omitempty"`
-	ExposedConnectorPort      int         `json:"exposedConnectorPort,omitempty"`
-	ExposedDatabasePort       int         `json:"exposedPostgresPort,omitempty"`
-	ExposedDataexchangePort   int         `json:"exposedDataexchangePort,omitempty"`
-	ExposedIPFSApiPort        int         `json:"exposedIPFSApiPort,omitempty"`
-	ExposedIPFSGWPort         int         `json:"exposedIPFSGWPort,omitempty"`
-	ExposedUIPort             int         `json:"exposedUiPort,omitempty"`
-	ExposedSandboxPort        int         `json:"exposedSandboxPort,omitempty"`
-	ExposedFFTMPort           int         `json:"exposedFFTMPort,omitempty"`
-	ExposedTokensPorts        []int       `json:"exposedTokensPorts,omitempty"`
-	External                  bool        `json:"external,omitempty"`
-	OrgName                   string      `json:"orgName,omitempty"`
-	NodeName                  string      `json:"nodeName,omitempty"`
+	ID                         string      `json:"id,omitempty"`
+	Index                      *int        `json:"index,omitempty"`
+	Account                    interface{} `json:"account,omitempty"`
+	ExposedFireflyPort         int         `json:"exposedFireflyPort,omitempty"`
+	ExposedFireflyAdminSPIPort int         `json:"exposedFireflyAdminPort,omitempty"` // stack.json still contains the word "Admin" (rather than SPI) for migration
+	ExposedFireflyMetricsPort  int         `json:"exposedFireflyMetricsPort,omitempty"`
+	ExposedConnectorPort       int         `json:"exposedConnectorPort,omitempty"`
+	ExposedDatabasePort        int         `json:"exposedPostgresPort,omitempty"`
+	ExposedDataexchangePort    int         `json:"exposedDataexchangePort,omitempty"`
+	ExposedIPFSApiPort         int         `json:"exposedIPFSApiPort,omitempty"`
+	ExposedIPFSGWPort          int         `json:"exposedIPFSGWPort,omitempty"`
+	ExposedUIPort              int         `json:"exposedUiPort,omitempty"`
+	ExposedSandboxPort         int         `json:"exposedSandboxPort,omitempty"`
+	ExposedFFTMPort            int         `json:"exposedFFTMPort,omitempty"`
+	ExposedTokensPorts         []int       `json:"exposedTokensPorts,omitempty"`
+	External                   bool        `json:"external,omitempty"`
+	OrgName                    string      `json:"orgName,omitempty"`
+	NodeName                   string      `json:"nodeName,omitempty"`
 }

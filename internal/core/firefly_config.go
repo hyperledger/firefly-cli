@@ -42,6 +42,11 @@ type AdminServerConfig struct {
 	PreInit          bool `yaml:"preinit,omitempty"`
 }
 
+type SPIServerConfig struct {
+	HttpServerConfig `yaml:",inline"`
+	Enabled          bool `yaml:"enabled,omitempty"`
+}
+
 type MetricsServerConfig struct {
 	HttpServerConfig `yaml:",inline"`
 	Enabled          bool   `yaml:"enabled,omitempty"`
@@ -156,7 +161,8 @@ type FireflyConfig struct {
 	Log          *LogConfig           `yaml:"log,omitempty"`
 	Debug        *HttpServerConfig    `yaml:"debug,omitempty"`
 	HTTP         *HttpServerConfig    `yaml:"http,omitempty"`
-	Admin        *AdminServerConfig   `yaml:"admin,omitempty"`
+	Admin        *AdminServerConfig   `yaml:"admin,omitempty"` // V1.0 admin API
+	SPI          *SPIServerConfig     `yaml:"spi,omitempty"`   // V1.1 and later SPI
 	Metrics      *MetricsServerConfig `yaml:"metrics,omitempty"`
 	UI           *UIConfig            `yaml:"ui,omitempty"`
 	Node         *NodeConfig          `yaml:"node,omitempty"`
@@ -170,6 +176,11 @@ type FireflyConfig struct {
 }
 
 func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
+	spiHttpConfig := HttpServerConfig{
+		Port:      member.ExposedFireflyAdminSPIPort,
+		Address:   "0.0.0.0",
+		PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminSPIPort),
+	}
 	memberConfig := &FireflyConfig{
 		Log: &LogConfig{
 			Level: "debug",
@@ -183,12 +194,12 @@ func NewFireflyConfig(stack *types.Stack, member *types.Member) *FireflyConfig {
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
 		},
 		Admin: &AdminServerConfig{
-			HttpServerConfig: HttpServerConfig{
-				Port:      member.ExposedFireflyAdminPort,
-				Address:   "0.0.0.0",
-				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminPort),
-			},
-			Enabled: true,
+			HttpServerConfig: spiHttpConfig,
+			Enabled:          true,
+		},
+		SPI: &SPIServerConfig{
+			HttpServerConfig: spiHttpConfig,
+			Enabled:          true,
 		},
 		UI: &UIConfig{
 			Path: "./frontend",

@@ -91,7 +91,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
-					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminPort, member.ExposedFireflyAdminPort),
+					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminSPIPort, member.ExposedFireflyAdminSPIPort),
 				},
 				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
 				DependsOn: map[string]map[string]string{
