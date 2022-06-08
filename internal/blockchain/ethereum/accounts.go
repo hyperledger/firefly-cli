@@ -17,7 +17,6 @@
 package ethereum
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -38,7 +37,7 @@ func CreateWalletFile(outputDirectory, password string) (*secp256k1.KeyPair, err
 		return nil, err
 	}
 
-	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.key", keyPair.Address.String()[2:]))
+	filename := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
 	err = ioutil.WriteFile(filename, wallet.JSON(), 0755)
 	if err != nil {
 		return nil, err

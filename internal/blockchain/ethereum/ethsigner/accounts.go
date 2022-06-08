@@ -34,7 +34,7 @@ description = "File based configuration"
 
 [signing]
 type = "file-based-signer"
-key-file = "/data/keystore/%s.key"
+key-file = "/data/keystore/%s"
 password-file = "/data/password"
 `, address)
 	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.toml", address))

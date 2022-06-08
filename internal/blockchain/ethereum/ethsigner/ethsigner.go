@@ -87,7 +87,7 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 	// Copy the wallet file for each member to the blockchain volume
 	for _, member := range p.Stack.Members {
 		account := member.Account.(*ethereum.Account)
-		walletFilePath := filepath.Join(blockchainDir, "keystore", fmt.Sprintf("%s.key", strings.TrimPrefix(account.Address, "0x")))
+		walletFilePath := filepath.Join(blockchainDir, "keystore", strings.TrimPrefix(account.Address, "0x"))
 
 		if err := ethereum.CopyWalletFileToVolume(walletFilePath, ethsignerVolumeName, p.Verbose); err != nil {
 			return err
@@ -200,7 +200,7 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	walletFilePath := filepath.Join(outputDirectory, fmt.Sprintf("%s.key", keyPair.Address.String()[2:]))
+	walletFilePath := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
 	if err := p.writeTomlKeyFile(directory, keyPair.Address.String()); err != nil {
 		return nil, err
 	}

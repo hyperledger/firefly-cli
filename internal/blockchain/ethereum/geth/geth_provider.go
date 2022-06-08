@@ -87,7 +87,7 @@ func (p *GethProvider) FirstTimeSetup() error {
 
 		// Copy the wallet file for each member to the blockchain volume
 		account := member.Account.(*ethereum.Account)
-		walletFilePath := filepath.Join(blockchainDir, "keystore", fmt.Sprintf("%s.key", strings.TrimPrefix(account.Address, "0x")))
+		walletFilePath := filepath.Join(blockchainDir, "keystore", strings.TrimPrefix(account.Address, "0x"))
 		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	walletFilePath := filepath.Join(outputDirectory, fmt.Sprintf("%s.key", keyPair.Address.String()[2:]))
+	walletFilePath := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
 
 	if stackHasRunBefore {
 		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {
