@@ -22,7 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
@@ -79,18 +79,17 @@ func (p *GethProvider) FirstTimeSetup() error {
 		return err
 	}
 
-	for i, member := range p.Stack.Members {
+	for i := range p.Stack.Members {
 		// Copy ethconnect config to each member's volume
 		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
 		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	}
 
-		// Copy the wallet file for each member to the blockchain volume
-		account := member.Account.(*ethereum.Account)
-		walletFilePath := filepath.Join(blockchainDir, "keystore", strings.TrimPrefix(account.Address, "0x"))
-		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {
-			return err
-		}
+	// Copy the wallet files all members to the blockchain volume
+	keystoreDirectory := filepath.Join(blockchainDir, "keystore")
+	if err := docker.CopyFileToVolume(gethVolumeName, keystoreDirectory, "/", p.Verbose); err != nil {
+		return err
 	}
 
 	// Copy the genesis block information
@@ -235,12 +234,12 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		directory = p.Stack.InitDir
 	}
 
+	prefix := strconv.FormatInt(time.Now().UnixNano(), 10)
 	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
-	keyPair, err := ethereum.CreateWalletFile(outputDirectory, keyPassword)
+	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, prefix, keyPassword)
 	if err != nil {
 		return nil, err
 	}
-	walletFilePath := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
 
 	if stackHasRunBefore {
 		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {

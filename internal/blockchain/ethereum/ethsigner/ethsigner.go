@@ -84,19 +84,8 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 	signerConfigVolumeName := fmt.Sprintf("%s_ethsigner_config", p.Stack.Name)
 	docker.CopyFileToVolume(signerConfigVolumeName, signerConfigPath, "firefly.ffsigner", p.Verbose)
 
-	// Copy the wallet file for each member to the blockchain volume
-	for _, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		walletFilePath := filepath.Join(blockchainDir, "keystore", strings.TrimPrefix(account.Address, "0x"))
-
-		if err := ethereum.CopyWalletFileToVolume(walletFilePath, ethsignerVolumeName, p.Verbose); err != nil {
-			return err
-		}
-
-		if err := p.copyTomlFileToVolume(filepath.Join(blockchainDir, "keystore"), account.Address, ethsignerVolumeName, p.Verbose); err != nil {
-			return err
-		}
-	}
+	// Copy the wallet files all members to the blockchain volume
+	docker.CopyFileToVolume(ethsignerVolumeName, filepath.Join(blockchainDir, "keystore"), "/", p.Verbose)
 
 	// Copy the password (to be used for decrypting private keys)
 	if err := docker.CopyFileToVolume(ethsignerVolumeName, path.Join(blockchainDir, "password"), "password", p.Verbose); err != nil {
@@ -196,12 +185,13 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
-	keyPair, err := ethereum.CreateWalletFile(outputDirectory, keyPassword)
+	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, "", keyPassword)
 	if err != nil {
 		return nil, err
 	}
-	walletFilePath := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
-	if err := p.writeTomlKeyFile(directory, keyPair.Address.String()); err != nil {
+
+	tomlFilePath, err := p.writeTomlKeyFile(walletFilePath)
+	if err != nil {
 		return nil, err
 	}
 
@@ -210,7 +200,7 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 			return nil, err
 		}
 
-		if err := p.copyTomlFileToVolume(outputDirectory, keyPair.Address.String(), ethsignerVolumeName, p.Verbose); err != nil {
+		if err := p.copyTomlFileToVolume(tomlFilePath, ethsignerVolumeName, p.Verbose); err != nil {
 			return nil, err
 		}
 

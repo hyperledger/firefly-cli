@@ -34,7 +34,7 @@ func CreateVolume(volumeName string, verbose bool) error {
 
 func CopyFileToVolume(volumeName string, sourcePath string, destPath string, verbose bool) error {
 	fileName := path.Base(sourcePath)
-	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
+	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", "-R", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
 }
 
 func MkdirInVolume(volumeName string, directory string, verbose bool) error {

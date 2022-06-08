@@ -20,14 +20,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-func (p *EthSignerProvider) writeTomlKeyFile(directory, address string) error {
-	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
-	address = strings.TrimPrefix(address, "0x")
+func (p *EthSignerProvider) writeTomlKeyFile(walletFilePath string) (string, error) {
+	outputDirectory := filepath.Dir(walletFilePath)
+	keyFile := filepath.Base(walletFilePath)
 	toml := fmt.Sprintf(`[metadata]
 createdAt = 2019-11-05T08:15:30-05:00
 description = "File based configuration"
@@ -36,18 +35,16 @@ description = "File based configuration"
 type = "file-based-signer"
 key-file = "/data/keystore/%s"
 password-file = "/data/password"
-`, address)
-	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.toml", address))
-	return ioutil.WriteFile(filename, []byte(toml), 0755)
+`, keyFile)
+	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.toml", keyFile))
+	return filename, ioutil.WriteFile(filename, []byte(toml), 0755)
 }
 
-func (p *EthSignerProvider) copyTomlFileToVolume(directory, address, volumeName string, verbose bool) error {
-	address = strings.TrimPrefix(address, "0x")
-	filename := filepath.Join(directory, fmt.Sprintf("%s.toml", address))
+func (p *EthSignerProvider) copyTomlFileToVolume(tomlFilePath, volumeName string, verbose bool) error {
 	if err := docker.MkdirInVolume(volumeName, "/keystore", verbose); err != nil {
 		return err
 	}
-	if err := docker.CopyFileToVolume(volumeName, filename, "/keystore", verbose); err != nil {
+	if err := docker.CopyFileToVolume(volumeName, tomlFilePath, "/keystore", verbose); err != nil {
 		return err
 	}
 	return nil

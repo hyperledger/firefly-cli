@@ -17,6 +17,7 @@
 package ethereum
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,23 +27,28 @@ import (
 	"github.com/hyperledger/firefly-signer/pkg/secp256k1"
 )
 
-func CreateWalletFile(outputDirectory, password string) (*secp256k1.KeyPair, error) {
+func CreateWalletFile(outputDirectory, prefix, password string) (*secp256k1.KeyPair, string, error) {
 	keyPair, err := secp256k1.GenerateSecp256k1KeyPair()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	wallet := keystorev3.NewWalletFileStandard(password, keyPair)
 
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	filename := filepath.Join(outputDirectory, keyPair.Address.String()[2:])
+	var filename string
+	if prefix != "" {
+		filename = filepath.Join(outputDirectory, fmt.Sprintf("%v_%s", prefix, keyPair.Address.String()[2:]))
+	} else {
+		filename = filepath.Join(outputDirectory, keyPair.Address.String()[2:])
+	}
 	err = ioutil.WriteFile(filename, wallet.JSON(), 0755)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return keyPair, nil
+	return keyPair, filename, nil
 }
 
 func CopyWalletFileToVolume(walletFilePath, volumeName string, verbose bool) error {
