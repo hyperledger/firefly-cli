@@ -17,6 +17,7 @@
 package ethsigner
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -33,7 +34,9 @@ import (
 )
 
 var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:v0.9.1"
-var gethImage = "ethereum/client-go:release-1.10"
+
+// TODO: Probably randomize this and make it different per member?
+var keyPassword = "correcthorsebatterystaple"
 
 const useJavaSigner = false // also need to change the image appropriately if you recompile to use the Java signer
 
@@ -46,31 +49,18 @@ type EthSignerProvider struct {
 func (p *EthSignerProvider) WriteConfig(options *types.InitOptions, rpcURL string) error {
 
 	// Write the password that will be used to encrypt the private key
-	// TODO: Probably randomize this and make it differnet per member?
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	blockchainDirectory := filepath.Join(initDir, "blockchain")
 	if err := os.MkdirAll(blockchainDirectory, 0755); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte(keyPassword), 0755); err != nil {
 		return err
 	}
 
 	signerConfigPath := filepath.Join(initDir, "config", "ethsigner.yaml")
 	if err := GenerateSignerConfig(options.ChainID, rpcURL).WriteConfig(signerConfigPath); err != nil {
 		return nil
-	}
-
-	for _, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		// Write the private key to disk for each member
-		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
-			return err
-		}
-
-		if err := p.writeTomlKeyFile(p.Stack.InitDir, account.Address); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -94,14 +84,8 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 	signerConfigVolumeName := fmt.Sprintf("%s_ethsigner_config", p.Stack.Name)
 	docker.CopyFileToVolume(signerConfigVolumeName, signerConfigPath, "firefly.ffsigner", p.Verbose)
 
-	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
-	// Note: This is needed because of licensing issues with the Go Ethereum library that could do this step
-	for _, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		if err := p.importAccountToEthsigner(account.Address); err != nil {
-			return err
-		}
-	}
+	// Copy the wallet files all members to the blockchain volume
+	docker.CopyFileToVolume(ethsignerVolumeName, filepath.Join(blockchainDir, "keystore"), "/", p.Verbose)
 
 	// Copy the password (to be used for decrypting private keys)
 	if err := docker.CopyFileToVolume(ethsignerVolumeName, path.Join(blockchainDir, "password"), "password", p.Verbose); err != nil {
@@ -122,7 +106,7 @@ func (p *EthSignerProvider) getCommand(rpcURL string) string {
 		panic(fmt.Errorf("RPC URL invalid '%s': %s", rpcURL, err))
 	}
 	ethsignerCommand := []string{}
-	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--logging=DEBUG`))
+	ethsignerCommand = append(ethsignerCommand, "--logging=DEBUG")
 	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--chain-id=%d`, p.Stack.ChainID()))
 	ethsignerCommand = append(ethsignerCommand, fmt.Sprintf(`--downstream-http-host=%s`, u.Hostname()))
 	port := u.Port()
@@ -160,7 +144,7 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 			Command:       p.getCommand(rpcURL),
 			Volumes: []string{
 				"ethsigner:/data",
-				fmt.Sprintf("ethsigner_config:/etc/firefly"),
+				"ethsigner_config:/etc/firefly",
 			},
 			Logging: docker.StandardLogOptions,
 			HealthCheck: &docker.HealthCheck{
@@ -188,22 +172,42 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 }
 
 func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
-	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+	ethsignerVolumeName := fmt.Sprintf("%s_ethsigner", p.Stack.Name)
+	var directory string
+	stackHasRunBefore, err := p.Stack.HasRunBefore()
+	if err != nil {
+		return nil, err
+	}
+	if stackHasRunBefore {
+		directory = p.Stack.RuntimeDir
+	} else {
+		directory = p.Stack.InitDir
+	}
 
-	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
+	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
+	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, "", keyPassword)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := p.writeTomlKeyFile(p.Stack.RuntimeDir, address); err != nil {
+	tomlFilePath, err := p.writeTomlKeyFile(walletFilePath)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := p.importAccountToEthsigner(address); err != nil {
-		return nil, err
+	if stackHasRunBefore {
+		if err := ethereum.CopyWalletFileToVolume(walletFilePath, ethsignerVolumeName, p.Verbose); err != nil {
+			return nil, err
+		}
+
+		if err := p.copyTomlFileToVolume(tomlFilePath, ethsignerVolumeName, p.Verbose); err != nil {
+			return nil, err
+		}
+
 	}
 
-	return map[string]string{
-		"address":    address,
-		"privateKey": privateKey,
+	return &ethereum.Account{
+		Address:    keyPair.Address.String(),
+		PrivateKey: hex.EncodeToString(keyPair.PrivateKey.Serialize()),
 	}, nil
 }

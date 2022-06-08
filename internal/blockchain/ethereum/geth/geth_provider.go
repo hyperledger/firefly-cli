@@ -17,11 +17,12 @@
 package geth
 
 import (
+	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
@@ -35,6 +36,9 @@ import (
 
 var gethImage = "ethereum/client-go:release-1.10"
 
+// TODO: Probably randomize this and make it different per member?
+var keyPassword = "correcthorsebatterystaple"
+
 type GethProvider struct {
 	Log     log.Logger
 	Verbose bool
@@ -44,13 +48,6 @@ type GethProvider struct {
 func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
 	for i, member := range p.Stack.Members {
-		account := member.Account.(*ethereum.Account)
-		// Write the private key to disk for each member
-		// Drop the 0x on the front of the private key here because that's what geth is expecting in the keyfile
-		if err := p.writeAccountToDisk(p.Stack.InitDir, account.Address, account.PrivateKey); err != nil {
-			return err
-		}
-
 		// Generate the ethconnect config for each member
 		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
 		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
@@ -67,12 +64,6 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	}
 	genesis := CreateGenesis(addresses, options.BlockPeriod, p.Stack.ChainID())
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
-		return err
-	}
-
-	// Write the password that will be used to encrypt the private key
-	// TODO: Probably randomize this and make it differnet per member?
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte("correcthorsebatterystaple"), 0755); err != nil {
 		return err
 	}
 
@@ -95,19 +86,14 @@ func (p *GethProvider) FirstTimeSetup() error {
 		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
 	}
 
-	// Mount the directory containing all members' private keys and password, and import the accounts using the geth CLI
-	for _, member := range p.Stack.Members {
-		address := member.Account.(*ethereum.Account).Address
-		p.importAccountToGeth(address)
+	// Copy the wallet files all members to the blockchain volume
+	keystoreDirectory := filepath.Join(blockchainDir, "keystore")
+	if err := docker.CopyFileToVolume(gethVolumeName, keystoreDirectory, "/", p.Verbose); err != nil {
+		return err
 	}
 
 	// Copy the genesis block information
 	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
-		return err
-	}
-
-	// Copy the password (to be used for decrypting private keys)
-	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(blockchainDir, "password"), "password", p.Verbose); err != nil {
 		return err
 	}
 
@@ -128,7 +114,7 @@ func (p *GethProvider) PostStart() error {
 	for _, account := range p.Stack.State.Accounts {
 		address := account.(*ethereum.Account).Address
 		p.Log.Info(fmt.Sprintf("unlocking account %s", address))
-		if err := p.unlockAccount(address, "correcthorsebatterystaple"); err != nil {
+		if err := p.unlockAccount(address, keyPassword); err != nil {
 			return err
 		}
 	}
@@ -219,7 +205,7 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (p *GethProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
+	contractAddress, err := ethconnect.DeployCustomContract(member, filename, contractName)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +214,7 @@ func (p *GethProvider) DeployContract(filename, contractName string, member *typ
 		DeployedContract: &types.DeployedContract{
 			Name: contractName,
 			Location: map[string]string{
-				"address": contractAddres,
+				"address": contractAddress,
 			},
 		},
 	}
@@ -236,21 +222,37 @@ func (p *GethProvider) DeployContract(filename, contractName string, member *typ
 }
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
-	address, privateKey := ethereum.GenerateAddressAndPrivateKey()
+	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
+	var directory string
+	stackHasRunBefore, err := p.Stack.HasRunBefore()
+	if err != nil {
+		return nil, err
+	}
+	if stackHasRunBefore {
+		directory = p.Stack.RuntimeDir
+	} else {
+		directory = p.Stack.InitDir
+	}
 
-	if err := p.writeAccountToDisk(p.Stack.RuntimeDir, address, privateKey); err != nil {
-		return nil, err
-	}
-	if err := p.importAccountToGeth(address); err != nil {
-		return nil, err
-	}
-	if err := p.unlockAccount(address, "correcthorsebatterystaple"); err != nil {
+	prefix := strconv.FormatInt(time.Now().UnixNano(), 10)
+	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
+	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, prefix, keyPassword)
+	if err != nil {
 		return nil, err
 	}
 
-	return map[string]string{
-		"address":    address,
-		"privateKey": privateKey,
+	if stackHasRunBefore {
+		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {
+			return nil, err
+		}
+		if err := p.unlockAccount(keyPair.Address.String(), keyPassword); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ethereum.Account{
+		Address:    keyPair.Address.String(),
+		PrivateKey: hex.EncodeToString(keyPair.PrivateKey.Serialize()),
 	}, nil
 }
 

@@ -48,7 +48,7 @@ output with the -f flag.`,
 			return err
 		}
 
-		stackHasRunBefore, err := stackManager.StackHasRunBefore()
+		stackHasRunBefore, err := stackManager.Stack.HasRunBefore()
 		if err != nil {
 			return err
 		}

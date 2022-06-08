@@ -156,13 +156,13 @@ func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult
 		return nil, err
 	}
 
+	// Register pre-created identities
 	p.Log.Info("registering identities")
 	for _, m := range p.Stack.Members {
-		account, err := p.registerIdentity(m, m.OrgName)
+		_, err := p.registerIdentity(m, m.OrgName)
 		if err != nil {
 			return nil, err
 		}
-		p.Stack.State.Accounts = append(p.Stack.State.Accounts, account)
 	}
 
 	result := &types.ContractDeploymentResult{
@@ -516,6 +516,10 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 }
 
 func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
+	stackHasRunBefore, err := p.Stack.HasRunBefore()
+	if err != nil {
+		return nil, err
+	}
 	switch {
 	case len(args) < 1:
 		return "", fmt.Errorf("org name not set. usage: ff accounts create <stack_name> <org_name> <account_name>")
@@ -524,13 +528,20 @@ func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 	orgName := args[0]
 	accountName := args[1]
-	// Find the FireFly member by the org name
-	for _, member := range p.Stack.Members {
-		if member.OrgName == orgName {
-			return p.registerIdentity(member, accountName)
+
+	if stackHasRunBefore {
+		// Find the FireFly member by the org name
+		for _, member := range p.Stack.Members {
+			if member.OrgName == orgName {
+				return p.registerIdentity(member, accountName)
+			}
 		}
+		return nil, fmt.Errorf("unable to find a FireFly org with name: '%s'", orgName)
 	}
-	return nil, fmt.Errorf("unable to find a FireFly org with name: '%s'", orgName)
+	return &Account{
+		Name:    accountName,
+		OrgName: orgName,
+	}, nil
 }
 
 // As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images

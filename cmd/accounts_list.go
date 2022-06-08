@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// accountsListCmd represents the "accounts create" command
+// accountsListCmd represents the "accounts list" command
 var accountsListCmd = &cobra.Command{
 	Use:     "list <stack_name>",
 	Short:   "List the accounts in the FireFly stack",
@@ -45,7 +45,7 @@ var accountsListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Print(string(accounts))
+		fmt.Printf("%s\n", string(accounts))
 		return nil
 	},
 }
