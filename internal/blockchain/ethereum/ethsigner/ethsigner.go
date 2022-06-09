@@ -33,7 +33,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:v0.9.1"
+var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:v0.9.6"
 
 // TODO: Probably randomize this and make it different per member?
 var keyPassword = "correcthorsebatterystaple"

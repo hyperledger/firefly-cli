@@ -88,7 +88,7 @@ func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
 			Port:    5008,
 		},
 		FFCore: FFTMFFCoreConfig{
-			URL: fmt.Sprintf("http://firefly_core_%s:%d", member.ID, member.ExposedFireflyAdminPort),
+			URL: fmt.Sprintf("http://firefly_core_%s:%d", member.ID, member.ExposedFireflyAdminSPIPort),
 		},
 		Connector: FFTMConnectorConfig{
 			URL:     fmt.Sprintf("http://ethconnect_%s:8080", member.ID),

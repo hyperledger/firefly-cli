@@ -489,19 +489,19 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Member, error) {
 	serviceBase := options.ServicesBasePort + (index * 100)
 	member := &types.Member{
-		ID:                      id,
-		Index:                   &index,
-		ExposedFireflyPort:      options.FireFlyBasePort + index,
-		ExposedFireflyAdminPort: serviceBase + 1, // note shared blockchain node is on zero
-		ExposedConnectorPort:    serviceBase + 2,
-		ExposedUIPort:           serviceBase + 3,
-		ExposedDatabasePort:     serviceBase + 4,
-		ExposedDataexchangePort: serviceBase + 5,
-		ExposedIPFSApiPort:      serviceBase + 6,
-		ExposedIPFSGWPort:       serviceBase + 7,
-		External:                external,
-		OrgName:                 options.OrgNames[index],
-		NodeName:                options.NodeNames[index],
+		ID:                         id,
+		Index:                      &index,
+		ExposedFireflyPort:         options.FireFlyBasePort + index,
+		ExposedFireflyAdminSPIPort: serviceBase + 1, // note shared blockchain node is on zero
+		ExposedConnectorPort:       serviceBase + 2,
+		ExposedUIPort:              serviceBase + 3,
+		ExposedDatabasePort:        serviceBase + 4,
+		ExposedDataexchangePort:    serviceBase + 5,
+		ExposedIPFSApiPort:         serviceBase + 6,
+		ExposedIPFSGWPort:          serviceBase + 7,
+		External:                   external,
+		OrgName:                    options.OrgNames[index],
+		NodeName:                   options.NodeNames[index],
 	}
 	nextPort := serviceBase + 8
 	if options.PrometheusEnabled {
@@ -700,7 +700,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedDataexchangePort)
 		ports = append(ports, member.ExposedConnectorPort)
 		if !member.External {
-			ports = append(ports, member.ExposedFireflyAdminPort)
+			ports = append(ports, member.ExposedFireflyAdminSPIPort)
 			ports = append(ports, member.ExposedFireflyPort)
 			ports = append(ports, member.ExposedFireflyMetricsPort)
 		}
@@ -921,7 +921,7 @@ func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
 			configFilename := filepath.Join(s.Stack.RuntimeDir, "config", fmt.Sprintf("firefly_core_%v.yml", member.ID))
 			var port int
 			if firstTimeSetup {
-				port = member.ExposedFireflyAdminPort
+				port = member.ExposedFireflyAdminSPIPort
 			} else {
 				port = member.ExposedFireflyPort
 			}
