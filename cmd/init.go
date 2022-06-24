@@ -142,7 +142,7 @@ func validateCount(input string) error {
 	} else if i <= 0 {
 		return errors.New("number of members must be greater than zero")
 	} else if initOptions.ExternalProcesses >= i {
-		return errors.New("number of external processes should not be equal to or greater than the number of members in the network - at least one FireFly core container must exist to be able to extrat and deploy smart contracts")
+		return errors.New("number of external processes should not be equal to or greater than the number of members in the network - at least one FireFly core container must exist to be able to extract and deploy smart contracts")
 	}
 	return nil
 }
@@ -220,6 +220,7 @@ func init() {
 	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
 	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
 	initCmd.Flags().StringVarP(&releaseChannelInput, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", types.ReleaseChannelSelectionStrings))
+	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode. Set to 'false' to use gateway mode.")
 
 	rootCmd.AddCommand(initCmd)
 }

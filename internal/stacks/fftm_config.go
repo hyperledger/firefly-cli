@@ -75,7 +75,7 @@ type FFTMConfig struct {
 	Confirmations FFTMConfirmationsConfig `yaml:"confirmations"`
 }
 
-func NewFFTMConfig(stack *types.Stack, member *types.Member) *FFTMConfig {
+func NewFFTMConfig(stack *types.Stack, member *types.Organization) *FFTMConfig {
 	return &FFTMConfig{
 		Log: FFTMLogConfig{
 			Level: "debug",

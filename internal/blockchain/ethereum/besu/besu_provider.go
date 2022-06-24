@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/constants"
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -120,7 +119,7 @@ func (p *BesuProvider) PostStart() error {
 	return nil
 }
 
-func (p *BesuProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
+func (p *BesuProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
 	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
 }
 
@@ -156,22 +155,24 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	return serviceDefinitions
 }
 
-func (p *BesuProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
-	account := m.Account.(*ethereum.Account)
-	orgConfig = &core.OrgConfig{
-		Name: m.OrgName,
-		Key:  account.Address,
-	}
-
-	blockchainConfig = &core.BlockchainConfig{
+func (p *BesuProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	blockchainConfig = &types.BlockchainConfig{
 		Type: "ethereum",
-		Ethereum: &core.EthereumConfig{
-			Ethconnect: &core.EthconnectConfig{
-				URL:      p.getEthconnectURL(m),
-				Instance: stack.ContractAddress,
-				Topic:    m.ID,
+		Ethereum: &types.EthereumConfig{
+			Ethconnect: &types.EthconnectConfig{
+				URL:   p.getEthconnectURL(m),
+				Topic: m.ID,
 			},
 		},
+	}
+	return
+}
+
+func (p *BesuProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
+	account := m.Account.(*ethereum.Account)
+	orgConfig = &types.OrgConfig{
+		Name: m.OrgName,
+		Key:  account.Address,
 	}
 	return
 }
@@ -194,7 +195,7 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
 	if err != nil {
 		return nil, err
@@ -214,7 +215,7 @@ func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {
 	return p.Signer.CreateAccount(args)
 }
 
-func (p *BesuProvider) getEthconnectURL(member *types.Member) string {
+func (p *BesuProvider) getEthconnectURL(member *types.Organization) string {
 	if !member.External {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {

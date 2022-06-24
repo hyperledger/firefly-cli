@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/constants"
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -75,8 +74,8 @@ func (p *RemoteRPCProvider) PostStart() error {
 	return nil
 }
 
-func (p *RemoteRPCProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
-	return nil, nil, fmt.Errorf("You must pre-deploy your FireFly contract when using a remote RPC endpoint")
+func (p *RemoteRPCProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
+	return nil, fmt.Errorf("you must pre-deploy your FireFly contract when using a remote RPC endpoint")
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
@@ -87,27 +86,29 @@ func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefin
 	return defs
 }
 
-func (p *RemoteRPCProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
-	account := m.Account.(*ethereum.Account)
-	orgConfig = &core.OrgConfig{
-		Name: m.OrgName,
-		Key:  account.Address,
-	}
-
-	blockchainConfig = &core.BlockchainConfig{
+func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	blockchainConfig = &types.BlockchainConfig{
 		Type: "ethereum",
-		Ethereum: &core.EthereumConfig{
-			Ethconnect: &core.EthconnectConfig{
-				URL:      p.getEthconnectURL(m),
-				Instance: stack.ContractAddress,
-				Topic:    m.ID,
+		Ethereum: &types.EthereumConfig{
+			Ethconnect: &types.EthconnectConfig{
+				URL:   p.getEthconnectURL(m),
+				Topic: m.ID,
 			},
 		},
 	}
 	if stack.FFTMEnabled {
-		blockchainConfig.Ethereum.FFTM = &core.FFTMConfig{
+		blockchainConfig.Ethereum.FFTM = &types.FFTMConfig{
 			URL: fmt.Sprintf("http://fftm_%s:5008", m.ID),
 		}
+	}
+	return
+}
+
+func (p *RemoteRPCProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
+	account := m.Account.(*ethereum.Account)
+	orgConfig = &types.OrgConfig{
+		Name: m.OrgName,
+		Key:  account.Address,
 	}
 	return
 }
@@ -120,15 +121,15 @@ func (p *RemoteRPCProvider) GetContracts(filename string, extraArgs []string) ([
 	return []string{}, nil
 }
 
-func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	return nil, fmt.Errorf("Contract deployment not supported for Remote RPC URL connections")
+func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+	return nil, fmt.Errorf("contract deployment not supported for Remote RPC URL connections")
 }
 
 func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {
 	return p.Signer.CreateAccount(args)
 }
 
-func (p *RemoteRPCProvider) getEthconnectURL(member *types.Member) string {
+func (p *RemoteRPCProvider) getEthconnectURL(member *types.Organization) string {
 	if !member.External {
 		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 	} else {

@@ -78,27 +78,29 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 	return serviceDefinitions
 }
 
-func (p *ERC1155Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
+func (p *ERC1155Provider) GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig {
 	name := "erc1155"
 	if tokenIdx > 0 {
 		name = fmt.Sprintf("erc1155_%d", tokenIdx)
 	}
-	return &core.TokenConnector{
-		Plugin: "fftokens",
-		Name:   name,
-		URL:    p.getTokensURL(m, tokenIdx),
+	return &types.TokensConfig{
+		Type: "fftokens",
+		Name: name,
+		FFTokens: &types.FFTokensConfig{
+			URL: p.getTokensURL(m, tokenIdx),
+		},
 	}
 }
 
-func (p *ERC1155Provider) getEthconnectURL(member *types.Member) string {
+func (p *ERC1155Provider) getEthconnectURL(member *types.Organization) string {
 	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 }
 
-func (p *ERC1155Provider) getFFTMURL(member *types.Member) string {
+func (p *ERC1155Provider) getFFTMURL(member *types.Organization) string {
 	return fmt.Sprintf("http://fftm_%s:5008", member.ID)
 }
 
-func (p *ERC1155Provider) getTokensURL(member *types.Member, tokenIdx int) string {
+func (p *ERC1155Provider) getTokensURL(member *types.Organization, tokenIdx int) string {
 	if !member.External {
 		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {

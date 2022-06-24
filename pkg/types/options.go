@@ -55,6 +55,7 @@ type InitOptions struct {
 	DisableTokenFactories     bool
 	RequestTimeout            int
 	ReleaseChannel            ReleaseChannelSelection
+	MultipartyEnabled         bool
 }
 
 type BlockchainProvider int

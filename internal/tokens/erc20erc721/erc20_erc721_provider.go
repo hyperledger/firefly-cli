@@ -103,27 +103,29 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 	return serviceDefinitions
 }
 
-func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector {
+func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig {
 	name := "erc20_erc721"
 	if tokenIdx > 0 {
 		name = fmt.Sprintf("erc20_erc721_%d", tokenIdx)
 	}
-	return &core.TokenConnector{
-		Plugin: "fftokens",
-		Name:   name,
-		URL:    p.getTokensURL(m, tokenIdx),
+	return &types.TokensConfig{
+		Type: "fftokens",
+		Name: name,
+		FFTokens: &types.FFTokensConfig{
+			URL: p.getTokensURL(m, tokenIdx),
+		},
 	}
 }
 
-func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Member) string {
+func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Organization) string {
 	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
 }
 
-func (p *ERC20ERC721Provider) getFFTMURL(member *types.Member) string {
+func (p *ERC20ERC721Provider) getFFTMURL(member *types.Organization) string {
 	return fmt.Sprintf("http://fftm_%s:5008", member.ID)
 }
 
-func (p *ERC20ERC721Provider) getTokensURL(member *types.Member, tokenIdx int) string {
+func (p *ERC20ERC721Provider) getTokensURL(member *types.Organization, tokenIdx int) string {
 	if !member.External {
 		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
 	} else {

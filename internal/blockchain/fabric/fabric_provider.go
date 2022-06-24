@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -112,10 +111,10 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *FabricProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
+func (p *FabricProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
 	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
 	result, err := p.deploySmartContracts()
-	return nil, result, err
+	return result, err
 }
 
 func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
@@ -191,16 +190,11 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
-	orgConfig = &core.OrgConfig{
-		Name: m.OrgName,
-		Key:  m.OrgName,
-	}
-
-	blockchainConfig = &core.BlockchainConfig{
+func (p *FabricProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	blockchainConfig = &types.BlockchainConfig{
 		Type: "fabric",
-		Fabric: &core.FabricConfig{
-			Fabconnect: &core.FabconnectConfig{
+		Fabric: &types.FabricConfig{
+			Fabconnect: &types.FabconnectConfig{
 				URL:       p.getFabconnectUrl(m),
 				Chaincode: "firefly",
 				Channel:   "firefly",
@@ -212,11 +206,19 @@ func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (
 	return
 }
 
+func (p *FabricProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
+	orgConfig = &types.OrgConfig{
+		Name: m.OrgName,
+		Key:  m.OrgName,
+	}
+	return
+}
+
 func (p *FabricProvider) Reset() error {
 	return nil
 }
 
-func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member) []*docker.ServiceDefinition {
+func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organization) []*docker.ServiceDefinition {
 	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(members))
 	for i, member := range members {
@@ -254,7 +256,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) getFabconnectUrl(member *types.Member) string {
+func (p *FabricProvider) getFabconnectUrl(member *types.Organization) string {
 	if !member.External {
 		return fmt.Sprintf("http://fabconnect_%s:3000", member.ID)
 	} else {
@@ -437,7 +439,7 @@ func (p *FabricProvider) commitChaincode(channel, chaincode, version string) err
 	)
 }
 
-func (p *FabricProvider) registerIdentity(member *types.Member, name string) (*Account, error) {
+func (p *FabricProvider) registerIdentity(member *types.Organization, name string) (*Account, error) {
 	res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), name)
 	if err != nil {
 		return nil, err
@@ -456,7 +458,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
