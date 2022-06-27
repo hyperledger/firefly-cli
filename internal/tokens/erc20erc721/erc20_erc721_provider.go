@@ -26,6 +26,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const tokenProviderName = "erc20_erc721"
+
 type ERC20ERC721Provider struct {
 	Log     log.Logger
 	Verbose bool
@@ -104,9 +106,9 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 }
 
 func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig {
-	name := "erc20_erc721"
+	name := tokenProviderName
 	if tokenIdx > 0 {
-		name = fmt.Sprintf("erc20_erc721_%d", tokenIdx)
+		name = fmt.Sprintf("%s_%d", tokenProviderName, tokenIdx)
 	}
 	return &types.TokensConfig{
 		Type: "fftokens",
@@ -131,4 +133,8 @@ func (p *ERC20ERC721Provider) getTokensURL(member *types.Organization, tokenIdx 
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedTokensPorts[tokenIdx])
 	}
+}
+
+func (p *ERC20ERC721Provider) GetName() string {
+	return tokenProviderName
 }

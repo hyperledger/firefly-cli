@@ -418,7 +418,7 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 
 		for iTok, tp := range s.tokenProviders {
 			tokenConfig := tp.GetFireflyConfig(member, iTok)
-			tokenConfig.Name = "tokens0"
+			tokenConfig.Name = tp.GetName()
 			config.Plugins.Tokens = append(config.Plugins.Tokens, tokenConfig)
 		}
 
@@ -881,11 +881,13 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 					Name:        "default",
 					RemoteName:  "default",
 					Description: "Default predefined namespace",
-					Plugins:     []string{"database0", "blockchain0", "tokens0"},
+					Plugins:     []string{"database0", "blockchain0"},
 				},
 			},
 		},
 	}
+
+	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, s.Stack.TokenProviders.Strings()...)
 
 	if s.Stack.MultipartyEnabled {
 		newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, "dataexchange0", "sharedstorage0")

@@ -26,4 +26,5 @@ type ITokensProvider interface {
 	FirstTimeSetup(tokenIdx int) error
 	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
 	GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig
+	GetName() string
 }

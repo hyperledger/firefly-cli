@@ -25,6 +25,8 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+const tokenProviderName = "erc1155"
+
 type ERC1155Provider struct {
 	Log     log.Logger
 	Verbose bool
@@ -79,9 +81,9 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 }
 
 func (p *ERC1155Provider) GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig {
-	name := "erc1155"
+	name := tokenProviderName
 	if tokenIdx > 0 {
-		name = fmt.Sprintf("erc1155_%d", tokenIdx)
+		name = fmt.Sprintf("%s_%d", tokenProviderName, tokenIdx)
 	}
 	return &types.TokensConfig{
 		Type: "fftokens",
@@ -106,4 +108,8 @@ func (p *ERC1155Provider) getTokensURL(member *types.Organization, tokenIdx int)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedTokensPorts[tokenIdx])
 	}
+}
+
+func (p *ERC1155Provider) GetName() string {
+	return tokenProviderName
 }
