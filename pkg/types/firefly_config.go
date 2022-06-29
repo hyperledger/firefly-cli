@@ -169,5 +169,4 @@ type FireflyConfig struct {
 	Event      *EventConfig         `yaml:"event,omitempty"`
 	Plugins    *Plugins             `yaml:"plugins"`
 	Namespaces *NamespacesConfig    `yaml:"namespaces"`
-	DefaultKey interface{}          `yaml:"defaultKey"`
 }

@@ -422,9 +422,6 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 			config.Plugins.Tokens = append(config.Plugins.Tokens, tokenConfig)
 		}
 
-		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
-		config.DefaultKey = orgConfig.Key
-
 		if s.Stack.FFTMEnabled {
 			fftmConfig := NewFFTMConfig(s.Stack, member)
 			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
@@ -889,9 +886,9 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, s.Stack.TokenProviders.Strings()...)
 
+	var contractDeploymentResult *types.ContractDeploymentResult
 	if s.Stack.MultipartyEnabled {
 		newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, "dataexchange0", "sharedstorage0")
-		var contractDeploymentResult *types.ContractDeploymentResult
 		if s.Stack.ContractAddress == "" {
 			// TODO: This code assumes that there is only one plugin instance per type. When we add support for
 			// multiple namespaces, this code will likely have to change a lot
@@ -907,9 +904,12 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, contractDeploymentResult.DeployedContract)
 			}
 		}
+	}
 
-		for _, member := range s.Stack.Members {
-			orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
+	for _, member := range s.Stack.Members {
+		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
+		newConfig.Namespaces.Predefined[0].DefaultKey = orgConfig.Key
+		if s.Stack.MultipartyEnabled {
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
@@ -919,14 +919,8 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 					},
 				},
 			}
-
-			s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
 		}
-	}
-	for _, member := range s.Stack.Members {
-		if !s.Stack.MultipartyEnabled {
-			s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
-		}
+		s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
 			return messages, err
 		}
@@ -934,7 +928,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 			return messages, err
 		}
 	}
-
 	// Re-write the docker-compose config again, in case new values have been added
 	compose := s.buildDockerCompose()
 	if err := s.writeDockerCompose(compose); err != nil {
