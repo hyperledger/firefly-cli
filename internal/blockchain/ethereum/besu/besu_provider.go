@@ -115,7 +115,7 @@ func (p *BesuProvider) PreStart() error {
 	return nil
 }
 
-func (p *BesuProvider) PostStart() error {
+func (p *BesuProvider) PostStart(firstTimeSetup bool) error {
 	return nil
 }
 

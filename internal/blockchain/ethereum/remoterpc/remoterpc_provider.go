@@ -70,7 +70,7 @@ func (p *RemoteRPCProvider) PreStart() error {
 	return nil
 }
 
-func (p *RemoteRPCProvider) PostStart() error {
+func (p *RemoteRPCProvider) PostStart(fistTimeSetup bool) error {
 	return nil
 }
 

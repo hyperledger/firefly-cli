@@ -46,6 +46,10 @@ type FabricProvider struct {
 //go:embed configtx.yaml
 var configtxYaml string
 
+const chaincodeName = "firefly"
+const chaincodeVersion = "1.0"
+const channel = "firefly"
+
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.Stack.InitDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
@@ -119,19 +123,8 @@ func (p *FabricProvider) DeployFireFlyContract() (*types.ContractDeploymentResul
 
 func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
 	packageFilename := path.Join(p.Stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
-	chaincode := "firefly"
-	channel := "firefly"
-	version := "1.0"
 
 	if err := p.extractChaincode(); err != nil {
-		return nil, err
-	}
-
-	if err := p.createChannel(); err != nil {
-		return nil, err
-	}
-
-	if err := p.joinChannel(); err != nil {
 		return nil, err
 	}
 
@@ -147,21 +140,12 @@ func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult
 		return nil, fmt.Errorf("failed to find installed chaincode")
 	}
 
-	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
+	if err := p.approveChaincode(channel, chaincodeName, chaincodeVersion, res.InstalledChaincodes[0].PackageID); err != nil {
 		return nil, err
 	}
 
-	if err := p.commitChaincode(channel, chaincode, version); err != nil {
+	if err := p.commitChaincode(channel, chaincodeName, chaincodeVersion); err != nil {
 		return nil, err
-	}
-
-	// Register pre-created identities
-	p.Log.Info("registering identities")
-	for _, m := range p.Stack.Members {
-		_, err := p.registerIdentity(m, m.OrgName)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	result := &types.ContractDeploymentResult{
@@ -169,7 +153,7 @@ func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult
 			Name: "FireFly",
 			Location: map[string]string{
 				"channel":   channel,
-				"chaincode": chaincode,
+				"chaincode": chaincodeName,
 			},
 		},
 	}
@@ -180,7 +164,25 @@ func (p *FabricProvider) PreStart() error {
 	return nil
 }
 
-func (p *FabricProvider) PostStart() error {
+func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
+	if firstTimeSetup {
+		if err := p.createChannel(); err != nil {
+			return err
+		}
+
+		if err := p.joinChannel(); err != nil {
+			return err
+		}
+
+		// Register pre-created identities
+		p.Log.Info("registering identities")
+		for _, m := range p.Stack.Members {
+			_, err := p.registerIdentity(m, m.OrgName)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

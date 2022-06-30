@@ -677,7 +677,7 @@ func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) err
 		return err
 	}
 
-	if err := s.blockchainProvider.PostStart(); err != nil {
+	if err := s.blockchainProvider.PostStart(firstTimeSetup); err != nil {
 		return err
 	}
 

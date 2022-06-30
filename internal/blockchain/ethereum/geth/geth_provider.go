@@ -108,7 +108,7 @@ func (p *GethProvider) PreStart() error {
 	return nil
 }
 
-func (p *GethProvider) PostStart() error {
+func (p *GethProvider) PostStart(firstTimeSetup bool) error {
 	// Unlock accounts
 	for _, account := range p.Stack.State.Accounts {
 		address := account.(*ethereum.Account).Address
