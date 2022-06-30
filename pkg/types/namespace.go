@@ -22,7 +22,7 @@ type Namespace struct {
 	Description string            `yaml:"description,omitempty"`
 	Plugins     []string          `yaml:"plugins"`
 	Multiparty  *MultipartyConfig `yaml:"multiparty,omitempty"`
-	DefaultKey  interface{}       `yaml:"defaultKey"`
+	DefaultKey  interface{}       `yaml:"defaultkey"`
 }
 
 type Plugins struct {
