@@ -220,7 +220,7 @@ func init() {
 	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
 	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
 	initCmd.Flags().StringVarP(&releaseChannelInput, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", types.ReleaseChannelSelectionStrings))
-	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode. Set to 'false' to use gateway mode.")
+	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode")
 
 	rootCmd.AddCommand(initCmd)
 }
