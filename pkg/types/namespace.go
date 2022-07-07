@@ -18,7 +18,7 @@ package types
 
 type Namespace struct {
 	Name        string            `yaml:"name"`
-	RemoteName  string            `yaml:"remoteName,omitempty"`
+	RemoteName  string            `yaml:"remotename,omitempty"`
 	Description string            `yaml:"description,omitempty"`
 	Plugins     []string          `yaml:"plugins"`
 	Multiparty  *MultipartyConfig `yaml:"multiparty,omitempty"`
