@@ -17,7 +17,6 @@
 package tokens
 
 import (
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -26,5 +25,6 @@ type ITokensProvider interface {
 	DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error)
 	FirstTimeSetup(tokenIdx int) error
 	GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition
-	GetFireflyConfig(m *types.Member, tokenIdx int) *core.TokenConnector
+	GetFireflyConfig(m *types.Organization, tokenIdx int) *types.TokensConfig
+	GetName() string
 }

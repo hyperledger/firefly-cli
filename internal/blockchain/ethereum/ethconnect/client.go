@@ -221,7 +221,7 @@ func deprecatedRegisterContract(ethconnectUrl string, abiId string, contractAddr
 	return registerResponseBody, nil
 }
 
-func deployContract(member *types.Member, contract *ethereum.CompiledContract, args map[string]string) (string, error) {
+func deployContract(member *types.Organization, contract *ethereum.CompiledContract, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	address := member.Account.(*ethereum.Account).Address
 	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
@@ -254,7 +254,7 @@ func deployContract(member *types.Member, contract *ethereum.CompiledContract, a
 	return reply.ContractAddress, nil
 }
 
-func DeprecatedDeployContract(member *types.Member, contract *ethereum.CompiledContract, name string, args map[string]string) (string, error) {
+func DeprecatedDeployContract(member *types.Organization, contract *ethereum.CompiledContract, name string, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	address := member.Account.(*ethereum.Account).Address
@@ -268,7 +268,7 @@ func DeprecatedDeployContract(member *types.Member, contract *ethereum.CompiledC
 	return deployResponse.ContractAddress, nil
 }
 
-func DeprecatedRegisterContract(member *types.Member, contract *ethereum.CompiledContract, contractAddress string, name string, args map[string]string) error {
+func DeprecatedRegisterContract(member *types.Organization, contract *ethereum.CompiledContract, contractAddress string, name string, args map[string]string) error {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	address := member.Account.(*ethereum.Account).Address
@@ -282,9 +282,9 @@ func DeprecatedRegisterContract(member *types.Member, contract *ethereum.Compile
 	return nil
 }
 
-func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
+func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*types.ContractDeploymentResult, error) {
 	var containerName string
-	var firstNonExternalMember *types.Member
+	var firstNonExternalMember *types.Organization
 	for _, member := range s.Members {
 		if !member.External {
 			firstNonExternalMember = member
@@ -293,39 +293,32 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.
 		}
 	}
 	if containerName == "" {
-		return nil, nil, errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+		return nil, errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
 	log.Info("extracting smart contracts")
 
 	if err := ethereum.ExtractContracts(containerName, "/firefly/contracts", s.RuntimeDir, verbose); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var fireflyContract *ethereum.CompiledContract
 	contracts, err := ethereum.ReadContractJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
 	if !ok {
 		fireflyContract, ok = contracts.Contracts["FireFly"]
 		if !ok {
-			return nil, nil, fmt.Errorf("unable to find compiled FireFly contract")
+			return nil, fmt.Errorf("unable to find compiled FireFly contract")
 		}
 	}
 
 	log.Info(fmt.Sprintf("deploying firefly contract via '%s'", firstNonExternalMember.ID))
 	contractAddress, err := deployContract(firstNonExternalMember, fireflyContract, map[string]string{})
 	if err != nil {
-		return nil, nil, err
-	}
-	blockchainConfig := &core.BlockchainConfig{
-		Ethereum: &core.EthereumConfig{
-			Ethconnect: &core.EthconnectConfig{
-				Instance: contractAddress,
-			},
-		},
+		return nil, err
 	}
 	result := &types.ContractDeploymentResult{
 		DeployedContract: &types.DeployedContract{
@@ -333,10 +326,10 @@ func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*core.
 			Location: map[string]string{"address": contractAddress},
 		},
 	}
-	return blockchainConfig, result, nil
+	return result, nil
 }
 
-func DeployCustomContract(member *types.Member, filename, contractName string) (string, error) {
+func DeployCustomContract(member *types.Organization, filename, contractName string) (string, error) {
 	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return "", nil

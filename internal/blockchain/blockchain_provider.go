@@ -17,7 +17,6 @@
 package blockchain
 
 import (
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -25,14 +24,15 @@ import (
 type IBlockchainProvider interface {
 	WriteConfig(options *types.InitOptions) error
 	FirstTimeSetup() error
-	DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error)
+	DeployFireFlyContract() (*types.ContractDeploymentResult, error)
 	PreStart() error
-	PostStart() error
+	PostStart(firstTimeSetup bool) error
 	GetDockerServiceDefinitions() []*docker.ServiceDefinition
-	GetFireflyConfig(stack *types.Stack, member *types.Member) (blockchainConfig *core.BlockchainConfig, coreConfig *core.OrgConfig)
+	GetBlockchainPluginConfig(stack *types.Stack, org *types.Organization) (blockchainConfig *types.BlockchainConfig)
+	GetOrgConfig(stack *types.Stack, org *types.Organization) (coreConfig *types.OrgConfig)
 	Reset() error
 	GetContracts(filename string, extraArgs []string) ([]string, error)
-	DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error)
+	DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
 	CreateAccount(args []string) (interface{}, error)
 	ParseAccount(interface{}) interface{}
 }

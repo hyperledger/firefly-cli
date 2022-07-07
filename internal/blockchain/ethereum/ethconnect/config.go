@@ -77,7 +77,7 @@ func (e *Config) WriteConfig(filename string, extraEthconnectConfigPath string) 
 	return nil
 }
 
-func GenerateEthconnectConfig(member *types.Member, blockchainServiceName string) *Config {
+func GenerateEthconnectConfig(member *types.Organization, blockchainServiceName string) *Config {
 	return &Config{
 		Rest: &Rest{
 			RestGateway: &RestGateway{

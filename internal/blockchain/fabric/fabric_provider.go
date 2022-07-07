@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
-	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -46,6 +45,10 @@ type FabricProvider struct {
 
 //go:embed configtx.yaml
 var configtxYaml string
+
+const chaincodeName = "firefly"
+const chaincodeVersion = "1.0"
+const channel = "firefly"
 
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.Stack.InitDir, "blockchain")
@@ -112,27 +115,16 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	return nil
 }
 
-func (p *FabricProvider) DeployFireFlyContract() (*core.BlockchainConfig, *types.ContractDeploymentResult, error) {
+func (p *FabricProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
 	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
 	result, err := p.deploySmartContracts()
-	return nil, result, err
+	return result, err
 }
 
 func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
 	packageFilename := path.Join(p.Stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
-	chaincode := "firefly"
-	channel := "firefly"
-	version := "1.0"
 
 	if err := p.extractChaincode(); err != nil {
-		return nil, err
-	}
-
-	if err := p.createChannel(); err != nil {
-		return nil, err
-	}
-
-	if err := p.joinChannel(); err != nil {
 		return nil, err
 	}
 
@@ -148,21 +140,12 @@ func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult
 		return nil, fmt.Errorf("failed to find installed chaincode")
 	}
 
-	if err := p.approveChaincode(channel, chaincode, version, res.InstalledChaincodes[0].PackageID); err != nil {
+	if err := p.approveChaincode(channel, chaincodeName, chaincodeVersion, res.InstalledChaincodes[0].PackageID); err != nil {
 		return nil, err
 	}
 
-	if err := p.commitChaincode(channel, chaincode, version); err != nil {
+	if err := p.commitChaincode(channel, chaincodeName, chaincodeVersion); err != nil {
 		return nil, err
-	}
-
-	// Register pre-created identities
-	p.Log.Info("registering identities")
-	for _, m := range p.Stack.Members {
-		_, err := p.registerIdentity(m, m.OrgName)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	result := &types.ContractDeploymentResult{
@@ -170,7 +153,7 @@ func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult
 			Name: "FireFly",
 			Location: map[string]string{
 				"channel":   channel,
-				"chaincode": chaincode,
+				"chaincode": chaincodeName,
 			},
 		},
 	}
@@ -181,7 +164,25 @@ func (p *FabricProvider) PreStart() error {
 	return nil
 }
 
-func (p *FabricProvider) PostStart() error {
+func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
+	if firstTimeSetup {
+		if err := p.createChannel(); err != nil {
+			return err
+		}
+
+		if err := p.joinChannel(); err != nil {
+			return err
+		}
+
+		// Register pre-created identities
+		p.Log.Info("registering identities")
+		for _, m := range p.Stack.Members {
+			_, err := p.registerIdentity(m, m.OrgName)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -191,16 +192,11 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (blockchainConfig *core.BlockchainConfig, orgConfig *core.OrgConfig) {
-	orgConfig = &core.OrgConfig{
-		Name: m.OrgName,
-		Key:  m.OrgName,
-	}
-
-	blockchainConfig = &core.BlockchainConfig{
+func (p *FabricProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	blockchainConfig = &types.BlockchainConfig{
 		Type: "fabric",
-		Fabric: &core.FabricConfig{
-			Fabconnect: &core.FabconnectConfig{
+		Fabric: &types.FabricConfig{
+			Fabconnect: &types.FabconnectConfig{
 				URL:       p.getFabconnectUrl(m),
 				Chaincode: "firefly",
 				Channel:   "firefly",
@@ -212,11 +208,19 @@ func (p *FabricProvider) GetFireflyConfig(stack *types.Stack, m *types.Member) (
 	return
 }
 
+func (p *FabricProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
+	orgConfig = &types.OrgConfig{
+		Name: m.OrgName,
+		Key:  m.OrgName,
+	}
+	return
+}
+
 func (p *FabricProvider) Reset() error {
 	return nil
 }
 
-func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member) []*docker.ServiceDefinition {
+func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organization) []*docker.ServiceDefinition {
 	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(members))
 	for i, member := range members {
@@ -254,7 +258,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Member
 	return serviceDefinitions
 }
 
-func (p *FabricProvider) getFabconnectUrl(member *types.Member) string {
+func (p *FabricProvider) getFabconnectUrl(member *types.Organization) string {
 	if !member.External {
 		return fmt.Sprintf("http://fabconnect_%s:3000", member.ID)
 	} else {
@@ -437,7 +441,7 @@ func (p *FabricProvider) commitChaincode(channel, chaincode, version string) err
 	)
 }
 
-func (p *FabricProvider) registerIdentity(member *types.Member, name string) (*Account, error) {
+func (p *FabricProvider) registerIdentity(member *types.Organization, name string) (*Account, error) {
 	res, err := fabconnect.CreateIdentity(fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort), name)
 	if err != nil {
 		return nil, err
@@ -456,7 +460,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Member, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err

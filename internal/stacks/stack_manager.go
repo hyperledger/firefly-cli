@@ -87,7 +87,7 @@ func NewStackManager(logger log.Logger) *StackManager {
 func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
 		Name:                   stackName,
-		Members:                make([]*types.Member, memberCount),
+		Members:                make([]*types.Organization, memberCount),
 		SwarmKey:               GenerateSwarmKey(),
 		ExposedBlockchainPort:  options.ServicesBasePort,
 		Database:               options.DatabaseSelection.String(),
@@ -102,11 +102,12 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, memberCount),
 		},
-		SandboxEnabled: options.SandboxEnabled,
-		FFTMEnabled:    options.FFTMEnabled,
-		ChainIDPtr:     &options.ChainID,
-		RemoteNodeURL:  options.RemoteNodeURL,
-		RequestTimeout: options.RequestTimeout,
+		SandboxEnabled:    options.SandboxEnabled,
+		FFTMEnabled:       options.FFTMEnabled,
+		MultipartyEnabled: options.MultipartyEnabled,
+		ChainIDPtr:        &options.ChainID,
+		RemoteNodeURL:     options.RemoteNodeURL,
+		RequestTimeout:    options.RequestTimeout,
 	}
 
 	if options.PrometheusEnabled {
@@ -265,7 +266,7 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 		}
 	}
 
-	// For backwards compatability, add a "default" VersionManifest
+	// For backwards compatibility, add a "default" VersionManifest
 	// in memory for stacks that were created with old CLI versions
 	if s.Stack.VersionManifest == nil {
 		s.Stack.VersionManifest = &types.VersionManifest{
@@ -402,20 +403,36 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 
 	for _, member := range s.Stack.Members {
 		config := core.NewFireflyConfig(s.Stack, member)
-		config.Blockchain, config.Org = s.blockchainProvider.GetFireflyConfig(s.Stack, member)
+
+		// TODO: This code assumes that there is only one plugin instance per type. When we add support for
+		// multiple namespaces, this code will likely have to change a lot
+		blockchainConfig := s.blockchainProvider.GetBlockchainPluginConfig(s.Stack, member)
+		blockchainConfig.Name = "blockchain0"
+		config.Plugins.Blockchain = []*types.BlockchainConfig{
+			blockchainConfig,
+		}
+
+		if config.Plugins.Tokens == nil {
+			config.Plugins.Tokens = []*types.TokensConfig{}
+		}
+
 		for iTok, tp := range s.tokenProviders {
-			config.Tokens = append(config.Tokens, tp.GetFireflyConfig(member, iTok))
+			tokenConfig := tp.GetFireflyConfig(member, iTok)
+			tokenConfig.Name = tp.GetName()
+			config.Plugins.Tokens = append(config.Plugins.Tokens, tokenConfig)
 		}
-		coreConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
-		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
-			return err
-		}
+
 		if s.Stack.FFTMEnabled {
 			fftmConfig := NewFFTMConfig(s.Stack, member)
 			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
 			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename, options.ExtraFFTMConfigPath); err != nil {
 				return err
 			}
+		}
+
+		coreConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
+		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
+			return err
 		}
 	}
 
@@ -486,9 +503,9 @@ func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Member, error) {
+func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Organization, error) {
 	serviceBase := options.ServicesBasePort + (index * 100)
-	member := &types.Member{
+	member := &types.Organization{
 		ID:                         id,
 		Index:                      &index,
 		ExposedFireflyPort:         options.FireFlyBasePort + index,
@@ -660,7 +677,7 @@ func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) err
 		return err
 	}
 
-	if err := s.blockchainProvider.PostStart(); err != nil {
+	if err := s.blockchainProvider.PostStart(firstTimeSetup); err != nil {
 		return err
 	}
 
@@ -770,7 +787,7 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir string, member *types.Organization) error {
 	if !member.External {
 		s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
 		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
@@ -781,7 +798,7 @@ func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir str
 	return nil
 }
 
-func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Member) error {
+func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Organization) error {
 	if s.Stack.FFTMEnabled {
 		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
 		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
@@ -805,7 +822,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return messages, err
 	}
 
-	// Re-write the docker-compose config to temporariliy short-circuit the core runtimes
+	// Re-write the docker-compose config to temporarily short-circuit the core runtimes
 	if err := s.disableFireflyCoreContainers(verbose); err != nil {
 		return messages, err
 	}
@@ -853,25 +870,57 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		}
 	}
 
-	if s.Stack.ContractAddress == "" {
-		s.Log.Info("deploying FireFly smart contracts")
-		blockchainConfig, result, err := s.blockchainProvider.DeployFireFlyContract()
-		if err != nil {
-			return messages, err
-		}
-		if result != nil {
-			if result.Message != "" {
-				messages = append(messages, result.Message)
+	newConfig := &types.FireflyConfig{
+		Namespaces: &types.NamespacesConfig{
+			Default: "default",
+			Predefined: []*types.Namespace{
+				{
+					Name:        "default",
+					RemoteName:  "default",
+					Description: "Default predefined namespace",
+					Plugins:     []string{"database0", "blockchain0"},
+				},
+			},
+		},
+	}
+
+	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, s.Stack.TokenProviders.Strings()...)
+
+	var contractDeploymentResult *types.ContractDeploymentResult
+	if s.Stack.MultipartyEnabled {
+		newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, "dataexchange0", "sharedstorage0")
+		if s.Stack.ContractAddress == "" {
+			// TODO: This code assumes that there is only one plugin instance per type. When we add support for
+			// multiple namespaces, this code will likely have to change a lot
+			s.Log.Info("deploying FireFly smart contracts")
+			contractDeploymentResult, err = s.blockchainProvider.DeployFireFlyContract()
+			if err != nil {
+				return messages, err
 			}
-			s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, result.DeployedContract)
+			if contractDeploymentResult != nil {
+				if contractDeploymentResult.Message != "" {
+					messages = append(messages, contractDeploymentResult.Message)
+				}
+				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, contractDeploymentResult.DeployedContract)
+			}
 		}
-		newConfig := &core.FireflyConfig{
-			Blockchain: blockchainConfig,
-		}
-		s.patchFireFlyCoreConfigs(verbose, configDir, newConfig)
 	}
 
 	for _, member := range s.Stack.Members {
+		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
+		newConfig.Namespaces.Predefined[0].DefaultKey = orgConfig.Key
+		if s.Stack.MultipartyEnabled {
+			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
+				Enabled: true,
+				Org:     orgConfig,
+				Contract: []*types.ContractConfig{
+					{
+						Location: contractDeploymentResult.DeployedContract.Location,
+					},
+				},
+			}
+		}
+		s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
 		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
 			return messages, err
 		}
@@ -879,7 +928,6 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 			return messages, err
 		}
 	}
-
 	// Re-write the docker-compose config again, in case new values have been added
 	compose := s.buildDockerCompose()
 	if err := s.writeDockerCompose(compose); err != nil {
@@ -899,9 +947,11 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 		return messages, err
 	}
 
-	s.Log.Info("registering FireFly identities")
-	if err := s.registerFireflyIdentities(verbose); err != nil {
-		return messages, err
+	if s.Stack.MultipartyEnabled {
+		s.Log.Info("registering FireFly identities")
+		if err := s.registerFireflyIdentities(verbose); err != nil {
+			return messages, err
+		}
 	}
 
 	s.Log.Info("initializing token providers")
@@ -990,32 +1040,31 @@ func (s *StackManager) disableFireflyCoreContainers(verbose bool) error {
 	return s.writeDockerCompose(compose)
 }
 
-func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, newConfig *core.FireflyConfig) error {
+func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, org *types.Organization, newConfig *types.FireflyConfig) error {
 	if newConfig != nil {
 		newConfigBytes, err := yaml.Marshal(newConfig)
 		if err != nil {
 			return err
 		}
-		for _, member := range s.Stack.Members {
-			s.Log.Debug(fmt.Sprintf("patching config for %s: %v", member.ID, newConfig))
-			configFile := path.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", member.ID))
-			merger := conflate.New()
-			if err := merger.AddFiles(configFile); err != nil {
-				return fmt.Errorf("failed merging config %s", configFile)
-			}
-			if err := merger.AddData(newConfigBytes); err != nil {
-				return fmt.Errorf("failed merging YAML '%v' into config: %s", newConfig, err)
-			}
-			s.Log.Info(fmt.Sprintf("updating %s config for new smart contract address", member.ID))
-			configData, err := merger.MarshalYAML()
-			if err != nil {
-				return err
-			}
-			if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
-				return err
-			}
+		s.Log.Debug(fmt.Sprintf("patching config for %s: %v", org.ID, newConfig))
+		configFile := path.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", org.ID))
+		merger := conflate.New()
+		if err := merger.AddFiles(configFile); err != nil {
+			return fmt.Errorf("failed merging config %s", configFile)
+		}
+		if err := merger.AddData(newConfigBytes); err != nil {
+			return fmt.Errorf("failed merging YAML '%v' into config: %s", newConfig, err)
+		}
+		s.Log.Info(fmt.Sprintf("updating %s config for new smart contract address", org.ID))
+		configData, err := merger.MarshalYAML()
+		if err != nil {
+			return err
+		}
+		if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 
