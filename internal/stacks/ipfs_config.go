@@ -25,8 +25,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-var ipfsConfigBytes []byte
-
 func GenerateSwarmKey() string {
 	key := make([]byte, 32)
 	rand.Read(key)
