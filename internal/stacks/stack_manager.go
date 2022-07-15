@@ -787,17 +787,6 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) copyFireflyConfigToContainer(verbose bool, workingDir string, member *types.Organization) error {
-	if !member.External {
-		s.Log.Info(fmt.Sprintf("copying firefly.core to firefly_core_%s", member.ID))
-		volumeName := fmt.Sprintf("%s_firefly_core_%s", s.Stack.Name, member.ID)
-		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_core_%s.yml", member.ID)), "/firefly.core.yml", verbose); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Organization) error {
 	if s.Stack.FFTMEnabled {
 		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
@@ -921,13 +910,11 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 			}
 		}
 		s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
-		if err := s.copyFireflyConfigToContainer(verbose, configDir, member); err != nil {
-			return messages, err
-		}
 		if err := s.copyFFTMConfigToContainer(verbose, configDir, member); err != nil {
 			return messages, err
 		}
 	}
+
 	// Re-write the docker-compose config again, in case new values have been added
 	compose := s.buildDockerCompose()
 	if err := s.writeDockerCompose(compose); err != nil {

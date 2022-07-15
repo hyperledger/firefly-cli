@@ -18,6 +18,7 @@ package docker
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -86,6 +87,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 		// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
 
 		if !member.External {
+			configFile := filepath.Join(s.RuntimeDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
 			compose.Services["firefly_core_"+member.ID] = &Service{
 				Image:         s.VersionManifest.FireFly.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
@@ -93,14 +95,12 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminSPIPort, member.ExposedFireflyAdminSPIPort),
 				},
-				Volumes: []string{fmt.Sprintf("firefly_core_%s:/etc/firefly", member.ID)},
+				Volumes: []string{fmt.Sprintf("%s:/etc/firefly/firefly.core.yml:ro", configFile)},
 				DependsOn: map[string]map[string]string{
 					"dataexchange_" + member.ID: {"condition": "service_started"},
 				},
 				Logging: StandardLogOptions,
 			}
-
-			compose.Volumes[fmt.Sprintf("firefly_core_%s", member.ID)] = struct{}{}
 		}
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
