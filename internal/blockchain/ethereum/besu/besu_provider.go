@@ -17,6 +17,7 @@
 package besu
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,35 +25,51 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/evmconnect"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 var besuImage = "hyperledger/besu:22.4"
-var gethImage = "ethereum/client-go:release-1.10"
 
 type BesuProvider struct {
-	Log     log.Logger
-	Verbose bool
-	Stack   *types.Stack
-	Signer  *ethsigner.EthSignerProvider
+	ctx       context.Context
+	stack     *types.Stack
+	signer    *ethsigner.EthSignerProvider
+	connector connector.Connector
+}
+
+func NewBesuProvider(ctx context.Context, stack *types.Stack) *BesuProvider {
+	var connector connector.Connector
+	switch stack.BlockchainConnector {
+	case types.Ethconnect.String():
+		connector = ethconnect.NewEthconnect(ctx)
+	case types.Evmconnect.String():
+		connector = evmconnect.NewEvmconnect(ctx)
+	}
+
+	return &BesuProvider{
+		stack:     stack,
+		connector: connector,
+		signer:    ethsigner.NewEthSignerProvider(ctx, stack),
+	}
 }
 
 func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
-	if err := p.Signer.WriteConfig(options, "http://besu:8545"); err != nil {
+	if err := p.signer.WriteConfig(options, "http://besu:8545"); err != nil {
 		return err
 	}
 
-	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
-	for i, member := range p.Stack.Members {
+	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
+	for i, member := range p.stack.Members {
 
-		// Generate the ethconnect config for each member
-		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
+		// Generate the connector config for each member
+		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		if err := p.connector.GenerateConfig(member, "ethsigner").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
 		}
 
@@ -66,7 +83,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 		return err
 	}
 	// Drop the 0x on the front of the address here because that's what is expected in the genesis.json
-	genesis := CreateGenesis([]string{nodeAddress[2:]}, options.BlockPeriod, p.Stack.ChainID())
+	genesis := CreateGenesis([]string{nodeAddress[2:]}, options.BlockPeriod, p.stack.ChainID())
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
@@ -75,15 +92,15 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *BesuProvider) FirstTimeSetup() error {
-	besuVolumeName := fmt.Sprintf("%s_besu", p.Stack.Name)
-	blockchainDir := filepath.Join(p.Stack.RuntimeDir, "blockchain")
-	contractsDir := filepath.Join(p.Stack.RuntimeDir, "contracts")
+	besuVolumeName := fmt.Sprintf("%s_besu", p.stack.Name)
+	blockchainDir := filepath.Join(p.stack.RuntimeDir, "blockchain")
+	contractsDir := filepath.Join(p.stack.RuntimeDir, "contracts")
 
-	if err := p.Signer.FirstTimeSetup(); err != nil {
+	if err := p.signer.FirstTimeSetup(); err != nil {
 		return err
 	}
 
-	if err := docker.CreateVolume(besuVolumeName, p.Verbose); err != nil {
+	if err := docker.CreateVolume(p.ctx, besuVolumeName); err != nil {
 		return err
 	}
 
@@ -91,20 +108,20 @@ func (p *BesuProvider) FirstTimeSetup() error {
 		return err
 	}
 
-	for i := range p.Stack.Members {
-		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
-		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	for i := range p.stack.Members {
+		// Copy connector config to each member's volume
+		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
+		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
 	}
 
 	// Copy the genesis block information
-	if err := docker.CopyFileToVolume(besuVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(p.ctx, besuVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
 		return err
 	}
 
 	// Copy the node key
-	if err := docker.CopyFileToVolume(besuVolumeName, path.Join(blockchainDir, "nodeKey"), "nodeKey", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(p.ctx, besuVolumeName, path.Join(blockchainDir, "nodeKey"), "nodeKey"); err != nil {
 		return err
 	}
 
@@ -120,26 +137,30 @@ func (p *BesuProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *BesuProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
-	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
+	contract, err := ethereum.ReadFireFlyContract(p.ctx, p.stack)
+	if err != nil {
+		return nil, err
+	}
+	return p.connector.DeployContract(contract, p.stack.Members[0], nil)
 }
 
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	addresses := ""
-	for i, member := range p.Stack.Members {
+	for i, member := range p.stack.Members {
 		account := member.Account.(*ethereum.Account)
 		addresses = addresses + account.Address
-		if i+1 < len(p.Stack.Members) {
+		if i+1 < len(p.stack.Members) {
 			addresses = addresses + ","
 		}
 	}
-	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`, p.Stack.ChainID())
+	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`, p.stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 2)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
 		ServiceName: "besu",
 		Service: &docker.Service{
 			Image:         besuImage,
-			ContainerName: fmt.Sprintf("%s_besu", p.Stack.Name),
+			ContainerName: fmt.Sprintf("%s_besu", p.stack.Name),
 			User:          "root",
 			Command:       besuCommand,
 			Volumes: []string{
@@ -150,8 +171,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 
 		VolumeNames: []string{"besu"},
 	}
-	serviceDefinitions[1] = p.Signer.GetDockerServiceDefinition("http://besu:8545")
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"ethsigner": "service_healthy"})...)
+	serviceDefinitions[1] = p.signer.GetDockerServiceDefinition("http://besu:8545")
+	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, map[string]string{"ethsigner": "service_healthy"})...)
 	return serviceDefinitions
 }
 
@@ -160,7 +181,7 @@ func (p *BesuProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Or
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.getEthconnectURL(m),
+				URL:   p.getConnectorURL(m),
 				Topic: m.ID,
 			},
 		},
@@ -196,28 +217,20 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	contractAddres, err := ethconnect.DeployCustomContract(member, filename, contractName)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return nil, err
 	}
-	result := &types.ContractDeploymentResult{
-		DeployedContract: &types.DeployedContract{
-			Name: contractName,
-			Location: map[string]string{
-				"address": contractAddres,
-			},
-		},
-	}
-	return result, nil
+	return p.connector.DeployContract(contracts.Contracts[contractName], member, extraArgs)
 }
 
 func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {
-	return p.Signer.CreateAccount(args)
+	return p.signer.CreateAccount(args)
 }
 
-func (p *BesuProvider) getEthconnectURL(member *types.Organization) string {
+func (p *BesuProvider) getConnectorURL(member *types.Organization) string {
 	if !member.External {
-		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), member.ID, member.ExposedConnectorPort)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	}

@@ -17,12 +17,13 @@
 package erc20erc721
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -31,7 +32,8 @@ func contractName(tokenIndex int) string {
 	return fmt.Sprintf("erc20erc721_TokenFactory_%d", tokenIndex)
 }
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
+func DeployContracts(ctx context.Context, s *types.Stack, blockchainProvider blockchain.IBlockchainProvider, tokenIndex int) (*types.ContractDeploymentResult, error) {
+	l := log.LoggerFromContext(ctx)
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
@@ -42,24 +44,11 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	if containerName == "" {
 		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
 	}
-	log.Info("extracting smart contracts")
+	l.Info("extracting smart contracts")
 
-	if err := ethereum.ExtractContracts(containerName, "/home/node/contracts", s.RuntimeDir, verbose); err != nil {
+	if err := ethereum.ExtractContracts(ctx, containerName, "/home/node/contracts", s.RuntimeDir); err != nil {
 		return nil, err
 	}
 
-	contractAddress, err := ethconnect.DeployCustomContract(s.Members[0], filepath.Join(s.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory")
-	if err != nil {
-		return nil, err
-	}
-
-	result := &types.ContractDeploymentResult{
-		Message: fmt.Sprintf("Deployed TokenFactory contract to: %s\nSource code for this contract can be found at %s", contractAddress, filepath.Join(s.RuntimeDir, "contracts", "source")),
-		DeployedContract: &types.DeployedContract{
-			Name:     contractName(tokenIndex),
-			Location: map[string]string{"address": contractAddress},
-		},
-	}
-
-	return result, nil
+	return blockchainProvider.DeployContract(filepath.Join(s.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory", s.Members[0], nil)
 }

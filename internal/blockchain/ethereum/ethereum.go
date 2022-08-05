@@ -17,10 +17,18 @@
 package ethereum
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"path/filepath"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
 type Account struct {
@@ -41,4 +49,39 @@ func GenerateAddressAndPrivateKey() (address string, privateKey string) {
 	encodedAddress := "0x" + hex.EncodeToString(hash.Sum(nil)[12:32])
 
 	return encodedAddress, encodedPrivateKey
+}
+
+func ReadFireFlyContract(ctx context.Context, s *types.Stack) (*ethtypes.CompiledContract, error) {
+	log := log.LoggerFromContext(ctx)
+	var containerName string
+	for _, member := range s.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
+	}
+	log.Info("extracting smart contracts")
+
+	if err := ExtractContracts(ctx, containerName, "/firefly/contracts", s.RuntimeDir); err != nil {
+		return nil, err
+	}
+
+	var fireflyContract *ethtypes.CompiledContract
+	contracts, err := ReadContractJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
+	if err != nil {
+		return nil, err
+	}
+
+	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
+	if !ok {
+		fireflyContract, ok = contracts.Contracts["FireFly"]
+		if !ok {
+			return nil, fmt.Errorf("unable to find compiled FireFly contract")
+		}
+	}
+
+	return fireflyContract, nil
 }

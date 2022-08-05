@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,12 +18,15 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
 var requestTimeout int = -1
@@ -32,12 +35,13 @@ func SetRequestTimeout(customRequestTimeoutSecs int) {
 	requestTimeout = customRequestTimeoutSecs
 }
 
-func RequestWithRetry(method, url string, body, result interface{}, logRetries bool) (err error) {
+func RequestWithRetry(ctx context.Context, method, url string, body, result interface{}) (err error) {
+	verbose := log.VerbosityFromContext(ctx)
 	retries := 30
 	for {
 		if err := request(method, url, body, result); err != nil {
 			if retries > 0 {
-				if logRetries {
+				if verbose {
 					fmt.Printf("%s - retrying request...", err.Error())
 				}
 				retries--

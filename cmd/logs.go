@@ -16,9 +16,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -34,17 +36,19 @@ var logsCmd = &cobra.Command{
 The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err
 		}
 
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
@@ -63,7 +67,7 @@ output with the -f flag.`,
 			if follow {
 				commandLine = append(commandLine, "-f")
 			}
-			docker.RunDockerComposeCommand(stackManager.Stack.RuntimeDir, verbose, true, commandLine...)
+			docker.RunDockerComposeCommand(ctx, stackManager.Stack.RuntimeDir, commandLine...)
 		} else {
 			fmt.Println("no logs found - stack has not been started")
 		}

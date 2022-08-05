@@ -17,6 +17,7 @@
 package ethsigner
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -40,11 +41,11 @@ password-file = "/data/password"
 	return filename, ioutil.WriteFile(filename, []byte(toml), 0755)
 }
 
-func (p *EthSignerProvider) copyTomlFileToVolume(tomlFilePath, volumeName string, verbose bool) error {
-	if err := docker.MkdirInVolume(volumeName, "/keystore", verbose); err != nil {
+func (p *EthSignerProvider) copyTomlFileToVolume(ctx context.Context, tomlFilePath, volumeName string) error {
+	if err := docker.MkdirInVolume(ctx, volumeName, "/keystore"); err != nil {
 		return err
 	}
-	if err := docker.CopyFileToVolume(volumeName, tomlFilePath, "/keystore", verbose); err != nil {
+	if err := docker.CopyFileToVolume(ctx, volumeName, tomlFilePath, "/keystore"); err != nil {
 		return err
 	}
 	return nil

@@ -17,8 +17,10 @@
 package erc1155
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -28,20 +30,29 @@ import (
 const tokenProviderName = "erc1155"
 
 type ERC1155Provider struct {
-	Log     log.Logger
-	Verbose bool
-	Stack   *types.Stack
+	ctx                context.Context
+	stack              *types.Stack
+	blockchainProvider blockchain.IBlockchainProvider
+}
+
+func NewERC1155Provider(ctx context.Context, stack *types.Stack, blockchainProvider blockchain.IBlockchainProvider) *ERC1155Provider {
+	return &ERC1155Provider{
+		ctx:                ctx,
+		stack:              stack,
+		blockchainProvider: blockchainProvider,
+	}
 }
 
 func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
+	return DeployContracts(p.ctx, p.stack, tokenIndex)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
-	for _, member := range p.Stack.Members {
-		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
+	l := log.LoggerFromContext(p.ctx)
+	for _, member := range p.stack.Members {
+		l.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
 		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
-		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil, p.Verbose); err != nil {
+		if err := core.RequestWithRetry(p.ctx, "POST", tokenInitUrl, nil, nil); err != nil {
 			return err
 		}
 	}
@@ -49,22 +60,22 @@ func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
 }
 
 func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition {
-	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
-	for i, member := range p.Stack.Members {
+	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.stack.Members))
+	for i, member := range p.stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
 		env := map[string]interface{}{
 			"ETHCONNECT_URL":   p.getEthconnectURL(member),
 			"ETHCONNECT_TOPIC": connectorName,
 			"AUTO_INIT":        "false",
 		}
-		if p.Stack.FFTMEnabled {
+		if p.stack.FFTMEnabled {
 			env["FFTM_URL"] = p.getFFTMURL(member)
 		}
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
 			Service: &docker.Service{
-				Image:         p.Stack.VersionManifest.TokensERC1155.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
+				Image:         p.stack.VersionManifest.TokensERC1155.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment:   env,
 				DependsOn: map[string]map[string]string{

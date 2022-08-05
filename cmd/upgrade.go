@@ -17,8 +17,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -31,17 +33,19 @@ var upgradeCmd = &cobra.Command{
 	If certain containers were pinned to a specific image at init,
 	this command will have no effect on those containers.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stackManager := stacks.NewStackManager(logger)
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 		fmt.Printf("upgrading stack '%s'... ", stackName)
-		if err := stackManager.UpgradeStack(verbose); err != nil {
+		if err := stackManager.UpgradeStack(); err != nil {
 			return err
 		}
 		fmt.Printf("done\n\nYour stack has been upgraded. To start your upgraded stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)

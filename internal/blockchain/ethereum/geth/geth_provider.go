@@ -17,6 +17,7 @@
 package geth
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -26,7 +27,9 @@ import (
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/evmconnect"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -39,29 +42,45 @@ var gethImage = "ethereum/client-go:release-1.10"
 var keyPassword = "correcthorsebatterystaple"
 
 type GethProvider struct {
-	Log     log.Logger
-	Verbose bool
-	Stack   *types.Stack
+	ctx       context.Context
+	stack     *types.Stack
+	connector connector.Connector
+}
+
+func NewGethProvider(ctx context.Context, stack *types.Stack) *GethProvider {
+	var connector connector.Connector
+	switch stack.BlockchainConnector {
+	case types.Ethconnect.String():
+		connector = ethconnect.NewEthconnect(ctx)
+	case types.Evmconnect.String():
+		connector = evmconnect.NewEvmconnect(ctx)
+	}
+
+	return &GethProvider{
+		ctx:       ctx,
+		stack:     stack,
+		connector: connector,
+	}
 }
 
 func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
-	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
-	for i, member := range p.Stack.Members {
-		// Generate the ethconnect config for each member
-		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "geth").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
+	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
+	for i, member := range p.stack.Members {
+		// Generate the connector config for each member
+		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		if err := p.connector.GenerateConfig(member, "geth").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
 		}
 	}
 
 	// Create genesis.json
-	addresses := make([]string, len(p.Stack.Members))
-	for i, member := range p.Stack.Members {
+	addresses := make([]string, len(p.stack.Members))
+	for i, member := range p.stack.Members {
 		address := member.Account.(*ethereum.Account).Address
 		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
 		addresses[i] = address[2:]
 	}
-	genesis := CreateGenesis(addresses, options.BlockPeriod, p.Stack.ChainID())
+	genesis := CreateGenesis(addresses, options.BlockPeriod, p.stack.ChainID())
 	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
@@ -70,34 +89,34 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *GethProvider) FirstTimeSetup() error {
-	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
-	blockchainDir := path.Join(p.Stack.RuntimeDir, "blockchain")
-	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
+	gethVolumeName := fmt.Sprintf("%s_geth", p.stack.Name)
+	blockchainDir := path.Join(p.stack.RuntimeDir, "blockchain")
+	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
 
 	if err := os.MkdirAll(contractsDir, 0755); err != nil {
 		return err
 	}
 
-	for i := range p.Stack.Members {
-		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
-		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	for i := range p.stack.Members {
+		// Copy connector config to each member's volume
+		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
+		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
 	}
 
 	// Copy the wallet files all members to the blockchain volume
 	keystoreDirectory := filepath.Join(blockchainDir, "keystore")
-	if err := docker.CopyFileToVolume(gethVolumeName, keystoreDirectory, "/", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(p.ctx, gethVolumeName, keystoreDirectory, "/"); err != nil {
 		return err
 	}
 
 	// Copy the genesis block information
-	if err := docker.CopyFileToVolume(gethVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json", p.Verbose); err != nil {
+	if err := docker.CopyFileToVolume(p.ctx, gethVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
 		return err
 	}
 
 	// Initialize the genesis block
-	if err := docker.RunDockerCommand(p.Stack.StackDir, p.Verbose, p.Verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
+	if err := docker.RunDockerCommand(p.ctx, p.stack.StackDir, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
 		return err
 	}
 
@@ -109,10 +128,11 @@ func (p *GethProvider) PreStart() error {
 }
 
 func (p *GethProvider) PostStart(firstTimeSetup bool) error {
+	l := log.LoggerFromContext(p.ctx)
 	// Unlock accounts
-	for _, account := range p.Stack.State.Accounts {
+	for _, account := range p.stack.State.Accounts {
 		address := account.(*ethereum.Account).Address
-		p.Log.Info(fmt.Sprintf("unlocking account %s", address))
+		l.Info(fmt.Sprintf("unlocking account %s", address))
 		if err := p.unlockAccount(address, keyPassword); err != nil {
 			return err
 		}
@@ -122,12 +142,14 @@ func (p *GethProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *GethProvider) unlockAccount(address, password string) error {
-	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.Stack.ExposedBlockchainPort))
+	l := log.LoggerFromContext(p.ctx)
+	verbose := log.VerbosityFromContext(p.ctx)
+	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort))
 	retries := 10
 	for {
 		if err := gethClient.UnlockAccount(address, password); err != nil {
-			if p.Verbose {
-				p.Log.Debug(err.Error())
+			if verbose {
+				l.Debug(err.Error())
 			}
 			if retries == 0 {
 				return fmt.Errorf("unable to unlock account %s", address)
@@ -142,26 +164,30 @@ func (p *GethProvider) unlockAccount(address, password string) error {
 }
 
 func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
-	return ethconnect.DeployFireFlyContract(p.Stack, p.Log, p.Verbose)
+	contract, err := ethereum.ReadFireFlyContract(p.ctx, p.stack)
+	if err != nil {
+		return nil, err
+	}
+	return p.connector.DeployContract(contract, p.stack.Members[0], nil)
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique,debug' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 --miner.gaslimit 16777215`, p.Stack.ChainID())
+	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique,debug' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 --miner.gaslimit 16777215`, p.stack.ChainID())
 
 	serviceDefinitions := make([]*docker.ServiceDefinition, 1)
 	serviceDefinitions[0] = &docker.ServiceDefinition{
 		ServiceName: "geth",
 		Service: &docker.Service{
 			Image:         gethImage,
-			ContainerName: fmt.Sprintf("%s_geth", p.Stack.Name),
+			ContainerName: fmt.Sprintf("%s_geth", p.stack.Name),
 			Command:       gethCommand,
 			Volumes:       []string{"geth:/data"},
 			Logging:       docker.StandardLogOptions,
-			Ports:         []string{fmt.Sprintf("%d:8545", p.Stack.ExposedBlockchainPort)},
+			Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort)},
 		},
 		VolumeNames: []string{"geth"},
 	}
-	serviceDefinitions = append(serviceDefinitions, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"geth": "service_started"})...)
+	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, map[string]string{"geth": "service_started"})...)
 	return serviceDefinitions
 }
 
@@ -170,7 +196,7 @@ func (p *GethProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Or
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.getEthconnectURL(m),
+				URL:   p.getConnectorURL(m),
 				Topic: m.ID,
 			},
 		},
@@ -206,33 +232,24 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (p *GethProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	contractAddress, err := ethconnect.DeployCustomContract(member, filename, contractName)
+	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return nil, err
 	}
-
-	result := &types.ContractDeploymentResult{
-		DeployedContract: &types.DeployedContract{
-			Name: contractName,
-			Location: map[string]string{
-				"address": contractAddress,
-			},
-		},
-	}
-	return result, nil
+	return p.connector.DeployContract(contracts.Contracts[contractName], member, extraArgs)
 }
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
-	gethVolumeName := fmt.Sprintf("%s_geth", p.Stack.Name)
+	gethVolumeName := fmt.Sprintf("%s_geth", p.stack.Name)
 	var directory string
-	stackHasRunBefore, err := p.Stack.HasRunBefore()
+	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
 		return nil, err
 	}
 	if stackHasRunBefore {
-		directory = p.Stack.RuntimeDir
+		directory = p.stack.RuntimeDir
 	} else {
-		directory = p.Stack.InitDir
+		directory = p.stack.InitDir
 	}
 
 	prefix := strconv.FormatInt(time.Now().UnixNano(), 10)
@@ -243,7 +260,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	if stackHasRunBefore {
-		if err := ethereum.CopyWalletFileToVolume(walletFilePath, gethVolumeName, p.Verbose); err != nil {
+		if err := ethereum.CopyWalletFileToVolume(p.ctx, walletFilePath, gethVolumeName); err != nil {
 			return nil, err
 		}
 		if err := p.unlockAccount(keyPair.Address.String(), keyPassword); err != nil {
@@ -257,9 +274,9 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}, nil
 }
 
-func (p *GethProvider) getEthconnectURL(member *types.Organization) string {
+func (p *GethProvider) getConnectorURL(member *types.Organization) string {
 	if !member.External {
-		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), member.ID, member.ExposedConnectorPort)
 	} else {
 		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	}

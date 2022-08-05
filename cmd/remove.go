@@ -17,12 +17,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -36,16 +38,18 @@ var removeCmd = &cobra.Command{
 This command will completely delete a stack, including all of its data
 and configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err
 		}
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
@@ -56,14 +60,14 @@ and configuration.`,
 			}
 		}
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 		fmt.Printf("deleting FireFly stack '%s'... ", stackName)
-		if err := stackManager.StopStack(verbose); err != nil {
+		if err := stackManager.StopStack(); err != nil {
 			return err
 		}
-		if err := stackManager.RemoveStack(verbose); err != nil {
+		if err := stackManager.RemoveStack(); err != nil {
 			return err
 		}
 		os.RemoveAll(filepath.Join(constants.StacksDir, stackName))

@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -41,24 +42,22 @@ This command will start a stack and run it in the background.
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var spin *spinner.Spinner
 		if fancyFeatures && !verbose {
-			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-			spin.FinalMSG = "done"
-			logger = &log.SpinnerLogger{
-				Spinner: spin,
-			}
+			logger = log.NewSpinnerLogger(spinner.New(spinner.CharSets[11], 100*time.Millisecond))
 		}
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err
 		}
 
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
@@ -71,7 +70,7 @@ This command will start a stack and run it in the background.
 		if spin != nil {
 			spin.Start()
 		}
-		messages, err := stackManager.StartStack(verbose, &startOptions)
+		messages, err := stackManager.StartStack(&startOptions)
 		if err != nil {
 			return err
 		}

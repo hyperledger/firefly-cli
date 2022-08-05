@@ -17,9 +17,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -30,21 +32,23 @@ var stopCmd = &cobra.Command{
 	Short: "Stop a stack",
 	Long:  `Stop a stack`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err
 		}
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
 		fmt.Printf("stopping stack '%s'... ", stackName)
-		if err := stackManager.StopStack(verbose); err != nil {
+		if err := stackManager.StopStack(); err != nil {
 			return err
 		}
 		fmt.Print("done\n")

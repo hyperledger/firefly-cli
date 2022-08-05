@@ -17,8 +17,10 @@
 package erc20erc721
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -29,9 +31,9 @@ import (
 const tokenProviderName = "erc20_erc721"
 
 type ERC20ERC721Provider struct {
-	Log     log.Logger
-	Verbose bool
-	Stack   *types.Stack
+	ctx                context.Context
+	stack              *types.Stack
+	blockchainProvider blockchain.IBlockchainProvider
 }
 
 type HexAddress string
@@ -45,15 +47,24 @@ func (h HexAddress) MarshalYAML() (interface{}, error) {
 	}, nil
 }
 
+func NewERC20ERC721Provider(ctx context.Context, stack *types.Stack, blockchainProvider blockchain.IBlockchainProvider) *ERC20ERC721Provider {
+	return &ERC20ERC721Provider{
+		ctx:                ctx,
+		stack:              stack,
+		blockchainProvider: blockchainProvider,
+	}
+}
+
 func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	return DeployContracts(p.Stack, p.Log, p.Verbose, tokenIndex)
+	return DeployContracts(p.ctx, p.stack, p.blockchainProvider, tokenIndex)
 }
 
 func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
-	for _, member := range p.Stack.Members {
-		p.Log.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
+	l := log.LoggerFromContext(p.ctx)
+	for _, member := range p.stack.Members {
+		l.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
 		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
-		if err := core.RequestWithRetry("POST", tokenInitUrl, nil, nil, p.Verbose); err != nil {
+		if err := core.RequestWithRetry(p.ctx, "POST", tokenInitUrl, nil, nil); err != nil {
 			return err
 		}
 	}
@@ -61,12 +72,12 @@ func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 }
 
 func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.ServiceDefinition {
-	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.Stack.Members))
-	for i, member := range p.Stack.Members {
+	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.stack.Members))
+	for i, member := range p.stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
 
 		var factoryAddress HexAddress
-		for _, contract := range p.Stack.State.DeployedContracts {
+		for _, contract := range p.stack.State.DeployedContracts {
 			if contract.Name == contractName(tokenIdx) {
 				switch loc := contract.Location.(type) {
 				case map[string]string:
@@ -81,15 +92,15 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 			"FACTORY_CONTRACT_ADDRESS": factoryAddress,
 			"AUTO_INIT":                "false",
 		}
-		if p.Stack.FFTMEnabled {
+		if p.stack.FFTMEnabled {
 			env["FFTM_URL"] = p.getFFTMURL(member)
 		}
 
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
 			Service: &docker.Service{
-				Image:         p.Stack.VersionManifest.TokensERC20ERC721.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.Stack.Name, i, tokenIdx),
+				Image:         p.stack.VersionManifest.TokensERC20ERC721.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_tokens_%v_%v", p.stack.Name, i, tokenIdx),
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment:   env,
 				DependsOn: map[string]map[string]string{
