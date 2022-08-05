@@ -35,4 +35,7 @@ type IBlockchainProvider interface {
 	DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
 	CreateAccount(args []string) (interface{}, error)
 	ParseAccount(interface{}) interface{}
+	GetConnectorName() string
+	GetConnectorURL(org *types.Organization) string
+	GetConnectorExternalURL(org *types.Organization) string
 }

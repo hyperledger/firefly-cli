@@ -18,9 +18,12 @@ package erc1155
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -44,7 +47,23 @@ func NewERC1155Provider(ctx context.Context, stack *types.Stack, blockchainProvi
 }
 
 func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	return DeployContracts(p.ctx, p.stack, tokenIndex)
+	l := log.LoggerFromContext(p.ctx)
+	var containerName string
+	for _, member := range p.stack.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	}
+	l.Info("extracting smart contracts")
+
+	if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
+		return nil, err
+	}
+	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", p.stack.Members[0], nil)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
@@ -64,12 +83,9 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 	for i, member := range p.stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
 		env := map[string]interface{}{
-			"ETHCONNECT_URL":   p.getEthconnectURL(member),
+			"ETHCONNECT_URL":   p.blockchainProvider.GetConnectorURL(member),
 			"ETHCONNECT_TOPIC": connectorName,
 			"AUTO_INIT":        "false",
-		}
-		if p.stack.FFTMEnabled {
-			env["FFTM_URL"] = p.getFFTMURL(member)
 		}
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
@@ -79,7 +95,7 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment:   env,
 				DependsOn: map[string]map[string]string{
-					"ethconnect_" + member.ID: {"condition": "service_started"},
+					fmt.Sprintf("%s_%s", p.blockchainProvider.GetConnectorName(), member.ID): {"condition": "service_started"},
 				},
 				HealthCheck: &docker.HealthCheck{
 					Test: []string{"CMD", "curl", "http://localhost:3000/api"},
@@ -103,14 +119,6 @@ func (p *ERC1155Provider) GetFireflyConfig(m *types.Organization, tokenIdx int) 
 			URL: p.getTokensURL(m, tokenIdx),
 		},
 	}
-}
-
-func (p *ERC1155Provider) getEthconnectURL(member *types.Organization) string {
-	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
-}
-
-func (p *ERC1155Provider) getFFTMURL(member *types.Organization) string {
-	return fmt.Sprintf("http://fftm_%s:5008", member.ID)
 }
 
 func (p *ERC1155Provider) getTokensURL(member *types.Organization, tokenIdx int) string {

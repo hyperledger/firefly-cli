@@ -110,7 +110,7 @@ func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *typ
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.getConnectorURL(m),
+				URL:   p.GetConnectorURL(m),
 				Topic: m.ID,
 			},
 		},
@@ -148,12 +148,20 @@ func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {
 	return p.signer.CreateAccount(args)
 }
 
-func (p *RemoteRPCProvider) getConnectorURL(member *types.Organization) string {
-	if !member.External {
-		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), member.ID, member.ExposedConnectorPort)
+func (p *RemoteRPCProvider) GetConnectorName() string {
+	return p.connector.Name()
+}
+
+func (p *RemoteRPCProvider) GetConnectorURL(org *types.Organization) string {
+	if !org.External {
+		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
 	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+		return p.GetConnectorExternalURL(org)
 	}
+}
+
+func (p *RemoteRPCProvider) GetConnectorExternalURL(org *types.Organization) string {
+	return fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort)
 }
 
 func (p *RemoteRPCProvider) ParseAccount(account interface{}) interface{} {

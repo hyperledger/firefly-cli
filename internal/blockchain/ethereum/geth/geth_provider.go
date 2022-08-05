@@ -196,7 +196,7 @@ func (p *GethProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Or
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.getConnectorURL(m),
+				URL:   p.GetConnectorURL(m),
 				Topic: m.ID,
 			},
 		},
@@ -274,18 +274,26 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}, nil
 }
 
-func (p *GethProvider) getConnectorURL(member *types.Organization) string {
-	if !member.External {
-		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), member.ID, member.ExposedConnectorPort)
-	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
-	}
-}
-
 func (p *GethProvider) ParseAccount(account interface{}) interface{} {
 	accountMap := account.(map[string]interface{})
 	return &ethereum.Account{
 		Address:    accountMap["address"].(string),
 		PrivateKey: accountMap["privateKey"].(string),
 	}
+}
+
+func (p *GethProvider) GetConnectorName() string {
+	return p.connector.Name()
+}
+
+func (p *GethProvider) GetConnectorURL(org *types.Organization) string {
+	if !org.External {
+		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
+	} else {
+		return p.GetConnectorExternalURL(org)
+	}
+}
+
+func (p *GethProvider) GetConnectorExternalURL(org *types.Organization) string {
+	return fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort)
 }

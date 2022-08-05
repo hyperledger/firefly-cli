@@ -18,9 +18,12 @@ package erc20erc721
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -56,7 +59,24 @@ func NewERC20ERC721Provider(ctx context.Context, stack *types.Stack, blockchainP
 }
 
 func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	return DeployContracts(p.ctx, p.stack, p.blockchainProvider, tokenIndex)
+	l := log.LoggerFromContext(p.ctx)
+	var containerName string
+	for _, member := range p.stack.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	}
+	l.Info("extracting smart contracts")
+
+	if err := ethereum.ExtractContracts(p.ctx, containerName, "/home/node/contracts", p.stack.RuntimeDir); err != nil {
+		return nil, err
+	}
+
+	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory", p.stack.Members[0], nil)
 }
 
 func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
@@ -87,13 +107,10 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 		}
 
 		env := map[string]interface{}{
-			"ETHCONNECT_URL":           p.getEthconnectURL(member),
+			"ETHCONNECT_URL":           p.blockchainProvider.GetConnectorURL(member),
 			"ETHCONNECT_TOPIC":         connectorName,
 			"FACTORY_CONTRACT_ADDRESS": factoryAddress,
 			"AUTO_INIT":                "false",
-		}
-		if p.stack.FFTMEnabled {
-			env["FFTM_URL"] = p.getFFTMURL(member)
 		}
 
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
@@ -104,7 +121,7 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedTokensPorts[tokenIdx])},
 				Environment:   env,
 				DependsOn: map[string]map[string]string{
-					"ethconnect_" + member.ID: {"condition": "service_started"},
+					fmt.Sprintf("%s_%s", p.blockchainProvider.GetConnectorName(), member.ID): {"condition": "service_started"},
 				},
 				HealthCheck: &docker.HealthCheck{
 					Test: []string{"CMD", "curl", "http://localhost:3000/api"},
@@ -130,14 +147,6 @@ func (p *ERC20ERC721Provider) GetFireflyConfig(m *types.Organization, tokenIdx i
 	}
 }
 
-func (p *ERC20ERC721Provider) getEthconnectURL(member *types.Organization) string {
-	return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
-}
-
-func (p *ERC20ERC721Provider) getFFTMURL(member *types.Organization) string {
-	return fmt.Sprintf("http://fftm_%s:5008", member.ID)
-}
-
 func (p *ERC20ERC721Provider) getTokensURL(member *types.Organization, tokenIdx int) string {
 	if !member.External {
 		return fmt.Sprintf("http://tokens_%s_%d:3000", member.ID, tokenIdx)
@@ -148,4 +157,8 @@ func (p *ERC20ERC721Provider) getTokensURL(member *types.Organization, tokenIdx 
 
 func (p *ERC20ERC721Provider) GetName() string {
 	return tokenProviderName
+}
+
+func contractName(tokenIndex int) string {
+	return fmt.Sprintf("erc20erc721_TokenFactory_%d", tokenIndex)
 }
