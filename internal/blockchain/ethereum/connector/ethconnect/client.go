@@ -238,7 +238,7 @@ func deprecatedRegisterContract(ethconnectUrl string, abiId string, contractAddr
 	return registerResponseBody, nil
 }
 
-func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	address := member.Account.(*ethereum.Account).Address
 	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
@@ -270,7 +270,7 @@ func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, member 
 
 	result := &types.ContractDeploymentResult{
 		DeployedContract: &types.DeployedContract{
-			Name:     "FireFly",
+			Name:     contractName,
 			Location: map[string]string{"address": reply.ContractAddress},
 		},
 	}

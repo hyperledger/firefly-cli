@@ -1063,7 +1063,7 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	result, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	result, err := s.blockchainProvider.DeployContract(filename, contractName, contractName, s.Stack.Members[memberIndex], extraArgs)
 	if err != nil {
 		return "", err
 	}

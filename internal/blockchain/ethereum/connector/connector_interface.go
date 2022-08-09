@@ -24,7 +24,7 @@ import (
 
 type Connector interface {
 	GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
-	DeployContract(contract *ethtypes.CompiledContract, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
+	DeployContract(contract *ethtypes.CompiledContract, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
 	GenerateConfig(member *types.Organization, blockchainServiceName string) Config
 	Name() string
 	Port() int

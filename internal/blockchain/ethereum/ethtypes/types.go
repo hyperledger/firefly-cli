@@ -21,6 +21,7 @@ type CompiledContracts struct {
 }
 
 type CompiledContract struct {
+	Name     string      `json:"name"`
 	ABI      interface{} `json:"abi"`
 	Bytecode string      `json:"bin"`
 }

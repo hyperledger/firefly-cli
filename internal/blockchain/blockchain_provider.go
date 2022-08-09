@@ -32,7 +32,7 @@ type IBlockchainProvider interface {
 	GetOrgConfig(stack *types.Stack, org *types.Organization) (coreConfig *types.OrgConfig)
 	Reset() error
 	GetContracts(filename string, extraArgs []string) ([]string, error)
-	DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
+	DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
 	CreateAccount(args []string) (interface{}, error)
 	ParseAccount(interface{}) interface{}
 	GetConnectorName() string

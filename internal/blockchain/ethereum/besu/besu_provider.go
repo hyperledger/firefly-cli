@@ -141,7 +141,7 @@ func (p *BesuProvider) DeployFireFlyContract() (*types.ContractDeploymentResult,
 	if err != nil {
 		return nil, err
 	}
-	return p.connector.DeployContract(contract, p.stack.Members[0], nil)
+	return p.connector.DeployContract(contract, "FireFly", p.stack.Members[0], nil)
 }
 
 func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
@@ -216,12 +216,12 @@ func (p *BesuProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *BesuProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *BesuProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return nil, err
 	}
-	return p.connector.DeployContract(contracts.Contracts[contractName], member, extraArgs)
+	return p.connector.DeployContract(contracts.Contracts[contractName], instanceName, member, extraArgs)
 }
 
 func (p *BesuProvider) CreateAccount(args []string) (interface{}, error) {

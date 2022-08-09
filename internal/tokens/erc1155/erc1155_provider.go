@@ -63,7 +63,7 @@ func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractD
 	if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
 		return nil, err
 	}
-	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", p.stack.Members[0], nil)
+	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", "ERC1155MixedFungible", p.stack.Members[0], nil)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {

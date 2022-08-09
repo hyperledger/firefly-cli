@@ -76,7 +76,7 @@ func (p *ERC20ERC721Provider) DeploySmartContracts(tokenIndex int) (*types.Contr
 		return nil, err
 	}
 
-	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory", p.stack.Members[0], nil)
+	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "TokenFactory.json"), "TokenFactory", contractName(tokenIndex), p.stack.Members[0], nil)
 }
 
 func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
