@@ -98,6 +98,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Volumes: []string{fmt.Sprintf("%s:/etc/firefly/firefly.core.yml:ro", configFile)},
 				DependsOn: map[string]map[string]string{
 					"dataexchange_" + member.ID: {"condition": "service_started"},
+					"ipfs_" + member.ID:         {"condition": "service_healthy"},
 				},
 				Logging: StandardLogOptions,
 			}
@@ -141,6 +142,12 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
 			},
 			Logging: StandardLogOptions,
+			HealthCheck: &HealthCheck{
+				Test:     []string{"CMD-SHELL", `wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q`},
+				Interval: "5s",
+				Timeout:  "3s",
+				Retries:  12,
+			},
 		}
 		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
 		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
