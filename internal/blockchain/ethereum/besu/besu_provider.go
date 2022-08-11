@@ -53,6 +53,7 @@ func NewBesuProvider(ctx context.Context, stack *types.Stack) *BesuProvider {
 	}
 
 	return &BesuProvider{
+		ctx:       ctx,
 		stack:     stack,
 		connector: connector,
 		signer:    ethsigner.NewEthSignerProvider(ctx, stack),

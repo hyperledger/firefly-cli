@@ -109,18 +109,16 @@ outputCapture:
 					break outputCapture
 				}
 				fmt.Print(s)
-			} else {
-				outputBuff.WriteString(s)
 			}
+			outputBuff.WriteString(s)
 		case s, ok := <-stderrChan:
 			if !ok {
 				break outputCapture
 			}
 			if verbose {
 				fmt.Print(s)
-			} else {
-				outputBuff.WriteString(s)
 			}
+			outputBuff.WriteString(s)
 		case err := <-errChan:
 			return "", err
 		}
