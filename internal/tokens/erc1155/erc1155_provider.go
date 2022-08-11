@@ -18,12 +18,9 @@ package erc1155
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -47,23 +44,30 @@ func NewERC1155Provider(ctx context.Context, stack *types.Stack, blockchainProvi
 }
 
 func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	l := log.LoggerFromContext(p.ctx)
-	var containerName string
-	for _, member := range p.stack.Members {
-		if !member.External {
-			containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
-			break
-		}
-	}
-	if containerName == "" {
-		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
-	}
-	l.Info("extracting smart contracts")
+	return DeployContracts(p.ctx, p.stack, tokenIndex)
 
-	if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
-		return nil, err
-	}
-	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", "ERC1155MixedFungible", p.stack.Members[0], nil)
+	// TODO:
+	//
+	// USE THE CODE BELOW ONCE THE ERC-1155 SUPPORTS DEPLOYING WITH
+	// ETHCONNECT AND EVMCONNECT THE SAME WAY
+	//
+	// l := log.LoggerFromContext(p.ctx)
+	// var containerName string
+	// for _, member := range p.stack.Members {
+	// 	if !member.External {
+	// 		containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
+	// 		break
+	// 	}
+	// }
+	// if containerName == "" {
+	// 	return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	// }
+	// l.Info("extracting smart contracts")
+
+	// if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
+	// 	return nil, err
+	// }
+	// return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", "ERC1155MixedFungible", p.stack.Members[0], nil)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
