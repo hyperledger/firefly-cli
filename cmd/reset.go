@@ -17,9 +17,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
@@ -35,18 +37,19 @@ but don't want to actually recreate the resources in the stack itself.
 Note: this will also stop the stack if it is running.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err
 		}
 
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 
@@ -62,10 +65,10 @@ Note: this will also stop the stack if it is running.
 		}
 
 		fmt.Printf("resetting FireFly stack '%s'... ", stackName)
-		if err := stackManager.StopStack(verbose); err != nil {
+		if err := stackManager.StopStack(); err != nil {
 			return err
 		}
-		if err := stackManager.ResetStack(verbose); err != nil {
+		if err := stackManager.ResetStack(); err != nil {
 			return err
 		}
 		fmt.Printf("done\n\nYour stack has been reset. To start your stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)

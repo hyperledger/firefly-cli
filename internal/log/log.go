@@ -16,6 +16,10 @@
 
 package log
 
+import (
+	"context"
+)
+
 type LogLevel int
 
 const (
@@ -33,4 +37,25 @@ type Logger interface {
 	Info(s string)
 	Warn(s string)
 	Error(e error)
+}
+
+type (
+	ctxLogKey       struct{}
+	ctxVerbosityKey struct{}
+)
+
+func WithLogger(ctx context.Context, log Logger) context.Context {
+	return context.WithValue(ctx, ctxLogKey{}, log)
+}
+
+func LoggerFromContext(ctx context.Context) Logger {
+	return ctx.Value(ctxLogKey{}).(Logger)
+}
+
+func WithVerbosity(ctx context.Context, verbose bool) context.Context {
+	return context.WithValue(ctx, ctxVerbosityKey{}, verbose)
+}
+
+func VerbosityFromContext(ctx context.Context) bool {
+	return ctx.Value(ctxVerbosityKey{}).(bool)
 }

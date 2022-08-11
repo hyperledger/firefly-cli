@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -45,20 +46,22 @@ Pull the images for a stack .
 				Spinner: spin,
 			}
 		}
+		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = log.WithLogger(ctx, logger)
 
-		stackManager := stacks.NewStackManager(logger)
+		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return errors.New("no stack specified")
 		}
 		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName, verbose); err != nil {
+		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 		if spin != nil {
 			spin.Start()
 		}
-		if err := stackManager.PullStack(verbose, &pullOptions); err != nil {
+		if err := stackManager.PullStack(&pullOptions); err != nil {
 			return err
 		}
 		if spin != nil {

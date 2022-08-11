@@ -17,6 +17,7 @@
 package stacks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -31,13 +32,12 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/tokens"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
@@ -46,12 +46,11 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/hyperledger/firefly-cli/internal/log"
-
 	"github.com/otiai10/copy"
 )
 
 type StackManager struct {
+	ctx                context.Context
 	Log                log.Logger
 	Stack              *types.Stack
 	blockchainProvider blockchain.IBlockchainProvider
@@ -78,9 +77,10 @@ func ListStacks() ([]string, error) {
 	return stacks, nil
 }
 
-func NewStackManager(logger log.Logger) *StackManager {
+func NewStackManager(ctx context.Context) *StackManager {
 	return &StackManager{
-		Log: logger,
+		ctx: ctx,
+		Log: log.LoggerFromContext(ctx),
 	}
 }
 
@@ -93,6 +93,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		Database:               options.DatabaseSelection.String(),
 		BlockchainProvider:     options.BlockchainProvider.String(),
 		BlockchainNodeProvider: options.BlockchainNodeProvider.String(),
+		BlockchainConnector:    options.BlockchainConnector.String(),
 		TokenProviders:         options.TokenProviders,
 		ContractAddress:        options.ContractAddress,
 		StackDir:               filepath.Join(constants.StacksDir, stackName),
@@ -139,8 +140,8 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	}
 
 	s.Stack.VersionManifest = manifest
-	s.blockchainProvider = s.getBlockchainProvider(false)
-	s.tokenProviders = s.getITokenProviders(false)
+	s.blockchainProvider = s.getBlockchainProvider()
+	s.tokenProviders = s.getITokenProviders()
 
 	for i := 0; i < memberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
@@ -168,7 +169,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	return s.writeConfig(options)
 }
 
-func (s *StackManager) runDockerComposeCommand(showCommand, pipeStdout bool, command ...string) error {
+func (s *StackManager) runDockerComposeCommand(command ...string) error {
 	baseCompose := filepath.Join(s.Stack.StackDir, "docker-compose.yml")
 	runtimeCompose := filepath.Join(s.Stack.RuntimeDir, "docker-compose.yml")
 	if _, err := os.Stat(baseCompose); os.IsNotExist(err) {
@@ -177,7 +178,7 @@ func (s *StackManager) runDockerComposeCommand(showCommand, pipeStdout bool, com
 			copy.Copy(runtimeCompose, baseCompose)
 		}
 	}
-	return docker.RunDockerComposeCommand(s.Stack.StackDir, showCommand, pipeStdout, command...)
+	return docker.RunDockerComposeCommand(s.ctx, s.Stack.StackDir, command...)
 }
 
 func (s *StackManager) buildDockerCompose() *docker.DockerComposeConfig {
@@ -220,7 +221,7 @@ func CheckExists(stackName string) (bool, error) {
 	}
 }
 
-func (s *StackManager) LoadStack(stackName string, verbose bool) error {
+func (s *StackManager) LoadStack(stackName string) error {
 	stackDir := filepath.Join(constants.StacksDir, stackName)
 	exists, err := CheckExists(stackName)
 	if err != nil {
@@ -239,8 +240,8 @@ func (s *StackManager) LoadStack(stackName string, verbose bool) error {
 	}
 	s.Stack = stack
 	s.Stack.StackDir = stackDir
-	s.blockchainProvider = s.getBlockchainProvider(verbose)
-	s.tokenProviders = s.getITokenProviders(verbose)
+	s.blockchainProvider = s.getBlockchainProvider()
+	s.tokenProviders = s.getITokenProviders()
 
 	if s.Stack.RequestTimeout > 0 {
 		core.SetRequestTimeout(s.Stack.RequestTimeout)
@@ -483,20 +484,20 @@ func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
 	return nil
 }
 
-func (s *StackManager) copyDataExchangeConfigToVolumes(verbose bool) error {
+func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 	for _, member := range s.Stack.Members {
 		// Copy files into docker volumes
 		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
-		docker.MkdirInVolume(volumeName, "peer-certs", verbose)
-		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "config.json"), "/config.json", verbose); err != nil {
+		docker.MkdirInVolume(s.ctx, volumeName, "peer-certs")
+		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "config.json"), "/config.json"); err != nil {
 			return err
 		}
-		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "cert.pem"), "/cert.pem", verbose); err != nil {
+		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "cert.pem"), "/cert.pem"); err != nil {
 			return err
 		}
-		if err := docker.CopyFileToVolume(volumeName, path.Join(memberDXDir, "key.pem"), "/key.pem", verbose); err != nil {
+		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "key.pem"), "/key.pem"); err != nil {
 			return err
 		}
 	}
@@ -547,7 +548,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 	return member, nil
 }
 
-func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (messages []string, err error) {
+func (s *StackManager) StartStack(options *types.StartOptions) (messages []string, err error) {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
 	// Check to make sure all of our ports are available
 	err = s.checkPortsAvailable()
@@ -559,7 +560,7 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 		return messages, err
 	}
 	if !hasBeenRun {
-		setupMessages, err := s.runFirstTimeSetup(verbose, options)
+		setupMessages, err := s.runFirstTimeSetup(options)
 		messages = append(messages, setupMessages...)
 		if err != nil {
 			// Something bad happened during setup
@@ -568,7 +569,7 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 			} else {
 				// Rollback changes
 				s.Log.Error(fmt.Errorf("an error occurred - rolling back changes"))
-				resetErr := s.ResetStack(verbose)
+				resetErr := s.ResetStack()
 
 				var finalErr error
 
@@ -582,7 +583,7 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 			}
 		}
 	} else {
-		err = s.runStartupSequence(verbose, false)
+		err = s.runStartupSequence(false)
 		if err != nil {
 			return messages, err
 		}
@@ -590,19 +591,21 @@ func (s *StackManager) StartStack(verbose bool, options *types.StartOptions) (me
 	return messages, s.ensureFireflyNodesUp(true)
 }
 
-func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error {
+func (s *StackManager) PullStack(options *types.PullOptions) error {
 	var images []string
 	manifestImages := make(map[string]bool)
 
 	// Collect FireFly docker image names
 	for _, entry := range s.Stack.VersionManifest.Entries() {
-		fullImage := entry.GetDockerImageString()
-		s.Log.Info(fmt.Sprintf("Manifest entry image='%s' local=%t", fullImage, entry.Local))
-		manifestImages[fullImage] = true
-		if entry.Local {
-			continue
+		if entry != nil {
+			fullImage := entry.GetDockerImageString()
+			s.Log.Info(fmt.Sprintf("Manifest entry image='%s' local=%t", fullImage, entry.Local))
+			manifestImages[fullImage] = true
+			if entry.Local {
+				continue
+			}
+			images = append(images, fullImage)
 		}
-		images = append(images, fullImage)
 	}
 
 	// IPFS is the only one that we always use in every stack
@@ -642,14 +645,14 @@ func (s *StackManager) PullStack(verbose bool, options *types.PullOptions) error
 	// Use docker to pull every image - retry on failure
 	for _, image := range images {
 		s.Log.Info(fmt.Sprintf("pulling '%s'", image))
-		if err := docker.RunDockerCommandRetry(s.Stack.InitDir, verbose, verbose, options.Retries, "pull", image); err != nil {
+		if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *StackManager) removeVolumes(verbose bool) {
+func (s *StackManager) removeVolumes() {
 	var volumes []string
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
 		volumes = append(volumes, service.VolumeNames...)
@@ -663,17 +666,17 @@ func (s *StackManager) removeVolumes(verbose bool) {
 		volumes = append(volumes, volumeName)
 	}
 	for _, volumeName := range volumes {
-		docker.RunDockerCommand("", verbose, verbose, "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName))
+		docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName))
 	}
 }
 
-func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) error {
+func (s *StackManager) runStartupSequence(firstTimeSetup bool) error {
 	if err := s.blockchainProvider.PreStart(); err != nil {
 		return err
 	}
 
 	s.Log.Info("starting FireFly dependencies")
-	if err := s.runDockerComposeCommand(verbose, verbose, "up", "-d"); err != nil {
+	if err := s.runDockerComposeCommand("up", "-d"); err != nil {
 		return err
 	}
 
@@ -684,12 +687,12 @@ func (s *StackManager) runStartupSequence(verbose bool, firstTimeSetup bool) err
 	return nil
 }
 
-func (s *StackManager) StopStack(verbose bool) error {
-	return s.runDockerComposeCommand(verbose, verbose, "stop")
+func (s *StackManager) StopStack() error {
+	return s.runDockerComposeCommand("stop")
 }
 
-func (s *StackManager) ResetStack(verbose bool) error {
-	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
+func (s *StackManager) ResetStack() error {
+	if err := s.runDockerComposeCommand("down"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(s.Stack.RuntimeDir); err != nil {
@@ -698,15 +701,15 @@ func (s *StackManager) ResetStack(verbose bool) error {
 	if err := s.blockchainProvider.Reset(); err != nil {
 		return err
 	}
-	s.removeVolumes(verbose)
+	s.removeVolumes()
 	return nil
 }
 
-func (s *StackManager) RemoveStack(verbose bool) error {
-	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
+func (s *StackManager) RemoveStack() error {
+	if err := s.runDockerComposeCommand("down"); err != nil {
 		return err
 	}
-	s.removeVolumes(verbose)
+	s.removeVolumes()
 	return os.RemoveAll(s.Stack.StackDir)
 }
 
@@ -787,18 +790,18 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
-func (s *StackManager) copyFFTMConfigToContainer(verbose bool, workingDir string, member *types.Organization) error {
+func (s *StackManager) copyFFTMConfigToContainer(workingDir string, member *types.Organization) error {
 	if s.Stack.FFTMEnabled {
 		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
 		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
-		if err := docker.CopyFileToVolume(volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm", verbose); err != nil {
+		if err := docker.CopyFileToVolume(s.ctx, volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm"); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptions) (messages []string, err error) {
+func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
 	for i := 0; i < len(s.Stack.Members); i++ {
@@ -812,7 +815,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	}
 
 	// Re-write the docker-compose config to temporarily short-circuit the core runtimes
-	if err := s.disableFireflyCoreContainers(verbose); err != nil {
+	if err := s.disableFireflyCoreContainers(); err != nil {
 		return messages, err
 	}
 
@@ -824,23 +827,23 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 	if s.Stack.PrometheusEnabled {
 		s.Log.Info("copying prometheus.yml to prometheus_config")
 		volumeName := fmt.Sprintf("%s_prometheus_config", s.Stack.Name)
-		if err := docker.CopyFileToVolume(volumeName, path.Join(configDir, "prometheus.yml"), "/prometheus.yml", verbose); err != nil {
+		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(configDir, "prometheus.yml"), "/prometheus.yml"); err != nil {
 			return messages, err
 		}
 	}
 
-	if err := s.copyDataExchangeConfigToVolumes(verbose); err != nil {
+	if err := s.copyDataExchangeConfigToVolumes(); err != nil {
 		return messages, err
 	}
 
 	pullOptions := &types.PullOptions{
 		Retries: 2,
 	}
-	if err := s.PullStack(verbose, pullOptions); err != nil {
+	if err := s.PullStack(pullOptions); err != nil {
 		return messages, err
 	}
 
-	if err := s.runStartupSequence(verbose, true); err != nil {
+	if err := s.runStartupSequence(true); err != nil {
 		return messages, err
 	}
 
@@ -909,8 +912,8 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 				},
 			}
 		}
-		s.patchFireFlyCoreConfigs(verbose, configDir, member, newConfig)
-		if err := s.copyFFTMConfigToContainer(verbose, configDir, member); err != nil {
+		s.patchFireFlyCoreConfigs(configDir, member, newConfig)
+		if err := s.copyFFTMConfigToContainer(configDir, member); err != nil {
 			return messages, err
 		}
 	}
@@ -923,10 +926,10 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	// Restart all containers now that we've finalized the runtime config
 	s.Log.Info("restarting containers")
-	if err := s.runDockerComposeCommand(verbose, verbose, "stop"); err != nil {
+	if err := s.runDockerComposeCommand("stop"); err != nil {
 		return messages, err
 	}
-	if err := s.runStartupSequence(verbose, false); err != nil {
+	if err := s.runStartupSequence(false); err != nil {
 		return messages, err
 	}
 
@@ -936,7 +939,7 @@ func (s *StackManager) runFirstTimeSetup(verbose bool, options *types.StartOptio
 
 	if s.Stack.MultipartyEnabled {
 		s.Log.Info("registering FireFly identities")
-		if err := s.registerFireflyIdentities(verbose); err != nil {
+		if err := s.registerFireflyIdentities(); err != nil {
 			return messages, err
 		}
 	}
@@ -996,27 +999,27 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 	return fmt.Errorf("waited for %v seconds for firefly to start on port %v but it was never available", retries*retryPeriod/1000, port)
 }
 
-func (s *StackManager) UpgradeStack(verbose bool) error {
-	if err := s.runDockerComposeCommand(verbose, verbose, "down"); err != nil {
+func (s *StackManager) UpgradeStack() error {
+	if err := s.runDockerComposeCommand("down"); err != nil {
 		return err
 	}
-	return s.runDockerComposeCommand(verbose, verbose, "pull")
+	return s.runDockerComposeCommand("pull")
 }
 
-func (s *StackManager) PrintStackInfo(verbose bool) error {
+func (s *StackManager) PrintStackInfo() error {
 	fmt.Print("\n")
-	if err := s.runDockerComposeCommand(verbose, true, "images"); err != nil {
+	if err := s.runDockerComposeCommand("images"); err != nil {
 		return err
 	}
 	fmt.Print("\n")
-	if err := s.runDockerComposeCommand(verbose, true, "ps"); err != nil {
+	if err := s.runDockerComposeCommand("ps"); err != nil {
 		return err
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
 	return nil
 }
 
-func (s *StackManager) disableFireflyCoreContainers(verbose bool) error {
+func (s *StackManager) disableFireflyCoreContainers() error {
 	compose := s.buildDockerCompose()
 	for _, member := range s.Stack.Members {
 		if !member.External {
@@ -1027,7 +1030,7 @@ func (s *StackManager) disableFireflyCoreContainers(verbose bool) error {
 	return s.writeDockerCompose(compose)
 }
 
-func (s *StackManager) patchFireFlyCoreConfigs(verbose bool, workingDir string, org *types.Organization, newConfig *types.FireflyConfig) error {
+func (s *StackManager) patchFireFlyCoreConfigs(workingDir string, org *types.Organization, newConfig *types.FireflyConfig) error {
 	if newConfig != nil {
 		newConfigBytes, err := yaml.Marshal(newConfig)
 		if err != nil {
@@ -1060,7 +1063,7 @@ func (s *StackManager) GetContracts(filename string, extraArgs []string) ([]stri
 }
 
 func (s *StackManager) DeployContract(filename, contractName string, memberIndex int, extraArgs []string) (string, error) {
-	result, err := s.blockchainProvider.DeployContract(filename, contractName, s.Stack.Members[memberIndex], extraArgs)
+	result, err := s.blockchainProvider.DeployContract(filename, contractName, contractName, s.Stack.Members[memberIndex], extraArgs)
 	if err != nil {
 		return "", err
 	}
@@ -1100,7 +1103,7 @@ func (s *StackManager) CreateAccount(args []string) (string, error) {
 	return string(b), nil
 }
 
-func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchainProvider {
+func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 
 	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
 		s.Stack.BlockchainProvider = types.Ethereum.String()
@@ -1119,64 +1122,29 @@ func (s *StackManager) getBlockchainProvider(verbose bool) blockchain.IBlockchai
 		switch s.Stack.BlockchainNodeProvider {
 		case types.GoEthereum.String():
 			s.Stack.DisableTokenFactories = false
-			return &geth.GethProvider{
-				Verbose: verbose,
-				Log:     s.Log,
-				Stack:   s.Stack,
-			}
+			return geth.NewGethProvider(s.ctx, s.Stack)
 		case types.HyperledgerBesu.String():
 			s.Stack.DisableTokenFactories = false
-			return &besu.BesuProvider{
-				Verbose: verbose,
-				Log:     s.Log,
-				Stack:   s.Stack,
-				Signer: &ethsigner.EthSignerProvider{
-					Verbose: verbose,
-					Log:     s.Log,
-					Stack:   s.Stack,
-				},
-			}
+			return besu.NewBesuProvider(s.ctx, s.Stack)
 		case types.RemoteRPC.String():
-			return &remoterpc.RemoteRPCProvider{
-				Verbose: verbose,
-				Log:     s.Log,
-				Stack:   s.Stack,
-				Signer: &ethsigner.EthSignerProvider{
-					Verbose: verbose,
-					Log:     s.Log,
-					Stack:   s.Stack,
-				},
-			}
+
 		default:
 			return nil
 		}
 	case types.HyperledgerFabric.String():
-		return &fabric.FabricProvider{
-			Verbose: verbose,
-			Log:     s.Log,
-			Stack:   s.Stack,
-		}
-	default:
-		return nil
+		return fabric.NewFabricProvider(s.ctx, s.Stack)
 	}
+	return nil
 }
 
-func (s *StackManager) getITokenProviders(verbose bool) []tokens.ITokensProvider {
+func (s *StackManager) getITokenProviders() []tokens.ITokensProvider {
 	tps := make([]tokens.ITokensProvider, len(s.Stack.TokenProviders))
 	for i, tp := range s.Stack.TokenProviders {
 		switch tp {
 		case types.ERC1155:
-			tps[i] = &erc1155.ERC1155Provider{
-				Verbose: verbose,
-				Log:     s.Log,
-				Stack:   s.Stack,
-			}
+			tps[i] = erc1155.NewERC1155Provider(s.ctx, s.Stack, s.getBlockchainProvider())
 		case types.ERC20_ERC721:
-			tps[i] = &erc20erc721.ERC20ERC721Provider{
-				Verbose: verbose,
-				Log:     s.Log,
-				Stack:   s.Stack,
-			}
+			tps[i] = erc20erc721.NewERC20ERC721Provider(s.ctx, s.Stack, s.getBlockchainProvider())
 		default:
 			return nil
 		}

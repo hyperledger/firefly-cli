@@ -30,6 +30,7 @@ type Stack struct {
 	ExposedBlockchainPort  int              `json:"exposedBlockchainPort,omitempty"`
 	Database               string           `json:"database"`
 	BlockchainProvider     string           `json:"blockchainProvider"`
+	BlockchainConnector    string           `json:"blockchainConnector"`
 	BlockchainNodeProvider string           `json:"blockchainNodeProvider"`
 	TokenProviders         TokenProviders   `json:"tokenProviders"`
 	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`

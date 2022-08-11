@@ -17,6 +17,7 @@
 package fabric
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -38,9 +39,9 @@ type Account struct {
 }
 
 type FabricProvider struct {
-	Verbose bool
-	Log     log.Logger
-	Stack   *types.Stack
+	ctx   context.Context
+	log   log.Logger
+	stack *types.Stack
 }
 
 //go:embed configtx.yaml
@@ -50,13 +51,21 @@ const chaincodeName = "firefly"
 const chaincodeVersion = "1.0"
 const channel = "firefly"
 
+func NewFabricProvider(ctx context.Context, stack *types.Stack) *FabricProvider {
+	return &FabricProvider{
+		ctx:   ctx,
+		stack: stack,
+		log:   log.LoggerFromContext(ctx),
+	}
+}
+
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
-	blockchainDirectory := path.Join(p.Stack.InitDir, "blockchain")
+	blockchainDirectory := path.Join(p.stack.InitDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 
 	os.MkdirAll(blockchainDirectory, 0755)
 
-	if err := WriteCryptogenConfig(len(p.Stack.Members), cryptogenYamlPath); err != nil {
+	if err := WriteCryptogenConfig(len(p.stack.Members), cryptogenYamlPath); err != nil {
 		return err
 	}
 	if err := WriteNetworkConfig(path.Join(blockchainDirectory, "ccp.yaml")); err != nil {
@@ -73,16 +82,16 @@ func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *FabricProvider) FirstTimeSetup() error {
-	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
+	blockchainDirectory := path.Join(p.stack.RuntimeDir, "blockchain")
 	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 
-	if err := docker.CreateVolume(volumeName, p.Verbose); err != nil {
+	if err := docker.CreateVolume(p.ctx, volumeName); err != nil {
 		return err
 	}
 
 	// Run cryptogen to generate MSP
-	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose,
+	if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
@@ -97,7 +106,7 @@ func (p *FabricProvider) FirstTimeSetup() error {
 	}
 
 	// Generate genesis block
-	if err := docker.RunDockerCommand(blockchainDirectory, p.Verbose, p.Verbose,
+	if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
@@ -122,7 +131,7 @@ func (p *FabricProvider) DeployFireFlyContract() (*types.ContractDeploymentResul
 }
 
 func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
-	packageFilename := path.Join(p.Stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
+	packageFilename := path.Join(p.stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
 
 	if err := p.extractChaincode(); err != nil {
 		return nil, err
@@ -175,8 +184,8 @@ func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
 		}
 
 		// Register pre-created identities
-		p.Log.Info("registering identities")
-		for _, m := range p.Stack.Members {
+		p.log.Info("registering identities")
+		for _, m := range p.stack.Members {
 			_, err := p.registerIdentity(m, m.OrgName)
 			if err != nil {
 				return err
@@ -187,8 +196,8 @@ func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	serviceDefinitions := GenerateDockerServiceDefinitions(p.Stack)
-	serviceDefinitions = append(serviceDefinitions, p.getFabconnectServiceDefinitions(p.Stack.Members)...)
+	serviceDefinitions := GenerateDockerServiceDefinitions(p.stack)
+	serviceDefinitions = append(serviceDefinitions, p.getFabconnectServiceDefinitions(p.stack.Members)...)
 	return serviceDefinitions
 }
 
@@ -221,14 +230,14 @@ func (p *FabricProvider) Reset() error {
 }
 
 func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organization) []*docker.ServiceDefinition {
-	blockchainDirectory := path.Join(p.Stack.RuntimeDir, "blockchain")
+	blockchainDirectory := path.Join(p.stack.RuntimeDir, "blockchain")
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(members))
 	for i, member := range members {
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "fabconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:         p.Stack.VersionManifest.Fabconnect.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_fabconnect_%s", p.Stack.Name, member.ID),
+				Image:         p.stack.VersionManifest.Fabconnect.GetDockerImageString(),
+				ContainerName: fmt.Sprintf("%s_fabconnect_%s", p.stack.Name, member.ID),
 				Command:       "-f /fabconnect/fabconnect.yaml",
 				DependsOn: map[string]map[string]string{
 					"fabric_ca":      {"condition": "service_started"},
@@ -267,19 +276,19 @@ func (p *FabricProvider) getFabconnectUrl(member *types.Organization) string {
 }
 
 func (p *FabricProvider) writeConfigtxYaml() error {
-	filePath := path.Join(p.Stack.InitDir, "blockchain", "configtx.yaml")
+	filePath := path.Join(p.stack.InitDir, "blockchain", "configtx.yaml")
 	return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
 }
 
 func (p *FabricProvider) createChannel() error {
-	p.Log.Info("creating channel")
-	stackDir := p.Stack.StackDir
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+	p.log.Info("creating channel")
+	stackDir := p.stack.StackDir
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	return docker.RunDockerCommand(p.ctx, stackDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
 		FabricToolsImageName,
 		"osnadmin", "channel", "join",
@@ -293,14 +302,14 @@ func (p *FabricProvider) createChannel() error {
 }
 
 func (p *FabricProvider) joinChannel() error {
-	p.Log.Info("joining channel")
-	stackDir := p.Stack.StackDir
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(stackDir, p.Verbose, p.Verbose,
+	p.log.Info("joining channel")
+	stackDir := p.stack.StackDir
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	return docker.RunDockerCommand(p.ctx, stackDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
@@ -313,38 +322,38 @@ func (p *FabricProvider) joinChannel() error {
 }
 
 func (p *FabricProvider) extractChaincode() error {
-	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
+	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
 
 	if err := os.MkdirAll(contractsDir, 0755); err != nil {
 		return err
 	}
 
 	var containerName string
-	for _, member := range p.Stack.Members {
+	for _, member := range p.stack.Members {
 		if !member.External {
-			containerName = fmt.Sprintf("%s_firefly_core_%s", p.Stack.Name, member.ID)
+			containerName = fmt.Sprintf("%s_firefly_core_%s", p.stack.Name, member.ID)
 			break
 		}
 	}
 	if containerName == "" {
 		return errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
 	}
-	p.Log.Info("extracting smart contracts")
-	if err := docker.CopyFromContainer(containerName, "/firefly/contracts/firefly_fabric.tar.gz", path.Join(contractsDir, "firefly_fabric.tar.gz"), p.Verbose); err != nil {
+	p.log.Info("extracting smart contracts")
+	if err := docker.CopyFromContainer(p.ctx, containerName, "/firefly/contracts/firefly_fabric.tar.gz", path.Join(contractsDir, "firefly_fabric.tar.gz")); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (p *FabricProvider) installChaincode(packageFilename string) error {
-	p.Log.Info("installing chaincode")
-	contractsDir := path.Join(p.Stack.RuntimeDir, "contracts")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(contractsDir, p.Verbose, p.Verbose,
+	p.log.Info("installing chaincode")
+	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	return docker.RunDockerCommand(p.ctx, contractsDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
@@ -358,13 +367,13 @@ func (p *FabricProvider) installChaincode(packageFilename string) error {
 }
 
 func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
-	p.Log.Info("querying installed chaincode")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	str, err := docker.RunDockerCommandBuffered(p.Stack.RuntimeDir, p.Verbose,
+	p.log.Info("querying installed chaincode")
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	str, err := docker.RunDockerCommandBuffered(p.ctx, p.stack.RuntimeDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
@@ -387,13 +396,13 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 }
 
 func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId string) error {
-	p.Log.Info("approving chaincode")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
+	p.log.Info("approving chaincode")
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	return docker.RunDockerCommand(p.ctx, p.stack.RuntimeDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
@@ -415,13 +424,13 @@ func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId
 }
 
 func (p *FabricProvider) commitChaincode(channel, chaincode, version string) error {
-	p.Log.Info("committing chaincode")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.Stack.Name)
-	return docker.RunDockerCommand(p.Stack.RuntimeDir, p.Verbose, p.Verbose,
+	p.log.Info("committing chaincode")
+	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	return docker.RunDockerCommand(p.ctx, p.stack.RuntimeDir,
 		"run",
 		"--platform", getDockerPlatform(),
 		"--rm",
-		fmt.Sprintf("--network=%s_default", p.Stack.Name),
+		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
 		"-e", "CORE_PEER_TLS_ENABLED=true",
 		"-e", "CORE_PEER_TLS_ROOTCERT_FILE=/etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt",
@@ -460,7 +469,7 @@ func (p *FabricProvider) GetContracts(filename string, extraArgs []string) ([]st
 	return []string{filename}, nil
 }
 
-func (p *FabricProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *FabricProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
@@ -520,7 +529,7 @@ func (p *FabricProvider) DeployContract(filename, contractName string, member *t
 }
 
 func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
-	stackHasRunBefore, err := p.Stack.HasRunBefore()
+	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +544,7 @@ func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
 
 	if stackHasRunBefore {
 		// Find the FireFly member by the org name
-		for _, member := range p.Stack.Members {
+		for _, member := range p.stack.Members {
 			if member.OrgName == orgName {
 				return p.registerIdentity(member, accountName)
 			}
@@ -559,4 +568,20 @@ func (p *FabricProvider) ParseAccount(account interface{}) interface{} {
 		Name:    accountMap["name"].(string),
 		OrgName: accountMap["orgName"].(string),
 	}
+}
+
+func (p *FabricProvider) GetConnectorName() string {
+	return "fabconnect"
+}
+
+func (p *FabricProvider) GetConnectorURL(org *types.Organization) string {
+	if !org.External {
+		return fmt.Sprintf("http://fabconnect_%s:%v", org.ID, org.ExposedConnectorPort)
+	} else {
+		return p.GetConnectorExternalURL(org)
+	}
+}
+
+func (p *FabricProvider) GetConnectorExternalURL(org *types.Organization) string {
+	return fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort)
 }

@@ -18,10 +18,10 @@ package ethconnect
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,14 +29,17 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
 	"github.com/hyperledger/firefly-cli/internal/core"
-	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
+
+type Ethconnect struct {
+	ctx context.Context
+}
 
 type PublishAbiResponseBody struct {
 	ID string `json:"id,omitempty"`
@@ -90,7 +93,21 @@ type EthconnectReplyHeaders struct {
 	Type          string  `json:"type,omitempty"`
 }
 
-func publishABI(ethconnectUrl string, contract *ethereum.CompiledContract) (*PublishAbiResponseBody, error) {
+func NewEthconnect(ctx context.Context) *Ethconnect {
+	return &Ethconnect{
+		ctx: ctx,
+	}
+}
+
+func (e *Ethconnect) Name() string {
+	return "ethconnect"
+}
+
+func (e *Ethconnect) Port() int {
+	return 8080
+}
+
+func publishABI(ethconnectUrl string, contract *ethtypes.CompiledContract) (*PublishAbiResponseBody, error) {
 	u, err := url.Parse(ethconnectUrl)
 	if err != nil {
 		return nil, err
@@ -221,12 +238,12 @@ func deprecatedRegisterContract(ethconnectUrl string, abiId string, contractAddr
 	return registerResponseBody, nil
 }
 
-func deployContract(member *types.Organization, contract *ethereum.CompiledContract, args map[string]string) (string, error) {
+func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	address := member.Account.(*ethereum.Account).Address
 	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	base64Bytecode := base64.StdEncoding.EncodeToString(hexBytecode)
 
@@ -240,21 +257,27 @@ func deployContract(member *types.Organization, contract *ethereum.CompiledContr
 	}
 
 	ethconnectResponse := &EthconnectMessageResponse{}
-	if err := core.RequestWithRetry("POST", ethconnectUrl, requestBody, ethconnectResponse, false); err != nil {
-		return "", err
+	if err := core.RequestWithRetry(e.ctx, "POST", ethconnectUrl, requestBody, ethconnectResponse); err != nil {
+		return nil, err
 	}
-	reply, err := getReply(ethconnectUrl, ethconnectResponse.ID)
+	reply, err := getReply(e.ctx, ethconnectUrl, ethconnectResponse.ID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if reply.Headers.Type != "TransactionSuccess" {
-		return "", fmt.Errorf(reply.ErrorMessage)
+		return nil, fmt.Errorf(reply.ErrorMessage)
 	}
 
-	return reply.ContractAddress, nil
+	result := &types.ContractDeploymentResult{
+		DeployedContract: &types.DeployedContract{
+			Name:     contractName,
+			Location: map[string]string{"address": reply.ContractAddress},
+		},
+	}
+	return result, nil
 }
 
-func DeprecatedDeployContract(member *types.Organization, contract *ethereum.CompiledContract, name string, args map[string]string) (string, error) {
+func DeprecatedDeployContract(member *types.Organization, contract *ethtypes.CompiledContract, name string, args map[string]string) (string, error) {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	address := member.Account.(*ethereum.Account).Address
@@ -268,7 +291,7 @@ func DeprecatedDeployContract(member *types.Organization, contract *ethereum.Com
 	return deployResponse.ContractAddress, nil
 }
 
-func DeprecatedRegisterContract(member *types.Organization, contract *ethereum.CompiledContract, contractAddress string, name string, args map[string]string) error {
+func DeprecatedRegisterContract(member *types.Organization, contract *ethtypes.CompiledContract, contractAddress string, name string, args map[string]string) error {
 	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	abiResponse, err := publishABI(ethconnectUrl, contract)
 	address := member.Account.(*ethereum.Account).Address
@@ -282,65 +305,18 @@ func DeprecatedRegisterContract(member *types.Organization, contract *ethereum.C
 	return nil
 }
 
-func DeployFireFlyContract(s *types.Stack, log log.Logger, verbose bool) (*types.ContractDeploymentResult, error) {
-	var containerName string
-	var firstNonExternalMember *types.Organization
-	for _, member := range s.Members {
-		if !member.External {
-			firstNonExternalMember = member
-			containerName = fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID)
-			break
-		}
-	}
-	if containerName == "" {
-		return nil, errors.New("unable to extract contracts from container - no valid firefly core containers found in stack")
-	}
-	log.Info("extracting smart contracts")
+// func DeployCustomContract(member *types.Organization, filename, contractName string) (string, error) {
+// 	contracts, err := ethereum.ReadContractJSON(filename)
+// 	if err != nil {
+// 		return "", nil
+// 	}
 
-	if err := ethereum.ExtractContracts(containerName, "/firefly/contracts", s.RuntimeDir, verbose); err != nil {
-		return nil, err
-	}
+// 	contract := contracts.Contracts[contractName]
 
-	var fireflyContract *ethereum.CompiledContract
-	contracts, err := ethereum.ReadContractJSON(filepath.Join(s.RuntimeDir, "contracts", "Firefly.json"))
-	if err != nil {
-		return nil, err
-	}
+// 	return deployContract(member, contract, map[string]string{})
+// }
 
-	fireflyContract, ok := contracts.Contracts["Firefly.sol:Firefly"]
-	if !ok {
-		fireflyContract, ok = contracts.Contracts["FireFly"]
-		if !ok {
-			return nil, fmt.Errorf("unable to find compiled FireFly contract")
-		}
-	}
-
-	log.Info(fmt.Sprintf("deploying firefly contract via '%s'", firstNonExternalMember.ID))
-	contractAddress, err := deployContract(firstNonExternalMember, fireflyContract, map[string]string{})
-	if err != nil {
-		return nil, err
-	}
-	result := &types.ContractDeploymentResult{
-		DeployedContract: &types.DeployedContract{
-			Name:     "FireFly",
-			Location: map[string]string{"address": contractAddress},
-		},
-	}
-	return result, nil
-}
-
-func DeployCustomContract(member *types.Organization, filename, contractName string) (string, error) {
-	contracts, err := ethereum.ReadContractJSON(filename)
-	if err != nil {
-		return "", nil
-	}
-
-	contract := contracts.Contracts[contractName]
-
-	return deployContract(member, contract, map[string]string{})
-}
-
-func getReply(ethconnectUrl, id string) (*EthconnectReply, error) {
+func getReply(ctx context.Context, ethconnectUrl, id string) (*EthconnectReply, error) {
 	u, err := url.Parse(ethconnectUrl)
 	if err != nil {
 		return nil, err
@@ -352,6 +328,6 @@ func getReply(ethconnectUrl, id string) (*EthconnectReply, error) {
 	requestUrl := u.String()
 
 	reply := &EthconnectReply{}
-	err = core.RequestWithRetry("GET", requestUrl, nil, reply, false)
+	err = core.RequestWithRetry(ctx, "GET", requestUrl, nil, reply)
 	return reply, err
 }

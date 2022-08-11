@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/core"
 )
 
-func (s *StackManager) registerFireflyIdentities(verbose bool) error {
+func (s *StackManager) registerFireflyIdentities() error {
 	emptyObject := make(map[string]interface{})
 
 	for _, member := range s.Stack.Members {
@@ -31,13 +31,13 @@ func (s *StackManager) registerFireflyIdentities(verbose bool) error {
 		s.Log.Info(fmt.Sprintf("registering org and node for member %s", member.ID))
 
 		registerOrgURL := fmt.Sprintf("%s/network/organizations/self?confirm=true", ffURL)
-		err := core.RequestWithRetry(http.MethodPost, registerOrgURL, emptyObject, nil, verbose)
+		err := core.RequestWithRetry(s.ctx, http.MethodPost, registerOrgURL, emptyObject, nil)
 		if err != nil {
 			return err
 		}
 
 		registerNodeURL := fmt.Sprintf("%s/network/nodes/self?confirm=true", ffURL)
-		err = core.RequestWithRetry(http.MethodPost, registerNodeURL, emptyObject, nil, verbose)
+		err = core.RequestWithRetry(s.ctx, http.MethodPost, registerNodeURL, emptyObject, nil)
 		if err != nil {
 			return nil
 		}

@@ -27,6 +27,13 @@ type SpinnerLogger struct {
 	logLevel LogLevel
 }
 
+func NewSpinnerLogger(spin *spinner.Spinner) *SpinnerLogger {
+	spin.FinalMSG = "done"
+	return &SpinnerLogger{
+		Spinner: spin,
+	}
+}
+
 func (l *SpinnerLogger) SetLogLevel(level LogLevel) {
 	l.logLevel = level
 }

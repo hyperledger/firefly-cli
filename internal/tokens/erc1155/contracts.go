@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2022 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,19 +17,27 @@
 package erc1155
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+// TODO:
+//
+// REMOVE THIS FILE ONCE ERC-1155 SUPPORTS DEPLOYING WITH
+// ETHCONNECT AND EVMCONNECT THE SAME WAY
+//
+
 const TOKEN_URI_PATTERN = "firefly://token/{id}"
 
-func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex int) (*types.ContractDeploymentResult, error) {
+func DeployContracts(ctx context.Context, s *types.Stack, tokenIndex int) (*types.ContractDeploymentResult, error) {
+	l := log.LoggerFromContext(ctx)
 	var containerName string
 	for _, member := range s.Members {
 		if !member.External {
@@ -40,9 +48,9 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	if containerName == "" {
 		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
 	}
-	log.Info("extracting smart contracts")
+	l.Info("extracting smart contracts")
 
-	if err := ethereum.ExtractContracts(containerName, "/root/contracts", s.RuntimeDir, verbose); err != nil {
+	if err := ethereum.ExtractContracts(ctx, containerName, "/root/contracts", s.RuntimeDir); err != nil {
 		return nil, err
 	}
 
@@ -59,13 +67,13 @@ func DeployContracts(s *types.Stack, log log.Logger, verbose bool, tokenIndex in
 	for _, member := range s.Members {
 		// TODO: move to address based contract deployment, once ERC-1155 connector is updated to not require an EthConnect REST API registration
 		if tokenContractAddress == "" {
-			log.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
+			l.Info(fmt.Sprintf("deploying ERC1155 contract on '%s'", member.ID))
 			tokenContractAddress, err = ethconnect.DeprecatedDeployContract(member, tokenContract, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			log.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
+			l.Info(fmt.Sprintf("registering ERC1155 contract on '%s'", member.ID))
 			err = ethconnect.DeprecatedRegisterContract(member, tokenContract, tokenContractAddress, "erc1155", map[string]string{"uri": TOKEN_URI_PATTERN})
 			if err != nil {
 				return nil, err

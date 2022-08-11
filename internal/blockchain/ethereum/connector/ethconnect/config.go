@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
 	"gopkg.in/yaml.v3"
@@ -56,13 +57,13 @@ type HTTP struct {
 	Port int `yaml:"port,omitempty"`
 }
 
-func (e *Config) WriteConfig(filename string, extraEthconnectConfigPath string) error {
+func (e *Config) WriteConfig(filename string, extraConnectorConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
 	if err := ioutil.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
 		return err
 	}
-	if extraEthconnectConfigPath != "" {
-		c, err := conflate.FromFiles(filename, extraEthconnectConfigPath)
+	if extraConnectorConfigPath != "" {
+		c, err := conflate.FromFiles(filename, extraConnectorConfigPath)
 		if err != nil {
 			return err
 		}
@@ -77,7 +78,7 @@ func (e *Config) WriteConfig(filename string, extraEthconnectConfigPath string) 
 	return nil
 }
 
-func GenerateEthconnectConfig(member *types.Organization, blockchainServiceName string) *Config {
+func (e *Ethconnect) GenerateConfig(member *types.Organization, blockchainServiceName string) connector.Config {
 	return &Config{
 		Rest: &Rest{
 			RestGateway: &RestGateway{

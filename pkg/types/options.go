@@ -29,33 +29,34 @@ type StartOptions struct {
 }
 
 type InitOptions struct {
-	FireFlyBasePort           int
-	ServicesBasePort          int
-	DatabaseSelection         DatabaseSelection
-	Verbose                   bool
-	ExternalProcesses         int
-	OrgNames                  []string
-	NodeNames                 []string
-	BlockchainProvider        BlockchainProvider
-	BlockchainNodeProvider    BlockchainNodeProvider
-	TokenProviders            TokenProviders
-	FireFlyVersion            string
-	ManifestPath              string
-	PrometheusEnabled         bool
-	PrometheusPort            int
-	SandboxEnabled            bool
-	FFTMEnabled               bool
-	ExtraCoreConfigPath       string
-	ExtraEthconnectConfigPath string
-	ExtraFFTMConfigPath       string
-	BlockPeriod               int
-	ContractAddress           string
-	RemoteNodeURL             string
-	ChainID                   int64
-	DisableTokenFactories     bool
-	RequestTimeout            int
-	ReleaseChannel            ReleaseChannelSelection
-	MultipartyEnabled         bool
+	FireFlyBasePort          int
+	ServicesBasePort         int
+	DatabaseSelection        DatabaseSelection
+	Verbose                  bool
+	ExternalProcesses        int
+	OrgNames                 []string
+	NodeNames                []string
+	BlockchainConnector      BlockchainConnector
+	BlockchainProvider       BlockchainProvider
+	BlockchainNodeProvider   BlockchainNodeProvider
+	TokenProviders           TokenProviders
+	FireFlyVersion           string
+	ManifestPath             string
+	PrometheusEnabled        bool
+	PrometheusPort           int
+	SandboxEnabled           bool
+	FFTMEnabled              bool
+	ExtraCoreConfigPath      string
+	ExtraConnectorConfigPath string
+	ExtraFFTMConfigPath      string
+	BlockPeriod              int
+	ContractAddress          string
+	RemoteNodeURL            string
+	ChainID                  int64
+	DisableTokenFactories    bool
+	RequestTimeout           int
+	ReleaseChannel           ReleaseChannelSelection
+	MultipartyEnabled        bool
 }
 
 type BlockchainProvider int
@@ -65,6 +66,29 @@ const (
 	HyperledgerFabric
 	Corda
 )
+
+type BlockchainConnector int
+
+const (
+	Ethconnect BlockchainConnector = iota
+	Evmconnect
+	Fabconnect
+)
+
+var BlockchainConnectorStrings = []string{"ethconnect", "evmconnect", "fabconnect"}
+
+func (blockchainConnector BlockchainConnector) String() string {
+	return BlockchainConnectorStrings[blockchainConnector]
+}
+
+func BlockchainConnectorFromStrings(s string) (BlockchainConnector, error) {
+	for i, blockchainConnectorSelection := range BlockchainConnectorStrings {
+		if strings.ToLower(s) == blockchainConnectorSelection {
+			return BlockchainConnector(i), nil
+		}
+	}
+	return Ethconnect, fmt.Errorf("\"%s\" is not a valid blockchain connector selection. valid options are: %v", s, BlockchainConnectorStrings)
+}
 
 var BlockchainProviderStrings = []string{"ethereum", "fabric", "corda"}
 

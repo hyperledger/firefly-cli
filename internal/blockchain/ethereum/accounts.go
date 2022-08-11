@@ -17,6 +17,7 @@
 package ethereum
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -51,11 +52,11 @@ func CreateWalletFile(outputDirectory, prefix, password string) (*secp256k1.KeyP
 	return keyPair, filename, nil
 }
 
-func CopyWalletFileToVolume(walletFilePath, volumeName string, verbose bool) error {
-	if err := docker.MkdirInVolume(volumeName, "/keystore", verbose); err != nil {
+func CopyWalletFileToVolume(ctx context.Context, walletFilePath, volumeName string) error {
+	if err := docker.MkdirInVolume(ctx, volumeName, "/keystore"); err != nil {
 		return err
 	}
-	if err := docker.CopyFileToVolume(volumeName, walletFilePath, "/keystore", verbose); err != nil {
+	if err := docker.CopyFileToVolume(ctx, volumeName, walletFilePath, "/keystore"); err != nil {
 		return err
 	}
 	return nil

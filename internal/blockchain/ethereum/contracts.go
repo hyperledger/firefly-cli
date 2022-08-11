@@ -17,20 +17,13 @@
 package ethereum
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
-
-type CompiledContracts struct {
-	Contracts map[string]*CompiledContract `json:"contracts"`
-}
-
-type CompiledContract struct {
-	ABI      interface{} `json:"abi"`
-	Bytecode string      `json:"bin"`
-}
 
 type truffleCompiledContract struct {
 	ABI          interface{} `json:"abi"`
@@ -38,28 +31,28 @@ type truffleCompiledContract struct {
 	ContractName string      `json:"contractName"`
 }
 
-func ReadTruffleCompiledContract(filePath string) (*CompiledContracts, error) {
+func ReadTruffleCompiledContract(filePath string) (*ethtypes.CompiledContracts, error) {
 	d, _ := ioutil.ReadFile(filePath)
 	var truffleCompiledContract *truffleCompiledContract
 	err := json.Unmarshal(d, &truffleCompiledContract)
 	if err != nil {
 		return nil, err
 	}
-	contract := &CompiledContract{
+	contract := &ethtypes.CompiledContract{
 		ABI:      truffleCompiledContract.ABI,
 		Bytecode: truffleCompiledContract.Bytecode,
 	}
-	contracts := &CompiledContracts{
-		Contracts: map[string]*CompiledContract{
+	contracts := &ethtypes.CompiledContracts{
+		Contracts: map[string]*ethtypes.CompiledContract{
 			truffleCompiledContract.ContractName: contract,
 		},
 	}
 	return contracts, nil
 }
 
-func ReadSolcCompiledContract(filePath string) (*CompiledContracts, error) {
+func ReadSolcCompiledContract(filePath string) (*ethtypes.CompiledContracts, error) {
 	d, _ := ioutil.ReadFile(filePath)
-	var contracts *CompiledContracts
+	var contracts *ethtypes.CompiledContracts
 	err := json.Unmarshal(d, &contracts)
 	if err != nil {
 		return nil, err
@@ -67,7 +60,7 @@ func ReadSolcCompiledContract(filePath string) (*CompiledContracts, error) {
 	return contracts, nil
 }
 
-func ReadContractJSON(filePath string) (*CompiledContracts, error) {
+func ReadContractJSON(filePath string) (*ethtypes.CompiledContracts, error) {
 	contracts, err := ReadSolcCompiledContract(filePath)
 	if err != nil {
 		return nil, err
@@ -78,8 +71,8 @@ func ReadContractJSON(filePath string) (*CompiledContracts, error) {
 	return ReadTruffleCompiledContract(filePath)
 }
 
-func ExtractContracts(containerName, sourceDir, destinationDir string, verbose bool) error {
-	if err := docker.RunDockerCommand(destinationDir, verbose, verbose, "cp", containerName+":"+sourceDir, destinationDir); err != nil {
+func ExtractContracts(ctx context.Context, containerName, sourceDir, destinationDir string) error {
+	if err := docker.RunDockerCommand(ctx, destinationDir, "cp", containerName+":"+sourceDir, destinationDir); err != nil {
 		return err
 	}
 	return nil

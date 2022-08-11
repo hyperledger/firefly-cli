@@ -17,50 +17,69 @@
 package remoterpc
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/ethconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/evmconnect"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethsigner"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
-	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
 type RemoteRPCProvider struct {
-	Log     log.Logger
-	Verbose bool
-	Stack   *types.Stack
-	Signer  *ethsigner.EthSignerProvider
+	ctx       context.Context
+	stack     *types.Stack
+	connector connector.Connector
+	signer    *ethsigner.EthSignerProvider
+}
+
+func NewReportRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCProvider {
+	var connector connector.Connector
+	switch stack.BlockchainConnector {
+	case types.Ethconnect.String():
+		connector = ethconnect.NewEthconnect(ctx)
+	case types.Evmconnect.String():
+		connector = evmconnect.NewEvmconnect(ctx)
+	}
+
+	return &RemoteRPCProvider{
+		ctx:       ctx,
+		stack:     stack,
+		connector: connector,
+		signer:    ethsigner.NewEthSignerProvider(ctx, stack),
+	}
 }
 
 func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
-	initDir := filepath.Join(constants.StacksDir, p.Stack.Name, "init")
-	for i, member := range p.Stack.Members {
+	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
+	for i, member := range p.stack.Members {
 
-		// Generate the ethconnect config for each member
-		ethconnectConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		if err := ethconnect.GenerateEthconnectConfig(member, "ethsigner").WriteConfig(ethconnectConfigPath, options.ExtraEthconnectConfigPath); err != nil {
+		// Generate the connector config for each member
+		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		if err := p.connector.GenerateConfig(member, "ethsigner").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
 		}
 
 	}
 
-	return p.Signer.WriteConfig(options, options.RemoteNodeURL)
+	return p.signer.WriteConfig(options, options.RemoteNodeURL)
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
-	if err := p.Signer.FirstTimeSetup(); err != nil {
+	if err := p.signer.FirstTimeSetup(); err != nil {
 		return err
 	}
 
-	for i := range p.Stack.Members {
-		// Copy ethconnect config to each member's volume
-		ethconnectConfigPath := filepath.Join(p.Stack.StackDir, "runtime", "config", fmt.Sprintf("ethconnect_%v.yaml", i))
-		ethconnectConfigVolumeName := fmt.Sprintf("%s_ethconnect_config_%v", p.Stack.Name, i)
-		docker.CopyFileToVolume(ethconnectConfigVolumeName, ethconnectConfigPath, "config.yaml", p.Verbose)
+	for i := range p.stack.Members {
+		// Copy connector config to each member's volume
+		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.connector.Name(), p.stack.Name, i)
+		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
 	}
 
 	return nil
@@ -80,9 +99,9 @@ func (p *RemoteRPCProvider) DeployFireFlyContract() (*types.ContractDeploymentRe
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	defs := []*docker.ServiceDefinition{
-		p.Signer.GetDockerServiceDefinition(p.Stack.RemoteNodeURL),
+		p.signer.GetDockerServiceDefinition(p.stack.RemoteNodeURL),
 	}
-	defs = append(defs, ethconnect.GetEthconnectServiceDefinitions(p.Stack, map[string]string{"ethsigner": "service_healthy"})...)
+	defs = append(defs, p.connector.GetServiceDefinitions(p.stack, map[string]string{"ethsigner": "service_healthy"})...)
 	return defs
 }
 
@@ -91,7 +110,7 @@ func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *typ
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.getEthconnectURL(m),
+				URL:   p.GetConnectorURL(m),
 				Topic: m.ID,
 			},
 		},
@@ -126,15 +145,23 @@ func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member
 }
 
 func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {
-	return p.Signer.CreateAccount(args)
+	return p.signer.CreateAccount(args)
 }
 
-func (p *RemoteRPCProvider) getEthconnectURL(member *types.Organization) string {
-	if !member.External {
-		return fmt.Sprintf("http://ethconnect_%s:8080", member.ID)
+func (p *RemoteRPCProvider) GetConnectorName() string {
+	return p.connector.Name()
+}
+
+func (p *RemoteRPCProvider) GetConnectorURL(org *types.Organization) string {
+	if !org.External {
+		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
 	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+		return p.GetConnectorExternalURL(org)
 	}
+}
+
+func (p *RemoteRPCProvider) GetConnectorExternalURL(org *types.Organization) string {
+	return fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort)
 }
 
 func (p *RemoteRPCProvider) ParseAccount(account interface{}) interface{} {

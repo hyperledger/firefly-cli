@@ -18,6 +18,7 @@ package docker
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,36 +27,37 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
-func CreateVolume(volumeName string, verbose bool) error {
-	return RunDockerCommand(".", verbose, verbose, "volume", "create", volumeName)
+func CreateVolume(ctx context.Context, volumeName string) error {
+	return RunDockerCommand(ctx, ".", "volume", "create", volumeName)
 }
 
-func CopyFileToVolume(volumeName string, sourcePath string, destPath string, verbose bool) error {
+func CopyFileToVolume(ctx context.Context, volumeName string, sourcePath string, destPath string) error {
 	fileName := path.Base(sourcePath)
-	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", "-R", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
+	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", "-R", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
 }
 
-func MkdirInVolume(volumeName string, directory string, verbose bool) error {
-	return RunDockerCommand(".", verbose, verbose, "run", "--rm", "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "mkdir", "-p", path.Join("/", "dest", directory))
+func MkdirInVolume(ctx context.Context, volumeName string, directory string) error {
+	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "mkdir", "-p", path.Join("/", "dest", directory))
 }
 
-func RemoveVolume(volumeName string, verbose bool) error {
-	return RunDockerCommand(".", verbose, verbose, "volume", "remove", volumeName)
+func RemoveVolume(ctx context.Context, volumeName string) error {
+	return RunDockerCommand(ctx, ".", "volume", "remove", volumeName)
 }
 
-func CopyFromContainer(containerName string, sourcePath string, destPath string, verbose bool) error {
-	if err := RunDockerCommand(".", verbose, verbose, "cp", containerName+":"+sourcePath, destPath); err != nil {
+func CopyFromContainer(ctx context.Context, containerName string, sourcePath string, destPath string) error {
+	if err := RunDockerCommand(ctx, ".", "cp", containerName+":"+sourcePath, destPath); err != nil {
 		return err
 	}
 	return nil
 }
 
-func RunDockerCommandRetry(workingDir string, showCommand bool, pipeStdout bool, retries int, command ...string) error {
+func RunDockerCommandRetry(ctx context.Context, workingDir string, retries int, command ...string) error {
 	attempt := 0
 	for {
-		err := RunDockerCommand(workingDir, showCommand, pipeStdout, command...)
+		err := RunDockerCommand(ctx, workingDir, command...)
 		if err != nil && attempt < retries {
 			attempt++
 			continue
@@ -67,28 +69,29 @@ func RunDockerCommandRetry(workingDir string, showCommand bool, pipeStdout bool,
 	return nil
 }
 
-func RunDockerCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
+func RunDockerCommand(ctx context.Context, workingDir string, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	_, err := runCommand(dockerCmd, showCommand, pipeStdout)
+	_, err := runCommand(ctx, dockerCmd)
 	return err
 }
 
-func RunDockerComposeCommand(workingDir string, showCommand bool, pipeStdout bool, command ...string) error {
+func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...string) error {
 	dockerCmd := exec.Command("docker-compose", command...)
 	dockerCmd.Dir = workingDir
-	_, err := runCommand(dockerCmd, showCommand, pipeStdout)
+	_, err := runCommand(ctx, dockerCmd)
 	return err
 }
 
-func RunDockerCommandBuffered(workingDir string, showCommand bool, command ...string) (string, error) {
+func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ...string) (string, error) {
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
-	return runCommand(dockerCmd, showCommand, false)
+	return runCommand(ctx, dockerCmd)
 }
 
-func runCommand(cmd *exec.Cmd, showCommand bool, pipeStdout bool) (string, error) {
-	if showCommand {
+func runCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
+	verbose := log.VerbosityFromContext(ctx)
+	if verbose {
 		fmt.Println(cmd.String())
 	}
 	outputBuff := strings.Builder{}
@@ -101,23 +104,21 @@ outputCapture:
 	for {
 		select {
 		case s, ok := <-stdoutChan:
-			if pipeStdout {
+			if verbose {
 				if !ok {
 					break outputCapture
 				}
 				fmt.Print(s)
-			} else {
-				outputBuff.WriteString(s)
 			}
+			outputBuff.WriteString(s)
 		case s, ok := <-stderrChan:
 			if !ok {
 				break outputCapture
 			}
-			if pipeStdout {
+			if verbose {
 				fmt.Print(s)
-			} else {
-				outputBuff.WriteString(s)
 			}
+			outputBuff.WriteString(s)
 		case err := <-errChan:
 			return "", err
 		}

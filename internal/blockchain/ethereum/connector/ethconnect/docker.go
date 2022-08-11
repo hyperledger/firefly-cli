@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-func GetEthconnectServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition {
+func (e *Ethconnect) GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition {
 	dependsOn := make(map[string]map[string]string)
 	for dep, state := range dependentServices {
 		dependsOn[dep] = map[string]string{"condition": state}
