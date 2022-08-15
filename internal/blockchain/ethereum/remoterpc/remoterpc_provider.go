@@ -38,7 +38,7 @@ type RemoteRPCProvider struct {
 	signer    *ethsigner.EthSignerProvider
 }
 
-func NewReportRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCProvider {
+func NewRemoteRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCProvider {
 	var connector connector.Connector
 	switch stack.BlockchainConnector {
 	case types.Ethconnect.String():
@@ -78,7 +78,7 @@ func (p *RemoteRPCProvider) FirstTimeSetup() error {
 	for i := range p.stack.Members {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
-		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.connector.Name(), p.stack.Name, i)
+		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
 		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
 	}
 
@@ -115,11 +115,6 @@ func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *typ
 			},
 		},
 	}
-	if stack.FFTMEnabled {
-		blockchainConfig.Ethereum.FFTM = &types.FFTMConfig{
-			URL: fmt.Sprintf("http://fftm_%s:5008", m.ID),
-		}
-	}
 	return
 }
 
@@ -140,7 +135,7 @@ func (p *RemoteRPCProvider) GetContracts(filename string, extraArgs []string) ([
 	return []string{}, nil
 }
 
-func (p *RemoteRPCProvider) DeployContract(filename, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *RemoteRPCProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	return nil, fmt.Errorf("contract deployment not supported for Remote RPC URL connections")
 }
 

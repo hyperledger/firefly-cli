@@ -80,13 +80,8 @@ type FabconnectConfig struct {
 	Signer    string `yaml:"signer,omitempty"`
 }
 
-type FFTMConfig struct {
-	URL string `yaml:"url,omitempty"`
-}
-
 type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
-	FFTM       *FFTMConfig       `yaml:"fftm,omitempty"`
 }
 
 type FabricConfig struct {

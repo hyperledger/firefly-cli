@@ -36,7 +36,6 @@ type Stack struct {
 	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
 	SandboxEnabled         bool             `json:"sandboxEnabled,omitempty"`
-	FFTMEnabled            bool             `json:"fftmEnabled,omitempty"`
 	MultipartyEnabled      bool             `json:"multiparty"`
 	ExposedPrometheusPort  int              `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress        string           `json:"contractAddress,omitempty"`

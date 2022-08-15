@@ -169,18 +169,6 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				},
 			}
 		}
-		if s.FFTMEnabled {
-			compose.Volumes[fmt.Sprintf("fftm_%s", member.ID)] = struct{}{}
-			compose.Services["fftm_"+member.ID] = &Service{
-				Image:         constants.FFTMImageName,
-				ContainerName: fmt.Sprintf("%s_fftm_%s", s.Name, member.ID),
-				Ports:         []string{fmt.Sprintf("%d:5008", member.ExposedFFTMPort)},
-				Volumes:       []string{fmt.Sprintf("fftm_%s:/etc/firefly", member.ID)},
-				DependsOn: map[string]map[string]string{
-					"firefly_core_" + member.ID: {"condition": "service_started"},
-				},
-			}
-		}
 	}
 
 	if s.PrometheusEnabled {

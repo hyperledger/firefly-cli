@@ -30,7 +30,6 @@ type Organization struct {
 	ExposedIPFSGWPort          int          `json:"exposedIPFSGWPort,omitempty"`
 	ExposedUIPort              int          `json:"exposedUiPort,omitempty"`
 	ExposedSandboxPort         int          `json:"exposedSandboxPort,omitempty"`
-	ExposedFFTMPort            int          `json:"exposedFFTMPort,omitempty"`
 	ExposedTokensPorts         []int        `json:"exposedTokensPorts,omitempty"`
 	External                   bool         `json:"external,omitempty"`
 	OrgName                    string       `json:"orgName,omitempty"`

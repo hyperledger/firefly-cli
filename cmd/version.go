@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"runtime/debug"
 
@@ -74,12 +73,10 @@ var versionCmd = &cobra.Command{
 			switch output {
 			case "json":
 				bytes, err = json.MarshalIndent(info, "", "  ")
-				break
 			case "yaml":
 				bytes, err = yaml.Marshal(info)
-				break
 			default:
-				return errors.New(fmt.Sprintf("invalid output '%s'", output))
+				return fmt.Errorf("invalid output '%s'", output)
 			}
 
 			if err != nil {
