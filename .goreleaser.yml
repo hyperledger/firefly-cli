@@ -1,4 +1,4 @@
-# Copyright © 2021 Kaleido, Inc.
+# Copyright © 2022 Kaleido, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -29,7 +29,7 @@ builds:
       - "-s -w -X 'github.com/hyperledger/firefly-cli/cmd.BuildVersionOverride={{.Version}}' -X 'github.com/hyperledger/firefly-cli/cmd.BuildDate={{.Date}}' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit={{.Commit}}'"
 archives:
   - replacements:
-      darwin: Darwin
+      darwin: macOS
       linux: Linux
       amd64: x86_64
 checksum:
@@ -42,3 +42,5 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+release:
+  prerelease: auto
