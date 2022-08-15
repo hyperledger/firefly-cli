@@ -107,10 +107,13 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 		}
 
 		env := map[string]interface{}{
-			"ETHCONNECT_URL":           p.blockchainProvider.GetConnectorURL(member),
-			"ETHCONNECT_TOPIC":         connectorName,
-			"FACTORY_CONTRACT_ADDRESS": factoryAddress,
-			"AUTO_INIT":                "false",
+			"ETHCONNECT_URL":   p.blockchainProvider.GetConnectorURL(member),
+			"ETHCONNECT_TOPIC": connectorName,
+			"AUTO_INIT":        "false",
+		}
+
+		if !p.stack.DisableTokenFactories && factoryAddress != "" {
+			env["FACTORY_CONTRACT_ADDRESS"] = factoryAddress
 		}
 
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{

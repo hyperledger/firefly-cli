@@ -29,5 +29,3 @@ var IPFSImageName = "ipfs/go-ipfs:v0.10.0"
 var PostgresImageName = "postgres"
 var PrometheusImageName = "prom/prometheus"
 var SandboxImageName = "ghcr.io/hyperledger/firefly-sandbox:latest"
-
-var FFTMImageName = "ghcr.io/hyperledger/firefly-transaction-manager:v0.9.2"

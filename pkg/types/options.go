@@ -45,10 +45,8 @@ type InitOptions struct {
 	PrometheusEnabled        bool
 	PrometheusPort           int
 	SandboxEnabled           bool
-	FFTMEnabled              bool
 	ExtraCoreConfigPath      string
 	ExtraConnectorConfigPath string
-	ExtraFFTMConfigPath      string
 	BlockPeriod              int
 	ContractAddress          string
 	RemoteNodeURL            string

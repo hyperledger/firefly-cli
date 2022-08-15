@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
@@ -104,7 +105,6 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 			Accounts:          make([]interface{}, memberCount),
 		},
 		SandboxEnabled:    options.SandboxEnabled,
-		FFTMEnabled:       options.FFTMEnabled,
 		MultipartyEnabled: options.MultipartyEnabled,
 		ChainIDPtr:        &options.ChainID,
 		RemoteNodeURL:     options.RemoteNodeURL,
@@ -423,14 +423,6 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 			config.Plugins.Tokens = append(config.Plugins.Tokens, tokenConfig)
 		}
 
-		if s.Stack.FFTMEnabled {
-			fftmConfig := NewFFTMConfig(s.Stack, member)
-			fftmConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_fftm_%s.yml", member.ID))
-			if err := WriteFFTMConfig(fftmConfig, fftmConfigFilename, options.ExtraFFTMConfigPath); err != nil {
-				return err
-			}
-		}
-
 		coreConfigFilename := filepath.Join(s.Stack.InitDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
 		if err := core.WriteFireflyConfig(config, coreConfigFilename, options.ExtraCoreConfigPath); err != nil {
 			return err
@@ -541,10 +533,6 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		member.ExposedSandboxPort = nextPort
 		nextPort++
 	}
-	if options.FFTMEnabled {
-		member.ExposedFFTMPort = nextPort
-		nextPort++
-	}
 	return member, nil
 }
 
@@ -619,11 +607,6 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	// Also pull the Sandbox if we're using it
 	if s.Stack.SandboxEnabled {
 		images = append(images, constants.SandboxImageName)
-	}
-
-	// Also pull the FFTM if we're using it
-	if s.Stack.FFTMEnabled {
-		images = append(images, constants.FFTMImageName)
 	}
 
 	// Iterate over all images used by the blockchain provider
@@ -733,9 +716,6 @@ func (s *StackManager) checkPortsAvailable() error {
 		if s.Stack.SandboxEnabled {
 			ports = append(ports, member.ExposedSandboxPort)
 		}
-		if s.Stack.FFTMEnabled {
-			ports = append(ports, member.ExposedFFTMPort)
-		}
 	}
 
 	if s.Stack.PrometheusEnabled {
@@ -788,17 +768,6 @@ func checkPortAvailable(port int) (bool, error) {
 		return false, nil
 	}
 	return true, nil
-}
-
-func (s *StackManager) copyFFTMConfigToContainer(workingDir string, member *types.Organization) error {
-	if s.Stack.FFTMEnabled {
-		s.Log.Info(fmt.Sprintf("copying firefly.fftm to fftm_%s", member.ID))
-		volumeName := fmt.Sprintf("%s_fftm_%s", s.Stack.Name, member.ID)
-		if err := docker.CopyFileToVolume(s.ctx, volumeName, filepath.Join(workingDir, fmt.Sprintf("firefly_fftm_%s.yml", member.ID)), "/firefly.fftm"); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages []string, err error) {
@@ -913,9 +882,6 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			}
 		}
 		s.patchFireFlyCoreConfigs(configDir, member, newConfig)
-		if err := s.copyFFTMConfigToContainer(configDir, member); err != nil {
-			return messages, err
-		}
 	}
 
 	// Re-write the docker-compose config again, in case new values have been added
@@ -1115,23 +1081,35 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
 	}
 
-	s.Stack.DisableTokenFactories = true
+	// Fallbacks for old stacks that don't have a specific blockchain connector set
+	if s.Stack.BlockchainConnector == "" {
+		switch s.Stack.BlockchainProvider {
+		case types.Ethereum.String(), types.GoEthereum.String(), types.HyperledgerBesu.String():
+			// Ethconnect used to be the only option for ethereum before it was configurable so set it as the fallback
+			s.Stack.BlockchainConnector = types.Ethconnect.String()
+		case types.HyperledgerFabric.String():
+			// Fabconnect is the only option for fabric before it was configurable so set it as the fallback
+			s.Stack.BlockchainConnector = types.Fabconnect.String()
+		}
+	}
+
+	s.Stack.DisableTokenFactories = false
 
 	switch s.Stack.BlockchainProvider {
 	case types.Ethereum.String():
 		switch s.Stack.BlockchainNodeProvider {
 		case types.GoEthereum.String():
-			s.Stack.DisableTokenFactories = false
 			return geth.NewGethProvider(s.ctx, s.Stack)
 		case types.HyperledgerBesu.String():
-			s.Stack.DisableTokenFactories = false
 			return besu.NewBesuProvider(s.ctx, s.Stack)
 		case types.RemoteRPC.String():
-
+			s.Stack.DisableTokenFactories = true
+			return remoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 		default:
 			return nil
 		}
 	case types.HyperledgerFabric.String():
+		s.Stack.DisableTokenFactories = true
 		return fabric.NewFabricProvider(s.ctx, s.Stack)
 	}
 	return nil
