@@ -18,9 +18,12 @@ package erc1155
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -28,6 +31,7 @@ import (
 )
 
 const tokenProviderName = "erc1155"
+const contractName = "ERC1155MixedFungible"
 
 type ERC1155Provider struct {
 	ctx                context.Context
@@ -44,30 +48,24 @@ func NewERC1155Provider(ctx context.Context, stack *types.Stack, blockchainProvi
 }
 
 func (p *ERC1155Provider) DeploySmartContracts(tokenIndex int) (*types.ContractDeploymentResult, error) {
-	return DeployContracts(p.ctx, p.stack, tokenIndex)
+	l := log.LoggerFromContext(p.ctx)
+	var containerName string
+	for _, member := range p.stack.Members {
+		if !member.External {
+			containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
+			break
+		}
+	}
+	if containerName == "" {
+		return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
+	}
+	l.Info("extracting smart contracts")
 
-	// TODO:
-	//
-	// USE THE CODE BELOW ONCE THE ERC-1155 SUPPORTS DEPLOYING WITH
-	// ETHCONNECT AND EVMCONNECT THE SAME WAY
-	//
-	// l := log.LoggerFromContext(p.ctx)
-	// var containerName string
-	// for _, member := range p.stack.Members {
-	// 	if !member.External {
-	// 		containerName = fmt.Sprintf("%s_tokens_%s_%d", p.stack.Name, member.ID, tokenIndex)
-	// 		break
-	// 	}
-	// }
-	// if containerName == "" {
-	// 	return nil, errors.New("unable to extract contracts from container - no valid tokens containers found in stack")
-	// }
-	// l.Info("extracting smart contracts")
-
-	// if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
-	// 	return nil, err
-	// }
-	// return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), "ERC1155MixedFungible", "ERC1155MixedFungible", p.stack.Members[0], nil)
+	if err := ethereum.ExtractContracts(p.ctx, containerName, "/root/contracts", p.stack.RuntimeDir); err != nil {
+		return nil, err
+	}
+	constructorArgs := []string{"firefly://"}
+	return p.blockchainProvider.DeployContract(filepath.Join(p.stack.RuntimeDir, "contracts", "ERC1155MixedFungible.json"), contractName, contractName, p.stack.Members[0], constructorArgs)
 }
 
 func (p *ERC1155Provider) FirstTimeSetup(tokenIdx int) error {
@@ -86,10 +84,22 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 	serviceDefinitions := make([]*docker.ServiceDefinition, 0, len(p.stack.Members))
 	for i, member := range p.stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
+
+		var contractAddress types.HexAddress
+		for _, contract := range p.stack.State.DeployedContracts {
+			if contract.Name == contractName {
+				switch loc := contract.Location.(type) {
+				case map[string]string:
+					contractAddress = types.HexAddress(loc["address"])
+				}
+			}
+		}
+
 		env := map[string]interface{}{
 			"ETHCONNECT_URL":   p.blockchainProvider.GetConnectorURL(member),
 			"ETHCONNECT_TOPIC": connectorName,
 			"AUTO_INIT":        "false",
+			"CONTRACT_ADDRESS": contractAddress,
 		}
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,

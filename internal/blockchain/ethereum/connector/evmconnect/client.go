@@ -35,6 +35,7 @@ type EvmconnectRequest struct {
 	From       string            `json:"from,omitempty"`
 	Definition interface{}       `json:"definition,omitempty"`
 	Contract   string            `json:"contract,omitempty"`
+	Params     []interface{}     `json:"params,omitempty"`
 }
 
 type EvmconnectHeaders struct {
@@ -77,6 +78,11 @@ func (e *Evmconnect) DeployContract(contract *ethtypes.CompiledContract, contrac
 	evmconnectURL := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	fromAddress := member.Account.(*ethereum.Account).Address
 
+	params := make([]interface{}, len(extraArgs))
+	for i, arg := range extraArgs {
+		params[i] = arg
+	}
+
 	requestBody := &EvmconnectRequest{
 		Headers: EvmconnectHeaders{
 			Type: "DeployContract",
@@ -84,6 +90,7 @@ func (e *Evmconnect) DeployContract(contract *ethtypes.CompiledContract, contrac
 		From:       fromAddress,
 		Definition: contract.ABI,
 		Contract:   contract.Bytecode,
+		Params:     params,
 	}
 
 	txResponse := &EvmconnectTransactionResponse{}

@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
-	"gopkg.in/yaml.v3"
 )
 
 const tokenProviderName = "erc20_erc721"
@@ -37,17 +36,6 @@ type ERC20ERC721Provider struct {
 	ctx                context.Context
 	stack              *types.Stack
 	blockchainProvider blockchain.IBlockchainProvider
-}
-
-type HexAddress string
-
-// Explicitly quote hex addresses so that they are interpreted as string (not int)
-func (h HexAddress) MarshalYAML() (interface{}, error) {
-	return yaml.Node{
-		Value: string(h),
-		Kind:  yaml.ScalarNode,
-		Style: yaml.DoubleQuotedStyle,
-	}, nil
 }
 
 func NewERC20ERC721Provider(ctx context.Context, stack *types.Stack, blockchainProvider blockchain.IBlockchainProvider) *ERC20ERC721Provider {
@@ -96,12 +84,12 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 	for i, member := range p.stack.Members {
 		connectorName := fmt.Sprintf("tokens_%v_%v", member.ID, tokenIdx)
 
-		var factoryAddress HexAddress
+		var factoryAddress types.HexAddress
 		for _, contract := range p.stack.State.DeployedContracts {
 			if contract.Name == contractName(tokenIdx) {
 				switch loc := contract.Location.(type) {
 				case map[string]string:
-					factoryAddress = HexAddress(loc["address"])
+					factoryAddress = types.HexAddress(loc["address"])
 				}
 			}
 		}
