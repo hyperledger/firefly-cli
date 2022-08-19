@@ -837,7 +837,6 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			Predefined: []*types.Namespace{
 				{
 					Name:        "default",
-					RemoteName:  "default",
 					Description: "Default predefined namespace",
 					Plugins:     []string{"database0", "blockchain0"},
 				},
