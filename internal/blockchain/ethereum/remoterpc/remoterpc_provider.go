@@ -136,7 +136,11 @@ func (p *RemoteRPCProvider) GetContracts(filename string, extraArgs []string) ([
 }
 
 func (p *RemoteRPCProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	return nil, fmt.Errorf("contract deployment not supported for Remote RPC URL connections")
+	contracts, err := ethereum.ReadContractJSON(filename)
+	if err != nil {
+		return nil, err
+	}
+	return p.connector.DeployContract(contracts.Contracts[contractName], instanceName, member, extraArgs)
 }
 
 func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {
