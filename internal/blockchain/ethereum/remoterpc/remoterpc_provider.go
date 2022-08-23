@@ -132,7 +132,17 @@ func (p *RemoteRPCProvider) Reset() error {
 }
 
 func (p *RemoteRPCProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
-	return []string{}, nil
+	contracts, err := ethereum.ReadContractJSON(filename)
+	if err != nil {
+		return []string{}, err
+	}
+	contractNames := make([]string, len(contracts.Contracts))
+	i := 0
+	for contractName := range contracts.Contracts {
+		contractNames[i] = contractName
+		i++
+	}
+	return contractNames, err
 }
 
 func (p *RemoteRPCProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
