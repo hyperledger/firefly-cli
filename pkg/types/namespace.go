@@ -18,11 +18,10 @@ package types
 
 type Namespace struct {
 	Name        string            `yaml:"name"`
-	RemoteName  string            `yaml:"remotename,omitempty"`
 	Description string            `yaml:"description,omitempty"`
 	Plugins     []string          `yaml:"plugins"`
 	Multiparty  *MultipartyConfig `yaml:"multiparty,omitempty"`
-	DefaultKey  interface{}       `yaml:"defaultkey"`
+	DefaultKey  interface{}       `yaml:"defaultKey"`
 }
 
 type Plugins struct {
@@ -41,7 +40,7 @@ type MultipartyConfig struct {
 
 type ContractConfig struct {
 	Location   interface{} `yaml:"location"`
-	FirstEvent string      `yaml:"firstevent"`
+	FirstEvent string      `yaml:"firstEvent"`
 }
 
 type MultipartyOrgConfig struct {
