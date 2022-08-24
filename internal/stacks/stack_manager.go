@@ -509,15 +509,14 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		ExposedFireflyAdminSPIPort: serviceBase + 1, // note shared blockchain node is on zero
 		ExposedConnectorPort:       serviceBase + 2,
 		ExposedUIPort:              serviceBase + 3,
+		ExposedDatabasePort:        serviceBase + 4,
 		External:                   external,
 		OrgName:                    options.OrgNames[index],
 		NodeName:                   options.NodeNames[index],
 	}
 
-	nextPort := serviceBase + 4
+	nextPort := serviceBase + 5
 	if options.MultipartyEnabled {
-		member.ExposedDatabasePort = serviceBase + nextPort
-		nextPort++
 		member.ExposedDataexchangePort = serviceBase + nextPort
 		nextPort++
 		member.ExposedIPFSApiPort = serviceBase + nextPort
