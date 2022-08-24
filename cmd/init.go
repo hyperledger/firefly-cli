@@ -62,7 +62,7 @@ var initCmd = &cobra.Command{
 		if err := validateBlockchainProvider(blockchainProviderInput, blockchainNodeProviderInput); err != nil {
 			return err
 		}
-		if err := validateTokensProvider(tokenProvidersSelection); err != nil {
+		if err := validateTokensProvider(tokenProvidersSelection, blockchainNodeProviderInput); err != nil {
 			return err
 		}
 		if err := validateReleaseChannel(releaseChannelInput); err != nil {
@@ -186,10 +186,17 @@ func validateBlockchainProvider(providerString, nodeString string) error {
 	return nil
 }
 
-func validateTokensProvider(input []string) error {
-	_, err := types.TokenProvidersFromStrings(input)
+func validateTokensProvider(input []string, blockchainNodeProviderInput string) error {
+	tokenProviders, err := types.TokenProvidersFromStrings(input)
 	if err != nil {
 		return err
+	}
+	if blockchainNodeProviderInput == types.RemoteRPC.String() {
+		for _, t := range tokenProviders {
+			if t == types.ERC1155 {
+				return errors.New("erc1155 is currently not supported with a remote-rpc node")
+			}
+		}
 	}
 	return nil
 }
