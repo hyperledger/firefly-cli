@@ -298,6 +298,14 @@ func (s *StackManager) LoadStack(stackName string) error {
 		}
 	}
 
+	// If signer is not specified in the manifest, use the previously hardcoded default
+	if s.Stack.VersionManifest.Signer == nil {
+		s.Stack.VersionManifest.Signer = &types.ManifestEntry{
+			Image: "ghcr.io/hyperledger/firefly-signer",
+			Tag:   "v0.9.6",
+		}
+	}
+
 	stackHasRunBefore, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return nil
