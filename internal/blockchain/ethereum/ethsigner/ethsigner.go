@@ -33,8 +33,6 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var ethsignerImage = "ghcr.io/hyperledger/firefly-signer:v0.9.6"
-
 // TODO: Probably randomize this and make it different per member?
 var keyPassword = "correcthorsebatterystaple"
 
@@ -144,7 +142,7 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 	return &docker.ServiceDefinition{
 		ServiceName: "ethsigner",
 		Service: &docker.Service{
-			Image:         ethsignerImage,
+			Image:         p.stack.VersionManifest.Signer.GetDockerImageString(),
 			ContainerName: fmt.Sprintf("%s_ethsigner", p.stack.Name),
 			User:          "root",
 			Command:       p.getCommand(rpcURL),
