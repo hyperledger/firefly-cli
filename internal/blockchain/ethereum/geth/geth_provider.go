@@ -192,11 +192,18 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 }
 
 func (p *GethProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	var connectorURL string
+	if m.External {
+		connectorURL = p.GetConnectorExternalURL(m)
+	} else {
+		connectorURL = p.GetConnectorURL(m)
+	}
+
 	blockchainConfig = &types.BlockchainConfig{
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.GetConnectorURL(m),
+				URL:   connectorURL,
 				Topic: m.ID,
 			},
 		},

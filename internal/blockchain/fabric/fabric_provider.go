@@ -202,11 +202,18 @@ func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 }
 
 func (p *FabricProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	var connectorURL string
+	if m.External {
+		connectorURL = p.GetConnectorExternalURL(m)
+	} else {
+		connectorURL = p.GetConnectorURL(m)
+	}
+
 	blockchainConfig = &types.BlockchainConfig{
 		Type: "fabric",
 		Fabric: &types.FabricConfig{
 			Fabconnect: &types.FabconnectConfig{
-				URL:       p.getFabconnectUrl(m),
+				URL:       connectorURL,
 				Chaincode: "firefly",
 				Channel:   "firefly",
 				Signer:    m.OrgName,
@@ -265,14 +272,6 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organi
 		}
 	}
 	return serviceDefinitions
-}
-
-func (p *FabricProvider) getFabconnectUrl(member *types.Organization) string {
-	if !member.External {
-		return fmt.Sprintf("http://fabconnect_%s:3000", member.ID)
-	} else {
-		return fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
-	}
 }
 
 func (p *FabricProvider) writeConfigtxYaml() error {

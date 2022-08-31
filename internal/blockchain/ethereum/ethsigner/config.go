@@ -89,7 +89,7 @@ func GenerateSignerConfig(chainID int64, rpcURL string) *Config {
 			},
 		},
 		Log: LogConfig{
-			Level: "info",
+			Level: "debug",
 		},
 	}
 }
