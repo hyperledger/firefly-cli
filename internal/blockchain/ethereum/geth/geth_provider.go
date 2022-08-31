@@ -287,11 +287,7 @@ func (p *GethProvider) GetConnectorName() string {
 }
 
 func (p *GethProvider) GetConnectorURL(org *types.Organization) string {
-	if !org.External {
-		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
-	} else {
-		return p.GetConnectorExternalURL(org)
-	}
+	return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
 }
 
 func (p *GethProvider) GetConnectorExternalURL(org *types.Organization) string {

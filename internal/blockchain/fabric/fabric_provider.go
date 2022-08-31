@@ -575,11 +575,7 @@ func (p *FabricProvider) GetConnectorName() string {
 }
 
 func (p *FabricProvider) GetConnectorURL(org *types.Organization) string {
-	if !org.External {
-		return fmt.Sprintf("http://fabconnect_%s:%v", org.ID, org.ExposedConnectorPort)
-	} else {
-		return p.GetConnectorExternalURL(org)
-	}
+	return fmt.Sprintf("http://fabconnect_%s:%v", org.ID, org.ExposedConnectorPort)
 }
 
 func (p *FabricProvider) GetConnectorExternalURL(org *types.Organization) string {
