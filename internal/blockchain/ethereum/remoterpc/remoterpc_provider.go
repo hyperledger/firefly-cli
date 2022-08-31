@@ -62,7 +62,7 @@ func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
 		// Generate the connector config for each member
 		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
 		if err := p.connector.GenerateConfig(member, "ethsigner").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
-			return nil
+			return err
 		}
 
 	}
