@@ -43,6 +43,7 @@ type Stack struct {
 	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
 	RequestTimeout         int              `json:"requestTimeout,omitempty"`
+	PublicIPFS             bool             `json:"publicIpfs"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`

@@ -55,6 +55,7 @@ type InitOptions struct {
 	RequestTimeout           int
 	ReleaseChannel           ReleaseChannelSelection
 	MultipartyEnabled        bool
+	PublicIPFS               bool
 }
 
 type BlockchainProvider int

@@ -89,7 +89,6 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	s.Stack = &types.Stack{
 		Name:                   stackName,
 		Members:                make([]*types.Organization, memberCount),
-		SwarmKey:               GenerateSwarmKey(),
 		ExposedBlockchainPort:  options.ServicesBasePort,
 		Database:               options.DatabaseSelection.String(),
 		BlockchainProvider:     options.BlockchainProvider.String(),
@@ -109,6 +108,11 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		ChainIDPtr:        &options.ChainID,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
+		PublicIPFS:        options.PublicIPFS,
+	}
+
+	if !s.Stack.PublicIPFS {
+		s.Stack.SwarmKey = GenerateSwarmKey()
 	}
 
 	if options.PrometheusEnabled {

@@ -233,6 +233,7 @@ func init() {
 	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
 	initCmd.Flags().StringVarP(&releaseChannelInput, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", types.ReleaseChannelSelectionStrings))
 	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode")
+	initCmd.Flags().BoolVarP(&initOptions.PublicIPFS, "public-ipfs", "", false, "Connect to public IPFS nodes")
 
 	rootCmd.AddCommand(initCmd)
 }
