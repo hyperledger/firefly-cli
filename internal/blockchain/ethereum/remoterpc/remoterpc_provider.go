@@ -106,11 +106,18 @@ func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefin
 }
 
 func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+	var connectorURL string
+	if m.External {
+		connectorURL = p.GetConnectorExternalURL(m)
+	} else {
+		connectorURL = p.GetConnectorURL(m)
+	}
+
 	blockchainConfig = &types.BlockchainConfig{
 		Type: "ethereum",
 		Ethereum: &types.EthereumConfig{
 			Ethconnect: &types.EthconnectConfig{
-				URL:   p.GetConnectorURL(m),
+				URL:   connectorURL,
 				Topic: m.ID,
 			},
 		},
@@ -162,11 +169,7 @@ func (p *RemoteRPCProvider) GetConnectorName() string {
 }
 
 func (p *RemoteRPCProvider) GetConnectorURL(org *types.Organization) string {
-	if !org.External {
-		return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
-	} else {
-		return p.GetConnectorExternalURL(org)
-	}
+	return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
 }
 
 func (p *RemoteRPCProvider) GetConnectorExternalURL(org *types.Organization) string {
