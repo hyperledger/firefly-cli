@@ -99,10 +99,8 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				DependsOn: map[string]map[string]string{},
 				Logging:   StandardLogOptions,
 			}
-			if s.MultipartyEnabled {
-				compose.Services["firefly_core_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
-				compose.Services["firefly_core_"+member.ID].DependsOn["ipfs_"+member.ID] = map[string]string{"condition": "service_healthy"}
-			}
+			compose.Services["firefly_core_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
+			compose.Services["firefly_core_"+member.ID].DependsOn["ipfs_"+member.ID] = map[string]string{"condition": "service_healthy"}
 		}
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
@@ -127,39 +125,37 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 			}
 		}
-		if s.MultipartyEnabled {
-			compose.Services["ipfs_"+member.ID] = &Service{
-				Image:         constants.IPFSImageName,
-				ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
-				Ports: []string{
-					fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
-					fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
-				},
-				Environment: map[string]interface{}{
-					"IPFS_SWARM_KEY":    s.SwarmKey,
-					"LIBP2P_FORCE_PNET": "1",
-				},
-				Volumes: []string{
-					fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
-					fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
-				},
-				Logging: StandardLogOptions,
-				HealthCheck: &HealthCheck{
-					Test:     []string{"CMD-SHELL", `wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q`},
-					Interval: "5s",
-					Timeout:  "3s",
-					Retries:  12,
-				},
-			}
-			compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
-			compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
-			compose.Services["dataexchange_"+member.ID] = &Service{
-				Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
-				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
-				Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
-				Logging:       StandardLogOptions,
-			}
+		compose.Services["ipfs_"+member.ID] = &Service{
+			Image:         constants.IPFSImageName,
+			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
+			Ports: []string{
+				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
+				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
+			},
+			Environment: map[string]interface{}{
+				"IPFS_SWARM_KEY":    s.SwarmKey,
+				"LIBP2P_FORCE_PNET": "1",
+			},
+			Volumes: []string{
+				fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
+				fmt.Sprintf("ipfs_data_%s:/data/ipfs", member.ID),
+			},
+			Logging: StandardLogOptions,
+			HealthCheck: &HealthCheck{
+				Test:     []string{"CMD-SHELL", `wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q`},
+				Interval: "5s",
+				Timeout:  "3s",
+				Retries:  12,
+			},
+		}
+		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
+		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
+		compose.Services["dataexchange_"+member.ID] = &Service{
+			Image:         s.VersionManifest.DataExchange.GetDockerImageString(),
+			ContainerName: fmt.Sprintf("%s_dataexchange_%s", s.Name, member.ID),
+			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
+			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
+			Logging:       StandardLogOptions,
 		}
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 		if s.SandboxEnabled {

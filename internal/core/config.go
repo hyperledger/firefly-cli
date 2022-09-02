@@ -69,30 +69,29 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 		Plugins: &types.Plugins{},
 	}
 
-	if stack.MultipartyEnabled {
-		memberConfig.Plugins.SharedStorage = []*types.SharedStorageConfig{
-			{
-				Type: "ipfs",
-				Name: "sharedstorage0",
-				IPFS: &types.FireflyIPFSConfig{
-					API: &types.HttpEndpointConfig{
-						URL: getIPFSAPIURL(member),
-					},
-					Gateway: &types.HttpEndpointConfig{
-						URL: getIPFSGatewayURL(member),
-					},
+	memberConfig.Plugins.SharedStorage = []*types.SharedStorageConfig{
+		{
+			Type: "ipfs",
+			Name: "sharedstorage0",
+			IPFS: &types.FireflyIPFSConfig{
+				API: &types.HttpEndpointConfig{
+					URL: getIPFSAPIURL(member),
+				},
+				Gateway: &types.HttpEndpointConfig{
+					URL: getIPFSGatewayURL(member),
 				},
 			},
-		}
-		memberConfig.Plugins.DataExchange = []*types.DataExchangeConfig{
-			{
-				Type: "ffdx",
-				Name: "dataexchange0",
-				FFDX: &types.HttpEndpointConfig{
-					URL: getDataExchangeURL(member),
-				},
+		},
+	}
+
+	memberConfig.Plugins.DataExchange = []*types.DataExchangeConfig{
+		{
+			Type: "ffdx",
+			Name: "dataexchange0",
+			FFDX: &types.HttpEndpointConfig{
+				URL: getDataExchangeURL(member),
 			},
-		}
+		},
 	}
 
 	if stack.PrometheusEnabled {
