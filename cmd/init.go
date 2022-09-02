@@ -51,6 +51,11 @@ var initCmd = &cobra.Command{
 		var stackName string
 		stackManager := stacks.NewStackManager(ctx)
 
+		// Backwards compatibility for input
+		if strings.ToLower(initOptions.DatabaseProvider) == "sqlite3" {
+			initOptions.DatabaseProvider = "sqlite"
+		}
+
 		if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
 			return err
 		}
