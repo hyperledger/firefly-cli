@@ -363,11 +363,9 @@ func (s *StackManager) ensureInitDirectories() error {
 		return err
 	}
 
-	if s.Stack.MultipartyEnabled {
-		for _, member := range s.Stack.Members {
-			if err := os.MkdirAll(filepath.Join(configDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
-				return err
-			}
+	for _, member := range s.Stack.Members {
+		if err := os.MkdirAll(filepath.Join(configDir, "dataexchange_"+member.ID, "peer-certs"), 0755); err != nil {
+			return err
 		}
 	}
 
@@ -408,10 +406,8 @@ func (s *StackManager) writeStackConfig() error {
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
-	if s.Stack.MultipartyEnabled {
-		if err := s.writeDataExchangeCerts(options.Verbose); err != nil {
-			return err
-		}
+	if err := s.writeDataExchangeCerts(options.Verbose); err != nil {
+		return err
 	}
 
 	for _, member := range s.Stack.Members {
@@ -524,14 +520,12 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 	}
 
 	nextPort := serviceBase + 5
-	if options.MultipartyEnabled {
-		member.ExposedDataexchangePort = serviceBase + nextPort
-		nextPort++
-		member.ExposedIPFSApiPort = serviceBase + nextPort
-		nextPort++
-		member.ExposedIPFSGWPort = serviceBase + nextPort
-		nextPort++
-	}
+	member.ExposedDataexchangePort = serviceBase + nextPort
+	nextPort++
+	member.ExposedIPFSApiPort = serviceBase + nextPort
+	nextPort++
+	member.ExposedIPFSGWPort = serviceBase + nextPort
+	nextPort++
 
 	if options.PrometheusEnabled {
 		member.ExposedFireflyMetricsPort = nextPort
@@ -615,9 +609,7 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 		}
 	}
 
-	if s.Stack.MultipartyEnabled {
-		images = append(images, constants.IPFSImageName)
-	}
+	images = append(images, constants.IPFSImageName)
 
 	// Also pull postgres if we're using it
 	if s.Stack.Database == types.PostgreSQL.String() {
@@ -731,11 +723,9 @@ func (s *StackManager) checkPortsAvailable() error {
 			ports = append(ports, member.ExposedFireflyPort)
 			ports = append(ports, member.ExposedFireflyMetricsPort)
 		}
-		if s.Stack.MultipartyEnabled {
-			ports = append(ports, member.ExposedDataexchangePort)
-			ports = append(ports, member.ExposedIPFSApiPort)
-			ports = append(ports, member.ExposedIPFSGWPort)
-		}
+		ports = append(ports, member.ExposedDataexchangePort)
+		ports = append(ports, member.ExposedIPFSApiPort)
+		ports = append(ports, member.ExposedIPFSGWPort)
 		if s.Stack.SandboxEnabled {
 			ports = append(ports, member.ExposedSandboxPort)
 		}
@@ -824,10 +814,8 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 		}
 	}
 
-	if s.Stack.MultipartyEnabled {
-		if err := s.copyDataExchangeConfigToVolumes(); err != nil {
-			return messages, err
-		}
+	if err := s.copyDataExchangeConfigToVolumes(); err != nil {
+		return messages, err
 	}
 
 	pullOptions := &types.PullOptions{
@@ -863,7 +851,7 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				{
 					Name:        "default",
 					Description: "Default predefined namespace",
-					Plugins:     []string{"database0", "blockchain0"},
+					Plugins:     []string{"database0", "blockchain0", "dataexchange0", "sharedstorage0"},
 				},
 			},
 		},
@@ -873,7 +861,6 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 
 	var contractDeploymentResult *types.ContractDeploymentResult
 	if s.Stack.MultipartyEnabled {
-		newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, "dataexchange0", "sharedstorage0")
 		if s.Stack.ContractAddress == "" {
 			// TODO: This code assumes that there is only one plugin instance per type. When we add support for
 			// multiple namespaces, this code will likely have to change a lot
