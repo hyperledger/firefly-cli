@@ -51,11 +51,6 @@ var initCmd = &cobra.Command{
 		var stackName string
 		stackManager := stacks.NewStackManager(ctx)
 
-		// Backwards compatibility for input
-		if strings.ToLower(initOptions.DatabaseProvider) == "sqlite3" {
-			initOptions.DatabaseProvider = "sqlite"
-		}
-
 		if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
 			return err
 		}
@@ -217,7 +212,7 @@ func validateIPFSMode(input string) error {
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
-	initCmd.Flags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
+	initCmd.Flags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "ethconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))

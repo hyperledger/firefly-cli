@@ -316,11 +316,6 @@ func (s *StackManager) LoadStack(stackName string) error {
 		}
 	}
 
-	// Convert "sqlite3" to "sqlite" for backwards compatibility
-	if s.Stack.Database.Equals(fftypes.FFEnum("sqlite3")) {
-		s.Stack.Database = types.DatabaseSelectionSQLite
-	}
-
 	stackHasRunBefore, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return nil

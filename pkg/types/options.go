@@ -92,7 +92,7 @@ var (
 const DatabaseSelection = "database_selection"
 
 var (
-	DatabaseSelectionSQLite   = fftypes.FFEnumValue(DatabaseSelection, "sqlite")
+	DatabaseSelectionSQLite   = fftypes.FFEnumValue(DatabaseSelection, "sqlite3")
 	DatabaseSelectionPostgres = fftypes.FFEnumValue(DatabaseSelection, "postgres")
 )
 
