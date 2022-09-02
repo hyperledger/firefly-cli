@@ -24,11 +24,12 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
-func GetManifestForReleaseChannel(releaseChannel types.ReleaseChannelSelection) (*types.VersionManifest, error) {
-	dockerTag := types.ReleaseChannelSelectionStrings[releaseChannel]
-	if releaseChannel == types.Stable {
+func GetManifestForReleaseChannel(releaseChannel fftypes.FFEnum) (*types.VersionManifest, error) {
+	dockerTag := releaseChannel.String()
+	if releaseChannel == types.ReleaseChannelStable {
 		dockerTag = "latest"
 	}
 

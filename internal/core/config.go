@@ -126,7 +126,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 	case "sqlite3":
 		databaseConfig = &types.DatabaseConfig{
 			Name: "database0",
-			Type: stack.Database,
+			Type: stack.Database.String(),
 			SQLite3: &types.CommonDBConfig{
 				URL: getSQLitePath(member, stack.RuntimeDir),
 				Migrations: &types.MigrationsConfig{

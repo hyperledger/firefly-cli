@@ -43,6 +43,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc1155"
 	"github.com/hyperledger/firefly-cli/internal/tokens/erc20erc721"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 	"github.com/miracl/conflate"
 
 	"gopkg.in/yaml.v3"
@@ -90,11 +91,10 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		Name:                   stackName,
 		Members:                make([]*types.Organization, memberCount),
 		ExposedBlockchainPort:  options.ServicesBasePort,
-		Database:               options.DatabaseSelection.String(),
-		BlockchainProvider:     options.BlockchainProvider.String(),
-		BlockchainNodeProvider: options.BlockchainNodeProvider.String(),
-		BlockchainConnector:    options.BlockchainConnector.String(),
-		TokenProviders:         options.TokenProviders,
+		Database:               fftypes.FFEnum(options.DatabaseProvider),
+		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
+		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),
+		BlockchainConnector:    fftypes.FFEnum(options.BlockchainConnector),
 		ContractAddress:        options.ContractAddress,
 		StackDir:               filepath.Join(constants.StacksDir, stackName),
 		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
@@ -108,10 +108,16 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		ChainIDPtr:        &options.ChainID,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
-		PublicIPFS:        options.PublicIPFS,
+		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
 	}
 
-	if !s.Stack.PublicIPFS {
+	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
+	if err != nil {
+		return err
+	}
+	s.Stack.TokenProviders = tokenProviders
+
+	if s.Stack.IPFSMode.Equals(types.IPFSModePrivate) {
 		s.Stack.SwarmKey = GenerateSwarmKey()
 	}
 
@@ -131,7 +137,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	} else {
 		// Otherwise, fetch the manifest file from GitHub for the specified version
 		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
-			manifest, err = core.GetManifestForReleaseChannel(options.ReleaseChannel)
+			manifest, err = core.GetManifestForReleaseChannel(fftypes.FFEnum(options.ReleaseChannel))
 			if err != nil {
 				return err
 			}
@@ -310,6 +316,11 @@ func (s *StackManager) LoadStack(stackName string) error {
 		}
 	}
 
+	// Convert "sqlite3" to "sqlite" for backwards compatibility
+	if s.Stack.Database.Equals(fftypes.FFEnum("sqlite3")) {
+		s.Stack.Database = types.DatabaseSelectionSQLite
+	}
+
 	stackHasRunBefore, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return nil
@@ -410,7 +421,7 @@ func (s *StackManager) writeStackConfig() error {
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
-	if err := s.writeDataExchangeCerts(options.Verbose); err != nil {
+	if err := s.writeDataExchangeCerts(); err != nil {
 		return err
 	}
 
@@ -463,7 +474,7 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 	return nil
 }
 
-func (s *StackManager) writeDataExchangeCerts(verbose bool) error {
+func (s *StackManager) writeDataExchangeCerts() error {
 	configDir := filepath.Join(s.Stack.InitDir, "config")
 	for _, member := range s.Stack.Members {
 
@@ -616,7 +627,7 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	images = append(images, constants.IPFSImageName)
 
 	// Also pull postgres if we're using it
-	if s.Stack.Database == types.PostgreSQL.String() {
+	if s.Stack.Database.Equals(types.DatabaseSelectionPostgres) {
 		images = append(images, constants.PostgresImageName)
 	}
 
@@ -861,7 +872,7 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 		},
 	}
 
-	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, s.Stack.TokenProviders.Strings()...)
+	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, types.FFEnumArrayToStrings(s.Stack.TokenProviders)...)
 
 	var contractDeploymentResult *types.ContractDeploymentResult
 	if s.Stack.MultipartyEnabled {
@@ -1086,44 +1097,44 @@ func (s *StackManager) CreateAccount(args []string) (string, error) {
 
 func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 
-	if s.Stack.BlockchainProvider == types.GoEthereum.String() {
-		s.Stack.BlockchainProvider = types.Ethereum.String()
-		s.Stack.BlockchainNodeProvider = types.GoEthereum.String()
+	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderGeth) {
+		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
+		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderGeth
 	}
 
-	if s.Stack.BlockchainProvider == types.HyperledgerBesu.String() {
-		s.Stack.BlockchainProvider = types.Ethereum.String()
-		s.Stack.BlockchainNodeProvider = types.HyperledgerBesu.String()
+	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderBesu) {
+		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
+		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderBesu
 	}
 
 	// Fallbacks for old stacks that don't have a specific blockchain connector set
 	if s.Stack.BlockchainConnector == "" {
 		switch s.Stack.BlockchainProvider {
-		case types.Ethereum.String(), types.GoEthereum.String(), types.HyperledgerBesu.String():
+		case types.BlockchainProviderEthereum, types.BlockchainNodeProviderGeth, types.BlockchainNodeProviderBesu:
 			// Ethconnect used to be the only option for ethereum before it was configurable so set it as the fallback
-			s.Stack.BlockchainConnector = types.Ethconnect.String()
-		case types.HyperledgerFabric.String():
+			s.Stack.BlockchainConnector = types.BlockchainConnectorEthconnect
+		case types.BlockchainProviderFabric:
 			// Fabconnect is the only option for fabric before it was configurable so set it as the fallback
-			s.Stack.BlockchainConnector = types.Fabconnect.String()
+			s.Stack.BlockchainConnector = types.BlockchainConnectorFabconnect
 		}
 	}
 
 	s.Stack.DisableTokenFactories = false
 
 	switch s.Stack.BlockchainProvider {
-	case types.Ethereum.String():
+	case types.BlockchainProviderEthereum:
 		switch s.Stack.BlockchainNodeProvider {
-		case types.GoEthereum.String():
+		case types.BlockchainNodeProviderGeth:
 			return geth.NewGethProvider(s.ctx, s.Stack)
-		case types.HyperledgerBesu.String():
+		case types.BlockchainNodeProviderBesu:
 			return besu.NewBesuProvider(s.ctx, s.Stack)
-		case types.RemoteRPC.String():
+		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
 			return remoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 		default:
 			return nil
 		}
-	case types.HyperledgerFabric.String():
+	case types.BlockchainProviderFabric:
 		s.Stack.DisableTokenFactories = true
 		return fabric.NewFabricProvider(s.ctx, s.Stack)
 	}
@@ -1134,9 +1145,9 @@ func (s *StackManager) getITokenProviders() []tokens.ITokensProvider {
 	tps := make([]tokens.ITokensProvider, len(s.Stack.TokenProviders))
 	for i, tp := range s.Stack.TokenProviders {
 		switch tp {
-		case types.ERC1155:
+		case types.TokenProviderERC1155:
 			tps[i] = erc1155.NewERC1155Provider(s.ctx, s.Stack, s.getBlockchainProvider())
-		case types.ERC20_ERC721:
+		case types.TokenProviderERC20_ERC721:
 			tps[i] = erc20erc721.NewERC20ERC721Provider(s.ctx, s.Stack, s.getBlockchainProvider())
 		default:
 			return nil

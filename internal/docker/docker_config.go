@@ -144,7 +144,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Retries:  12,
 			},
 		}
-		if !s.PublicIPFS {
+		if s.IPFSMode.Equals(types.IPFSModePrivate) {
 			sharedStorage.Environment = map[string]interface{}{
 				"IPFS_SWARM_KEY":    s.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",

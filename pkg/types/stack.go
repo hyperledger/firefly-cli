@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
 type Stack struct {
@@ -28,11 +29,11 @@ type Stack struct {
 	Members                []*Organization  `json:"members,omitempty"`
 	SwarmKey               string           `json:"swarmKey,omitempty"`
 	ExposedBlockchainPort  int              `json:"exposedBlockchainPort,omitempty"`
-	Database               string           `json:"database"`
-	BlockchainProvider     string           `json:"blockchainProvider"`
-	BlockchainConnector    string           `json:"blockchainConnector"`
-	BlockchainNodeProvider string           `json:"blockchainNodeProvider"`
-	TokenProviders         TokenProviders   `json:"tokenProviders"`
+	Database               fftypes.FFEnum   `json:"database"`
+	BlockchainProvider     fftypes.FFEnum   `json:"blockchainProvider"`
+	BlockchainConnector    fftypes.FFEnum   `json:"blockchainConnector"`
+	BlockchainNodeProvider fftypes.FFEnum   `json:"blockchainNodeProvider"`
+	TokenProviders         []fftypes.FFEnum `json:"tokenProviders"`
 	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
 	SandboxEnabled         bool             `json:"sandboxEnabled,omitempty"`
@@ -43,7 +44,7 @@ type Stack struct {
 	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
 	RequestTimeout         int              `json:"requestTimeout,omitempty"`
-	PublicIPFS             bool             `json:"publicIpfs"`
+	IPFSMode               fftypes.FFEnum   `json:"ipfsMode"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`

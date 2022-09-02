@@ -30,16 +30,11 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
 var initOptions types.InitOptions
-var databaseSelection string
-var blockchainConnectorInput string
-var blockchainProviderInput string
-var blockchainNodeProviderInput string
-var tokenProvidersSelection []string
 var promptNames bool
-var releaseChannelInput string
 
 var ffNameValidator = regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z._-]{0,62}[0-9a-zA-Z])?$`)
 
@@ -56,16 +51,19 @@ var initCmd = &cobra.Command{
 		var stackName string
 		stackManager := stacks.NewStackManager(ctx)
 
-		if err := validateDatabaseProvider(databaseSelection); err != nil {
+		if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
 			return err
 		}
-		if err := validateBlockchainProvider(blockchainProviderInput, blockchainNodeProviderInput); err != nil {
+		if err := validateBlockchainProvider(initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider); err != nil {
 			return err
 		}
-		if err := validateTokensProvider(tokenProvidersSelection, blockchainNodeProviderInput); err != nil {
+		if err := validateTokensProvider(initOptions.TokenProviders, initOptions.BlockchainNodeProvider); err != nil {
 			return err
 		}
-		if err := validateReleaseChannel(releaseChannelInput); err != nil {
+		if err := validateReleaseChannel(initOptions.ReleaseChannel); err != nil {
+			return err
+		}
+		if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
 			return err
 		}
 
@@ -108,13 +106,6 @@ var initCmd = &cobra.Command{
 				initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%d", i))
 			}
 		}
-
-		initOptions.Verbose = verbose
-		initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider, _ = types.BlockchainFromStrings(blockchainProviderInput, blockchainNodeProviderInput)
-		initOptions.BlockchainConnector, _ = types.BlockchainConnectorFromStrings(blockchainConnectorInput)
-		initOptions.DatabaseSelection, _ = types.DatabaseSelectionFromString(databaseSelection)
-		initOptions.TokenProviders, _ = types.TokenProvidersFromStrings(tokenProvidersSelection)
-		initOptions.ReleaseChannel, _ = types.ReleaseChannelSelectionFromString(releaseChannelInput)
 
 		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
 			return err
@@ -161,39 +152,46 @@ func validateFFName(input string) error {
 }
 
 func validateDatabaseProvider(input string) error {
-	_, err := types.DatabaseSelectionFromString(input)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := fftypes.FFEnumParseString(context.Background(), types.DatabaseSelection, input)
+	return err
 }
 
 func validateBlockchainProvider(providerString, nodeString string) error {
-	blockchainSelection, _, err := types.BlockchainFromStrings(providerString, nodeString)
+	_, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainProvider, providerString)
 	if err != nil {
-		return err
+		return nil
 	}
 
-	if blockchainSelection == types.Corda {
+	v, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainNodeProvider, nodeString)
+	if err != nil {
+		return nil
+	}
+
+	if v == types.BlockchainProviderCorda {
 		return errors.New("support for corda is coming soon")
-	}
-
-	// TODO: When we get tokens on Fabric this should change
-	if blockchainSelection == types.HyperledgerFabric {
-		tokenProvidersSelection = []string{}
 	}
 
 	return nil
 }
 
 func validateTokensProvider(input []string, blockchainNodeProviderInput string) error {
-	tokenProviders, err := types.TokenProvidersFromStrings(input)
+	tokenProviders := make([]fftypes.FFEnum, len(input))
+	for i, t := range input {
+		tp, err := fftypes.FFEnumParseString(context.Background(), types.TokenProvider, t)
+		if err != nil {
+			return err
+		}
+		tokenProviders[i] = tp
+	}
+
+	nodeProvider, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainNodeProvider, blockchainNodeProviderInput)
 	if err != nil {
 		return err
 	}
-	if blockchainNodeProviderInput == types.RemoteRPC.String() {
+
+	if nodeProvider.Equals(types.BlockchainNodeProviderRemoteRPC) {
 		for _, t := range tokenProviders {
-			if t == types.ERC1155 {
+			if t.Equals(types.TokenProviderERC1155) {
 				return errors.New("erc1155 is currently not supported with a remote-rpc node")
 			}
 		}
@@ -202,21 +200,23 @@ func validateTokensProvider(input []string, blockchainNodeProviderInput string) 
 }
 
 func validateReleaseChannel(input string) error {
-	_, err := types.ReleaseChannelSelectionFromString(input)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := fftypes.FFEnumParseString(context.Background(), types.ReleaseChannelSelection, input)
+	return err
+}
+
+func validateIPFSMode(input string) error {
+	_, err := fftypes.FFEnumParseString(context.Background(), types.IPFSMode, input)
+	return err
 }
 
 func init() {
 	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
-	initCmd.Flags().StringVarP(&databaseSelection, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", types.DBSelectionStrings))
-	initCmd.Flags().StringVarP(&blockchainConnectorInput, "blockchain-connector", "c", "ethconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", types.BlockchainConnectorStrings))
-	initCmd.Flags().StringVarP(&blockchainProviderInput, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", types.BlockchainProviderStrings))
-	initCmd.Flags().StringVarP(&blockchainNodeProviderInput, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", types.BlockchainNodeProviderStrings))
-	initCmd.Flags().StringArrayVarP(&tokenProvidersSelection, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", types.ValidTokenProviders))
+	initCmd.Flags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
+	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "ethconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
+	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
+	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
+	initCmd.Flags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
 	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
@@ -231,9 +231,9 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.RemoteNodeURL, "remote-node-url", "", "", "For cases where the node is pre-existing and running remotely")
 	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
 	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
-	initCmd.Flags().StringVarP(&releaseChannelInput, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", types.ReleaseChannelSelectionStrings))
+	initCmd.Flags().StringVarP(&initOptions.ReleaseChannel, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
 	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode")
-	initCmd.Flags().BoolVarP(&initOptions.PublicIPFS, "public-ipfs", "", false, "Connect to public IPFS nodes")
+	initCmd.Flags().StringVarP(&initOptions.IPFSMode, "ipfs-mode", "", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
 
 	rootCmd.AddCommand(initCmd)
 }
