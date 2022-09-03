@@ -122,9 +122,11 @@ func FFEnumArray(ctx context.Context, a []string) ([]fftypes.FFEnum, error) {
 }
 
 func FFEnumArrayToStrings(input []fftypes.FFEnum) []string {
-	s := make([]string, len(input))
-	for i, e := range input {
-		s[i] = e.String()
+	s := make([]string, 0)
+	for _, e := range input {
+		if e != "none" {
+			s = append(s, e.String())
+		}
 	}
 	return s
 }
