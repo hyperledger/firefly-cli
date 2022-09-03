@@ -125,16 +125,12 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 			}
 		}
-		compose.Services["ipfs_"+member.ID] = &Service{
+		sharedStorage := &Service{
 			Image:         constants.IPFSImageName,
 			ContainerName: fmt.Sprintf("%s_ipfs_%s", s.Name, member.ID),
 			Ports: []string{
 				fmt.Sprintf("%d:5001", member.ExposedIPFSApiPort),
 				fmt.Sprintf("%d:8080", member.ExposedIPFSGWPort),
-			},
-			Environment: map[string]interface{}{
-				"IPFS_SWARM_KEY":    s.SwarmKey,
-				"LIBP2P_FORCE_PNET": "1",
 			},
 			Volumes: []string{
 				fmt.Sprintf("ipfs_staging_%s:/export", member.ID),
@@ -148,6 +144,13 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Retries:  12,
 			},
 		}
+		if s.IPFSMode.Equals(types.IPFSModePrivate) {
+			sharedStorage.Environment = map[string]interface{}{
+				"IPFS_SWARM_KEY":    s.SwarmKey,
+				"LIBP2P_FORCE_PNET": "1",
+			}
+		}
+		compose.Services["ipfs_"+member.ID] = sharedStorage
 		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
 		compose.Volumes[fmt.Sprintf("ipfs_data_%s", member.ID)] = struct{}{}
 		compose.Services["dataexchange_"+member.ID] = &Service{

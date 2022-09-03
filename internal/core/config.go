@@ -112,7 +112,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 
 	var databaseConfig *types.DatabaseConfig
 	switch stack.Database {
-	case "postgres":
+	case types.DatabaseSelectionPostgres:
 		databaseConfig = &types.DatabaseConfig{
 			Name: "database0",
 			Type: "postgres",
@@ -123,10 +123,10 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 				},
 			},
 		}
-	case "sqlite3":
+	case types.DatabaseSelectionSQLite:
 		databaseConfig = &types.DatabaseConfig{
 			Name: "database0",
-			Type: stack.Database,
+			Type: stack.Database.String(),
 			SQLite3: &types.CommonDBConfig{
 				URL: getSQLitePath(member, stack.RuntimeDir),
 				Migrations: &types.MigrationsConfig{

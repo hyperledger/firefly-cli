@@ -46,9 +46,9 @@ type BesuProvider struct {
 func NewBesuProvider(ctx context.Context, stack *types.Stack) *BesuProvider {
 	var connector connector.Connector
 	switch stack.BlockchainConnector {
-	case types.Ethconnect.String():
+	case types.BlockchainConnectorEthconnect:
 		connector = ethconnect.NewEthconnect(ctx)
-	case types.Evmconnect.String():
+	case types.BlockchainConnectorEvmconnect:
 		connector = evmconnect.NewEvmconnect(ctx)
 	}
 

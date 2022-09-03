@@ -36,7 +36,7 @@ func TestGetFireFlyManifest(T *testing.T) {
 }
 
 func TestGetLatestReleaseManifest(T *testing.T) {
-	manifest, err := GetManifestForReleaseChannel(types.Stable)
+	manifest, err := GetManifestForReleaseChannel(types.ReleaseChannelStable)
 	assert.NoError(T, err)
 	assert.NotNil(T, manifest)
 	assert.NotNil(T, manifest.FireFly)

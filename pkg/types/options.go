@@ -16,8 +16,9 @@
 package types
 
 import (
-	"fmt"
-	"strings"
+	"context"
+
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
 type PullOptions struct {
@@ -31,15 +32,14 @@ type StartOptions struct {
 type InitOptions struct {
 	FireFlyBasePort          int
 	ServicesBasePort         int
-	DatabaseSelection        DatabaseSelection
-	Verbose                  bool
+	DatabaseProvider         string
 	ExternalProcesses        int
 	OrgNames                 []string
 	NodeNames                []string
-	BlockchainConnector      BlockchainConnector
-	BlockchainProvider       BlockchainProvider
-	BlockchainNodeProvider   BlockchainNodeProvider
-	TokenProviders           TokenProviders
+	BlockchainConnector      string
+	BlockchainProvider       string
+	BlockchainNodeProvider   string
+	TokenProviders           []string
 	FireFlyVersion           string
 	ManifestPath             string
 	PrometheusEnabled        bool
@@ -53,192 +53,80 @@ type InitOptions struct {
 	ChainID                  int64
 	DisableTokenFactories    bool
 	RequestTimeout           int
-	ReleaseChannel           ReleaseChannelSelection
+	ReleaseChannel           string
 	MultipartyEnabled        bool
+	IPFSMode                 string
 }
 
-type BlockchainProvider int
+const IPFSMode = "ipfs_mode"
 
-const (
-	Ethereum BlockchainProvider = iota
-	HyperledgerFabric
-	Corda
+var (
+	IPFSModePrivate = fftypes.FFEnumValue(IPFSMode, "private")
+	IPFSModePublic  = fftypes.FFEnumValue(IPFSMode, "public")
 )
 
-type BlockchainConnector int
+const BlockchainProvider = "blockchain_provider"
 
-const (
-	Ethconnect BlockchainConnector = iota
-	Evmconnect
-	Fabconnect
+var (
+	BlockchainProviderEthereum = fftypes.FFEnumValue(BlockchainProvider, "ethereum")
+	BlockchainProviderFabric   = fftypes.FFEnumValue(BlockchainProvider, "fabric")
+	BlockchainProviderCorda    = fftypes.FFEnumValue(BlockchainProvider, "corda")
 )
 
-var BlockchainConnectorStrings = []string{"ethconnect", "evmconnect", "fabconnect"}
+const BlockchainConnector = "blockchain_connector"
 
-func (blockchainConnector BlockchainConnector) String() string {
-	return BlockchainConnectorStrings[blockchainConnector]
-}
-
-func BlockchainConnectorFromStrings(s string) (BlockchainConnector, error) {
-	for i, blockchainConnectorSelection := range BlockchainConnectorStrings {
-		if strings.ToLower(s) == blockchainConnectorSelection {
-			return BlockchainConnector(i), nil
-		}
-	}
-	return Ethconnect, fmt.Errorf("\"%s\" is not a valid blockchain connector selection. valid options are: %v", s, BlockchainConnectorStrings)
-}
-
-var BlockchainProviderStrings = []string{"ethereum", "fabric", "corda"}
-
-func (blockchainProvider BlockchainProvider) String() string {
-	return BlockchainProviderStrings[blockchainProvider]
-}
-
-type BlockchainNodeProvider int
-
-const (
-	GoEthereum BlockchainNodeProvider = iota
-	HyperledgerBesu
-	RemoteRPC
+var (
+	BlockchainConnectorEthconnect = fftypes.FFEnumValue(BlockchainConnector, "ethconnect")
+	BlockchainConnectorEvmconnect = fftypes.FFEnumValue(BlockchainConnector, "evmconnect")
+	BlockchainConnectorFabconnect = fftypes.FFEnumValue(BlockchainConnector, "fabric")
 )
 
-var BlockchainNodeProviderStrings = []string{"geth", "besu", "remote-rpc"}
+const BlockchainNodeProvider = "blockchain_node_provider"
 
-func (blockchainNodeProvider BlockchainNodeProvider) String() string {
-	if blockchainNodeProvider < 0 {
-		return ""
-	}
-	return BlockchainNodeProviderStrings[blockchainNodeProvider]
-}
-
-func BlockchainFromStrings(blockchainString, nodeString string) (blockchain BlockchainProvider, node BlockchainNodeProvider, err error) {
-	blockchain = -1
-	for i, blockchainProviderSelection := range BlockchainProviderStrings {
-		if strings.ToLower(blockchainString) == blockchainProviderSelection {
-			blockchain = BlockchainProvider(i)
-			break
-		}
-	}
-	if blockchain < 0 {
-		// Migration cases for how we did things previously:
-		// - For when "-b geth" or "-b besu" used to be the thing to do
-		// - For when we persisted integers into the stack.json
-		switch blockchainString {
-		case "0", "geth":
-			blockchain = Ethereum
-			nodeString = "geth"
-		case "1", "besu":
-			blockchain = Ethereum
-			nodeString = "besu"
-		case "2":
-			blockchain = HyperledgerFabric
-		case "3":
-			blockchain = HyperledgerFabric
-		default:
-			return -1, -1, fmt.Errorf("\"%s\" is not a valid blockchain provider selection. valid options are: %v", blockchainString, BlockchainProviderStrings)
-		}
-	}
-	if blockchain == Ethereum {
-		if nodeString == "" {
-			node = GoEthereum
-		} else {
-			for i, blockchainNodeProviderSelection := range BlockchainNodeProviderStrings {
-				if strings.ToLower(nodeString) == blockchainNodeProviderSelection {
-					node = BlockchainNodeProvider(i)
-					break
-				}
-			}
-		}
-		if node == -1 {
-			return -1, -1, fmt.Errorf("\"%s\" is not a valid blockchain node selection. valid options are: %v", nodeString, BlockchainNodeProviderStrings)
-		}
-	} else {
-		node = -1 // not currently applicable
-	}
-	return blockchain, node, nil
-}
-
-type DatabaseSelection int
-
-const (
-	PostgreSQL DatabaseSelection = iota
-	SQLite3
+var (
+	BlockchainNodeProviderGeth      = fftypes.FFEnumValue(BlockchainNodeProvider, "geth")
+	BlockchainNodeProviderBesu      = fftypes.FFEnumValue(BlockchainNodeProvider, "besu")
+	BlockchainNodeProviderRemoteRPC = fftypes.FFEnumValue(BlockchainNodeProvider, "remote-rpc")
 )
 
-var DBSelectionStrings = []string{"postgres", "sqlite3"}
+const DatabaseSelection = "database_selection"
 
-func (db DatabaseSelection) String() string {
-	return DBSelectionStrings[db]
-}
-
-func DatabaseSelectionFromString(s string) (DatabaseSelection, error) {
-	for i, dbSelection := range DBSelectionStrings {
-		if strings.ToLower(s) == dbSelection {
-			return DatabaseSelection(i), nil
-		}
-	}
-	return SQLite3, fmt.Errorf("\"%s\" is not a valid database selection. valid options are: %v", s, DBSelectionStrings)
-}
-
-type TokenProvider string
-
-type TokenProviders []TokenProvider
-
-func (tps TokenProviders) Strings() []string {
-	ret := make([]string, len(tps))
-	for i, t := range tps {
-		ret[i] = string(t)
-	}
-	return ret
-}
-
-const (
-	NilTokens    TokenProvider = "none"
-	ERC1155      TokenProvider = "erc1155"
-	ERC20_ERC721 TokenProvider = "erc20_erc721"
+var (
+	DatabaseSelectionSQLite   = fftypes.FFEnumValue(DatabaseSelection, "sqlite3")
+	DatabaseSelectionPostgres = fftypes.FFEnumValue(DatabaseSelection, "postgres")
 )
 
-var ValidTokenProviders = []TokenProvider{NilTokens, ERC1155, ERC20_ERC721}
+const TokenProvider = "token_provider"
 
-func TokenProvidersFromStrings(strTokens []string) (tps TokenProviders, err error) {
-	tps = make([]TokenProvider, 0, len(strTokens))
-	for _, s := range strTokens {
-		found := false
-		for _, tokensProviderSelection := range ValidTokenProviders {
-			if strings.ToLower(s) == string(tokensProviderSelection) {
-				found = true
-				if tokensProviderSelection != NilTokens {
-					tps = append(tps, tokensProviderSelection)
-				}
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("\"%s\" is not a valid tokens provider selection. valid options are: %v", s, ValidTokenProviders)
-		}
-	}
-	return tps, nil
-}
-
-type ReleaseChannelSelection int
-
-const (
-	Stable ReleaseChannelSelection = iota
-	Alpha
-	Beta
-	RC
+var (
+	TokenProviderNone         = fftypes.FFEnumValue(TokenProvider, "none")
+	TokenProviderERC1155      = fftypes.FFEnumValue(TokenProvider, "erc1155")
+	TokenProviderERC20_ERC721 = fftypes.FFEnumValue(TokenProvider, "erc20_erc721")
 )
 
-var ReleaseChannelSelectionStrings = []string{"stable", "rc", "beta", "alpha", "head"}
+const ReleaseChannelSelection = "release_channel"
 
-func (rc ReleaseChannelSelection) String() string {
-	return ReleaseChannelSelectionStrings[rc]
+var (
+	ReleaseChannelStable = fftypes.FFEnumValue(ReleaseChannelSelection, "stable")
+	ReleaseChannelAlpha  = fftypes.FFEnumValue(ReleaseChannelSelection, "alpha")
+	ReleaseChannelBeta   = fftypes.FFEnumValue(ReleaseChannelSelection, "beta")
+	ReleaseChannelRC     = fftypes.FFEnumValue(ReleaseChannelSelection, "rc")
+)
+
+func FFEnumArray(ctx context.Context, a []string) ([]fftypes.FFEnum, error) {
+	enums := make([]fftypes.FFEnum, len(a))
+	for i, v := range a {
+		enums[i] = fftypes.FFEnum(v)
+	}
+	return enums, nil
 }
 
-func ReleaseChannelSelectionFromString(s string) (ReleaseChannelSelection, error) {
-	for i, releaseChannelSelection := range ReleaseChannelSelectionStrings {
-		if strings.ToLower(s) == releaseChannelSelection {
-			return ReleaseChannelSelection(i), nil
+func FFEnumArrayToStrings(input []fftypes.FFEnum) []string {
+	s := make([]string, 0)
+	for _, e := range input {
+		if e != "none" {
+			s = append(s, e.String())
 		}
 	}
-	return Stable, fmt.Errorf("\"%s\" is not a valid release channel selection. valid options are: %v", s, ReleaseChannelSelectionStrings)
+	return s
 }
