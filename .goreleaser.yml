@@ -46,7 +46,7 @@ release:
   prerelease: auto
 brews:
   - tap:
-      owner: firefly-cli
+      owner: hyperledger
       name: homebrew-packages
     download_strategy: <> # e.g. GitHubPrivateRepositoryReleaseDownloadStrategy
     folder: Formula
@@ -56,4 +56,4 @@ brews:
       <>
     test: |
       <>
-    skip_upload: <true/false>
+    skip_upload: auto
