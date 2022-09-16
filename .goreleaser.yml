@@ -44,3 +44,16 @@ changelog:
       - '^test:'
 release:
   prerelease: auto
+brews:
+  - tap:
+      owner: firefly-cli
+      name: homebrew-packages
+    download_strategy: <> # e.g. GitHubPrivateRepositoryReleaseDownloadStrategy
+    folder: Formula
+    homepage: "https://github.com/hyperledger/firefly-cli"
+    description: "Create local FireFly stacks for offline development of blockchain apps"
+    install: |
+      <>
+    test: |
+      <>
+    skip_upload: <true/false>
