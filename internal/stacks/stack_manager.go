@@ -892,12 +892,20 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
 		newConfig.Namespaces.Predefined[0].DefaultKey = orgConfig.Key
 		if s.Stack.MultipartyEnabled {
+			var contractLocation interface{}
+			if s.Stack.ContractAddress != "" {
+				contractLocation = map[string]interface{}{
+					"address": s.Stack.ContractAddress,
+				}
+			} else {
+				contractLocation = contractDeploymentResult.DeployedContract.Location
+			}
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
 				Contract: []*types.ContractConfig{
 					{
-						Location: contractDeploymentResult.DeployedContract.Location,
+						Location: contractLocation,
 					},
 				},
 			}
@@ -925,9 +933,14 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 	}
 
 	if s.Stack.MultipartyEnabled {
-		s.Log.Info("registering FireFly identities")
-		if err := s.registerFireflyIdentities(); err != nil {
-			return messages, err
+		if s.Stack.ContractAddress == "" {
+			s.Log.Info("registering FireFly identities")
+			if err := s.registerFireflyIdentities(); err != nil {
+				return messages, err
+			}
+		} else {
+			messages = append(messages, "NOTE: You have selected to use a pre-existing FireFly smart contract, so you will need to register your org by calling the /network/organizations/self and the /network/nodes/self endpoints")
+			return messages, nil
 		}
 	}
 
