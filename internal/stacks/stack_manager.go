@@ -540,6 +540,8 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 	if options.PrometheusEnabled {
 		member.ExposedFireflyMetricsPort = nextPort
 		nextPort++
+		member.ExposedConnectorMetricsPort = nextPort
+		nextPort++
 	}
 	for range options.TokenProviders {
 		member.ExposedTokensPorts = append(member.ExposedTokensPorts, nextPort)

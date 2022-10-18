@@ -28,13 +28,14 @@ import (
 )
 
 type Config struct {
-	Log           *types.LogConfig          `yaml:"log,omitempty"`
-	Connector     *ConnectorConfig          `yaml:"connector,omitempty"`
-	Persistence   *PersistenceConfig        `yaml:"persistence,omitempty"`
-	FFCore        *FFCoreConfig             `yaml:"ffcore,omitempty"`
-	Confirmations *ConfirmationsConfig      `yaml:"confirmations,omitempty"`
-	PolicyEngine  *PolicyEngineSimpleConfig `yaml:"policyengine.simple,omitempty"`
-	API           *APIConfig                `yaml:"api,omitempty"`
+	Log           *types.LogConfig           `yaml:"log,omitempty"`
+	Connector     *ConnectorConfig           `yaml:"connector,omitempty"`
+	Metrics       *types.MetricsServerConfig `yaml:"metrics,omitempty"`
+	Persistence   *PersistenceConfig         `yaml:"persistence,omitempty"`
+	FFCore        *FFCoreConfig              `yaml:"ffcore,omitempty"`
+	Confirmations *ConfirmationsConfig       `yaml:"confirmations,omitempty"`
+	PolicyEngine  *PolicyEngineSimpleConfig  `yaml:"policyengine.simple,omitempty"`
+	API           *APIConfig                 `yaml:"api,omitempty"`
 }
 
 type APIConfig struct {
@@ -94,11 +95,27 @@ func (e *Config) WriteConfig(filename string, extraEvmconnectConfigPath string) 
 	return nil
 }
 
-func (e *Evmconnect) GenerateConfig(org *types.Organization, blockchainServiceName string) connector.Config {
+func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization, blockchainServiceName string) connector.Config {
 	confirmations := new(int)
 	*confirmations = 0
 	fixedGasPrice := new(int)
 	*fixedGasPrice = 0
+	var metrics *types.MetricsServerConfig
+
+	if stack.PrometheusEnabled {
+		metrics = &types.MetricsServerConfig{
+			HttpServerConfig: types.HttpServerConfig{
+				Port:      org.ExposedConnectorMetricsPort,
+				Address:   "0.0.0.0",
+				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", org.ExposedConnectorMetricsPort),
+			},
+			Enabled: true,
+			Path:    "/metrics",
+		}
+	} else {
+		metrics = nil
+	}
+
 	return &Config{
 		Log: &types.LogConfig{
 			Level: "debug",
@@ -120,6 +137,7 @@ func (e *Evmconnect) GenerateConfig(org *types.Organization, blockchainServiceNa
 			URL:        getCoreURL(org),
 			Namespaces: []string{"default"},
 		},
+		Metrics: metrics,
 		Confirmations: &ConfirmationsConfig{
 			Required: confirmations,
 		},
