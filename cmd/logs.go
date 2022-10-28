@@ -37,6 +37,7 @@ The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = context.WithValue(ctx, docker.CtxIsLogCmd{}, true)
 		ctx = log.WithLogger(ctx, logger)
 		if err := docker.CheckDockerConfig(); err != nil {
 			return err

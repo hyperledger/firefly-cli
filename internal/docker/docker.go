@@ -30,6 +30,10 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/log"
 )
 
+type (
+	CtxIsLogCmd struct{}
+)
+
 func CreateVolume(ctx context.Context, volumeName string) error {
 	return RunDockerCommand(ctx, ".", "volume", "create", volumeName)
 }
@@ -91,6 +95,7 @@ func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ..
 
 func runCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
 	verbose := log.VerbosityFromContext(ctx)
+	isLogCmd, _ := ctx.Value(CtxIsLogCmd{}).(bool)
 	if verbose {
 		fmt.Println(cmd.String())
 	}
@@ -104,7 +109,7 @@ outputCapture:
 	for {
 		select {
 		case s, ok := <-stdoutChan:
-			if verbose {
+			if isLogCmd || verbose {
 				if !ok {
 					break outputCapture
 				}
