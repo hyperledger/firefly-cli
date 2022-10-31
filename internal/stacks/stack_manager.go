@@ -86,22 +86,22 @@ func NewStackManager(ctx context.Context) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
+func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
-		Name:                   stackName,
-		Members:                make([]*types.Organization, memberCount),
+		Name:                   options.StackName,
+		Members:                make([]*types.Organization, options.MemberCount),
 		ExposedBlockchainPort:  options.ServicesBasePort,
 		Database:               fftypes.FFEnum(options.DatabaseProvider),
 		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
 		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),
 		BlockchainConnector:    fftypes.FFEnum(options.BlockchainConnector),
 		ContractAddress:        options.ContractAddress,
-		StackDir:               filepath.Join(constants.StacksDir, stackName),
-		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
-		RuntimeDir:             filepath.Join(constants.StacksDir, stackName, "runtime"),
+		StackDir:               filepath.Join(constants.StacksDir, options.StackName),
+		InitDir:                filepath.Join(constants.StacksDir, options.StackName, "init"),
+		RuntimeDir:             filepath.Join(constants.StacksDir, options.StackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
-			Accounts:          make([]interface{}, memberCount),
+			Accounts:          make([]interface{}, options.MemberCount),
 		},
 		SandboxEnabled:    options.SandboxEnabled,
 		MultipartyEnabled: options.MultipartyEnabled,
@@ -109,6 +109,8 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
+		ChannelName:       options.ChaincodeName,
+		ChaincodeName:     options.ChaincodeName,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
@@ -124,6 +126,13 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	if options.PrometheusEnabled {
 		s.Stack.PrometheusEnabled = true
 		s.Stack.ExposedPrometheusPort = options.PrometheusPort
+	}
+
+	if len(options.CCPYAMLPaths) != 0 && len(options.MSPPaths) != 0 {
+		s.Stack.RemoteFabricNetwork = true
+	} else {
+		s.Stack.ChannelName = "firefly"
+		s.Stack.ChaincodeName = "firefly"
 	}
 
 	var manifest *types.VersionManifest
@@ -153,7 +162,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	s.blockchainProvider = s.getBlockchainProvider()
 	s.tokenProviders = s.getITokenProviders()
 
-	for i := 0; i < memberCount; i++ {
+	for i := 0; i < options.MemberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		member, err := s.createMember(fmt.Sprint(i), i, options, externalProcess)
 		if err != nil {

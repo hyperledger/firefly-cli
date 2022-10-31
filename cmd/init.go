@@ -48,73 +48,78 @@ var initCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
-		var stackName string
 		stackManager := stacks.NewStackManager(ctx)
-
-		if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
+		if err := initCommon(args); err != nil {
 			return err
 		}
-		if err := validateBlockchainProvider(initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider); err != nil {
+		if err := stackManager.InitStack(&initOptions); err != nil {
 			return err
 		}
-		if err := validateTokensProvider(initOptions.TokenProviders, initOptions.BlockchainNodeProvider); err != nil {
-			return err
-		}
-		if err := validateReleaseChannel(initOptions.ReleaseChannel); err != nil {
-			return err
-		}
-		if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
-			return err
-		}
-
-		fmt.Println("initializing new FireFly stack...")
-
-		if len(args) > 0 {
-			stackName = args[0]
-			err := validateStackName(stackName)
-			if err != nil {
-				return err
-			}
-		} else {
-			stackName, _ = prompt("stack name: ", validateStackName)
-			fmt.Println("You selected " + stackName)
-		}
-
-		var memberCountInput string
-		if len(args) > 1 {
-			memberCountInput = args[1]
-			if err := validateCount(memberCountInput); err != nil {
-				return err
-			}
-		} else {
-			memberCountInput, _ = prompt("number of members: ", validateCount)
-		}
-		memberCount, _ := strconv.Atoi(memberCountInput)
-
-		initOptions.OrgNames = make([]string, 0, memberCount)
-		initOptions.NodeNames = make([]string, 0, memberCount)
-		if promptNames {
-			for i := 0; i < memberCount; i++ {
-				name, _ := prompt(fmt.Sprintf("name for org %d: ", i), validateFFName)
-				initOptions.OrgNames = append(initOptions.OrgNames, name)
-				name, _ = prompt(fmt.Sprintf("name for node %d: ", i), validateFFName)
-				initOptions.NodeNames = append(initOptions.NodeNames, name)
-			}
-		} else {
-			for i := 0; i < memberCount; i++ {
-				initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%d", i))
-				initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%d", i))
-			}
-		}
-
-		if err := stackManager.InitStack(stackName, memberCount, &initOptions); err != nil {
-			return err
-		}
-
-		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", stackName, rootCmd.Use, stackName)
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)
 		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stackManager.Stack.StackDir, "docker-compose.yml"))
 		return nil
 	},
+}
+
+func initCommon(args []string) error {
+	if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
+		return err
+	}
+	if err := validateBlockchainProvider(initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider); err != nil {
+		return err
+	}
+	if err := validateTokensProvider(initOptions.TokenProviders, initOptions.BlockchainNodeProvider); err != nil {
+		return err
+	}
+	if err := validateReleaseChannel(initOptions.ReleaseChannel); err != nil {
+		return err
+	}
+	if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
+		return err
+	}
+
+	fmt.Println("initializing new FireFly stack...")
+
+	if len(args) > 0 {
+		initOptions.StackName = args[0]
+		err := validateStackName(initOptions.StackName)
+		if err != nil {
+			return err
+		}
+	} else {
+		initOptions.StackName, _ = prompt("stack name: ", validateStackName)
+		fmt.Println("You selected " + initOptions.StackName)
+	}
+
+	var memberCountInput string
+	if len(args) > 1 {
+		memberCountInput = args[1]
+		if err := validateCount(memberCountInput); err != nil {
+			return err
+		}
+	} else if initOptions.MemberCount == 0 {
+		memberCountInput, _ = prompt("number of members: ", validateCount)
+		memberCount, _ := strconv.Atoi(memberCountInput)
+		initOptions.MemberCount = memberCount
+	}
+
+	initOptions.OrgNames = make([]string, 0, initOptions.MemberCount)
+	initOptions.NodeNames = make([]string, 0, initOptions.MemberCount)
+	if promptNames {
+		for i := 0; i < initOptions.MemberCount; i++ {
+			name, _ := prompt(fmt.Sprintf("name for org %d: ", i), validateFFName)
+			initOptions.OrgNames = append(initOptions.OrgNames, name)
+			name, _ = prompt(fmt.Sprintf("name for node %d: ", i), validateFFName)
+			initOptions.NodeNames = append(initOptions.NodeNames, name)
+		}
+	} else {
+		for i := 0; i < initOptions.MemberCount; i++ {
+			initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%d", i))
+			initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%d", i))
+		}
+	}
+
+	return nil
 }
 
 func validateStackName(stackName string) error {
@@ -210,30 +215,30 @@ func validateIPFSMode(input string) error {
 }
 
 func init() {
-	initCmd.Flags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
-	initCmd.Flags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
-	initCmd.Flags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
+	initCmd.PersistentFlags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
+	initCmd.PersistentFlags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+	initCmd.PersistentFlags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "ethconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
-	initCmd.Flags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
-	initCmd.Flags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
-	initCmd.Flags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
-	initCmd.Flags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
-	initCmd.Flags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
-	initCmd.Flags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
-	initCmd.Flags().BoolVar(&initOptions.SandboxEnabled, "sandbox-enabled", true, "Enables the FireFly Sandbox to be started with your FireFly stack")
-	initCmd.Flags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
-	initCmd.Flags().StringVarP(&initOptions.ExtraCoreConfigPath, "core-config", "", "", "The path to a yaml file containing extra config for FireFly Core")
-	initCmd.Flags().StringVarP(&initOptions.ExtraConnectorConfigPath, "connector-config", "", "", "The path to a yaml file containing extra config for the blockchain connector")
-	initCmd.Flags().IntVarP(&initOptions.BlockPeriod, "block-period", "", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
-	initCmd.Flags().StringVarP(&initOptions.ContractAddress, "contract-address", "", "", "Do not automatically deploy a contract, instead use a pre-configured address")
-	initCmd.Flags().StringVarP(&initOptions.RemoteNodeURL, "remote-node-url", "", "", "For cases where the node is pre-existing and running remotely")
-	initCmd.Flags().Int64VarP(&initOptions.ChainID, "chain-id", "", 2021, "The chain ID (Ethereum only) - also used as the network ID")
-	initCmd.Flags().IntVarP(&initOptions.RequestTimeout, "request-timeout", "", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
-	initCmd.Flags().StringVarP(&initOptions.ReleaseChannel, "channel", "", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
-	initCmd.Flags().BoolVarP(&initOptions.MultipartyEnabled, "multiparty", "", true, "Enable or disable multiparty mode")
-	initCmd.Flags().StringVarP(&initOptions.IPFSMode, "ipfs-mode", "", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
+	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
+	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
+	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
+	initCmd.PersistentFlags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
+	initCmd.PersistentFlags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
+	initCmd.PersistentFlags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
+	initCmd.PersistentFlags().BoolVar(&initOptions.SandboxEnabled, "sandbox-enabled", true, "Enables the FireFly Sandbox to be started with your FireFly stack")
+	initCmd.PersistentFlags().IntVar(&initOptions.PrometheusPort, "prometheus-port", 9090, "Port for the shared Prometheus server")
+	initCmd.PersistentFlags().StringVar(&initOptions.ExtraCoreConfigPath, "core-config", "", "The path to a yaml file containing extra config for FireFly Core")
+	initCmd.PersistentFlags().StringVar(&initOptions.ExtraConnectorConfigPath, "connector-config", "", "The path to a yaml file containing extra config for the blockchain connector")
+	initCmd.Flags().IntVar(&initOptions.BlockPeriod, "block-period", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
+	initCmd.Flags().StringVar(&initOptions.ContractAddress, "contract-address", "", "Do not automatically deploy a contract, instead use a pre-configured address")
+	initCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
+	initCmd.Flags().Int64Var(&initOptions.ChainID, "chain-id", 2021, "The chain ID (Ethereum only) - also used as the network ID")
+	initCmd.PersistentFlags().IntVar(&initOptions.RequestTimeout, "request-timeout", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
+	initCmd.PersistentFlags().StringVar(&initOptions.ReleaseChannel, "channel", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
+	initCmd.PersistentFlags().BoolVar(&initOptions.MultipartyEnabled, "multiparty", true, "Enable or disable multiparty mode")
+	initCmd.PersistentFlags().StringVar(&initOptions.IPFSMode, "ipfs-mode", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -45,6 +45,9 @@ type Stack struct {
 	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
 	RequestTimeout         int              `json:"requestTimeout,omitempty"`
 	IPFSMode               fftypes.FFEnum   `json:"ipfsMode"`
+	RemoteFabricNetwork    bool             `json:"remoteFabricNetwork,omitempty"`
+	ChannelName            string           `json:"channelName,omitempty"`
+	ChaincodeName          string           `json:"chaincodeName,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`
