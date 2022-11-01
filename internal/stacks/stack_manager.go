@@ -109,7 +109,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
-		ChannelName:       options.ChaincodeName,
+		ChannelName:       options.ChannelName,
 		ChaincodeName:     options.ChaincodeName,
 	}
 

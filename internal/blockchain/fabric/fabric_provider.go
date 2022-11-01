@@ -563,7 +563,7 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	}
 	result := &types.ContractDeploymentResult{
 		DeployedContract: &types.DeployedContract{
-			Name: "FireFly",
+			Name: contractName,
 			Location: map[string]string{
 				"channel":   channel,
 				"chaincode": chaincode,
