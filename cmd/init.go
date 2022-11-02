@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -114,8 +116,9 @@ func initCommon(args []string) error {
 		}
 	} else {
 		for i := 0; i < initOptions.MemberCount; i++ {
-			initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%d", i))
-			initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%d", i))
+			id := randomHexString(3)
+			initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%s", id))
+			initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%s", id))
 		}
 	}
 
@@ -212,6 +215,12 @@ func validateReleaseChannel(input string) error {
 func validateIPFSMode(input string) error {
 	_, err := fftypes.FFEnumParseString(context.Background(), types.IPFSMode, input)
 	return err
+}
+
+func randomHexString(length int) string {
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }
 
 func init() {
