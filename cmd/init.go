@@ -100,11 +100,13 @@ func initCommon(args []string) error {
 		if err := validateCount(memberCountInput); err != nil {
 			return err
 		}
+		memberCount, _ := strconv.Atoi(memberCountInput)
+		initOptions.MemberCount = memberCount
 	} else if initOptions.MemberCount == 0 {
 		memberCountInput, _ = prompt("number of members: ", validateCount)
+		memberCount, _ := strconv.Atoi(memberCountInput)
+		initOptions.MemberCount = memberCount
 	}
-	memberCount, _ := strconv.Atoi(memberCountInput)
-	initOptions.MemberCount = memberCount
 
 	initOptions.OrgNames = make([]string, 0, initOptions.MemberCount)
 	initOptions.NodeNames = make([]string, 0, initOptions.MemberCount)
