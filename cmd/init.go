@@ -108,22 +108,32 @@ func initCommon(args []string) error {
 		initOptions.MemberCount = memberCount
 	}
 
-	initOptions.OrgNames = make([]string, 0, initOptions.MemberCount)
-	initOptions.NodeNames = make([]string, 0, initOptions.MemberCount)
+	orgNames := make([]string, initOptions.MemberCount)
+	nodeNames := make([]string, initOptions.MemberCount)
 	if promptNames {
 		for i := 0; i < initOptions.MemberCount; i++ {
 			name, _ := prompt(fmt.Sprintf("name for org %d: ", i), validateFFName)
-			initOptions.OrgNames = append(initOptions.OrgNames, name)
+			orgNames[i] = name
 			name, _ = prompt(fmt.Sprintf("name for node %d: ", i), validateFFName)
-			initOptions.NodeNames = append(initOptions.NodeNames, name)
+			nodeNames[i] = name
 		}
 	} else {
 		for i := 0; i < initOptions.MemberCount; i++ {
-			id := randomHexString(3)
-			initOptions.OrgNames = append(initOptions.OrgNames, fmt.Sprintf("org_%s", id))
-			initOptions.NodeNames = append(initOptions.NodeNames, fmt.Sprintf("node_%s", id))
+			randomName := randomHexString(3)
+			if len(initOptions.OrgNames) <= i || initOptions.OrgNames[i] == "" {
+				orgNames[i] = fmt.Sprintf("org_%s", randomName)
+			} else {
+				orgNames[i] = initOptions.OrgNames[i]
+			}
+			if len(initOptions.NodeNames) <= i || initOptions.NodeNames[i] == "" {
+				nodeNames[i] = fmt.Sprintf("node_%s", randomName)
+			} else {
+				nodeNames[i] = initOptions.NodeNames[i]
+			}
 		}
 	}
+	initOptions.OrgNames = orgNames
+	initOptions.NodeNames = nodeNames
 
 	return nil
 }
@@ -251,6 +261,7 @@ func init() {
 	initCmd.PersistentFlags().StringVar(&initOptions.ReleaseChannel, "channel", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
 	initCmd.PersistentFlags().BoolVar(&initOptions.MultipartyEnabled, "multiparty", true, "Enable or disable multiparty mode")
 	initCmd.PersistentFlags().StringVar(&initOptions.IPFSMode, "ipfs-mode", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
-
+	initCmd.PersistentFlags().StringArrayVar(&initOptions.OrgNames, "org-name", []string{}, "Organization name")
+	initCmd.PersistentFlags().StringArrayVar(&initOptions.NodeNames, "node-name", []string{}, "Node name")
 	rootCmd.AddCommand(initCmd)
 }
