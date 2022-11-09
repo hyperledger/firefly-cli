@@ -57,7 +57,7 @@ func init() {
 	initEthereumCmd.Flags().StringVar(&initOptions.ContractAddress, "contract-address", "", "Do not automatically deploy a contract, instead use a pre-configured address")
 	initEthereumCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
 	initEthereumCmd.Flags().Int64Var(&initOptions.ChainID, "chain-id", 2021, "The chain ID - also used as the network ID")
-	initEthereumCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "evmconnect", "Blockchain connector to use. Options are: [evnconnect ethconnect]")
+	initEthereumCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "ethconnect", "Blockchain connector to use. Options are: [evnconnect ethconnect]")
 	initEthereumCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
 
 	initCmd.AddCommand(initEthereumCmd)
