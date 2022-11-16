@@ -86,22 +86,22 @@ func NewStackManager(ctx context.Context) *StackManager {
 	}
 }
 
-func (s *StackManager) InitStack(stackName string, memberCount int, options *types.InitOptions) (err error) {
+func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	s.Stack = &types.Stack{
-		Name:                   stackName,
-		Members:                make([]*types.Organization, memberCount),
+		Name:                   options.StackName,
+		Members:                make([]*types.Organization, options.MemberCount),
 		ExposedBlockchainPort:  options.ServicesBasePort,
 		Database:               fftypes.FFEnum(options.DatabaseProvider),
 		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
 		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),
 		BlockchainConnector:    fftypes.FFEnum(options.BlockchainConnector),
 		ContractAddress:        options.ContractAddress,
-		StackDir:               filepath.Join(constants.StacksDir, stackName),
-		InitDir:                filepath.Join(constants.StacksDir, stackName, "init"),
-		RuntimeDir:             filepath.Join(constants.StacksDir, stackName, "runtime"),
+		StackDir:               filepath.Join(constants.StacksDir, options.StackName),
+		InitDir:                filepath.Join(constants.StacksDir, options.StackName, "init"),
+		RuntimeDir:             filepath.Join(constants.StacksDir, options.StackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
-			Accounts:          make([]interface{}, memberCount),
+			Accounts:          make([]interface{}, options.MemberCount),
 		},
 		SandboxEnabled:    options.SandboxEnabled,
 		MultipartyEnabled: options.MultipartyEnabled,
@@ -109,6 +109,8 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
+		ChannelName:       options.ChannelName,
+		ChaincodeName:     options.ChaincodeName,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
@@ -124,6 +126,13 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	if options.PrometheusEnabled {
 		s.Stack.PrometheusEnabled = true
 		s.Stack.ExposedPrometheusPort = options.PrometheusPort
+	}
+
+	if len(options.CCPYAMLPaths) != 0 && len(options.MSPPaths) != 0 {
+		s.Stack.RemoteFabricNetwork = true
+	} else {
+		s.Stack.ChannelName = "firefly"
+		s.Stack.ChaincodeName = "firefly"
 	}
 
 	var manifest *types.VersionManifest
@@ -153,7 +162,7 @@ func (s *StackManager) InitStack(stackName string, memberCount int, options *typ
 	s.blockchainProvider = s.getBlockchainProvider()
 	s.tokenProviders = s.getITokenProviders()
 
-	for i := 0; i < memberCount; i++ {
+	for i := 0; i < options.MemberCount; i++ {
 		externalProcess := i < options.ExternalProcesses
 		member, err := s.createMember(fmt.Sprint(i), i, options, externalProcess)
 		if err != nil {
@@ -540,6 +549,8 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 	if options.PrometheusEnabled {
 		member.ExposedFireflyMetricsPort = nextPort
 		nextPort++
+		member.ExposedConnectorMetricsPort = nextPort
+		nextPort++
 	}
 	for range options.TokenProviders {
 		member.ExposedTokensPorts = append(member.ExposedTokensPorts, nextPort)
@@ -892,12 +903,20 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
 		newConfig.Namespaces.Predefined[0].DefaultKey = orgConfig.Key
 		if s.Stack.MultipartyEnabled {
+			var contractLocation interface{}
+			if s.Stack.ContractAddress != "" {
+				contractLocation = map[string]interface{}{
+					"address": s.Stack.ContractAddress,
+				}
+			} else {
+				contractLocation = contractDeploymentResult.DeployedContract.Location
+			}
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
 				Contract: []*types.ContractConfig{
 					{
-						Location: contractDeploymentResult.DeployedContract.Location,
+						Location: contractLocation,
 					},
 				},
 			}
@@ -925,9 +944,14 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 	}
 
 	if s.Stack.MultipartyEnabled {
-		s.Log.Info("registering FireFly identities")
-		if err := s.registerFireflyIdentities(); err != nil {
-			return messages, err
+		if s.Stack.ContractAddress == "" {
+			s.Log.Info("registering FireFly identities")
+			if err := s.registerFireflyIdentities(); err != nil {
+				return messages, err
+			}
+		} else {
+			messages = append(messages, "NOTE: You have selected to use a pre-existing FireFly smart contract, so you will need to register your org by calling the /network/organizations/self and the /network/nodes/self endpoints")
+			return messages, nil
 		}
 	}
 

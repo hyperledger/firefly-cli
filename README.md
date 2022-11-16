@@ -23,7 +23,7 @@ The easiest way to get up and running with the FireFly CLI is to download a pre-
 ### Download the package for your OS
 Go to the [latest release page](https://github.com/hyperledger/firefly-cli/releases/latest) and download the package for your OS and CPU architecture.
 
-### Extract the binary and move it to `/usr/bin/local`
+### Extract the binary and move it to `/usr/local/bin`
 
 Assuming you downloaded the package from GitHub into you `Downloads` directory, run the following command:
 

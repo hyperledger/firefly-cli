@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
+	cp "github.com/otiai10/copy"
 )
 
 type Account struct {
@@ -61,20 +62,32 @@ func NewFabricProvider(ctx context.Context, stack *types.Stack) *FabricProvider 
 
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.stack.InitDir, "blockchain")
-	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 
 	os.MkdirAll(blockchainDirectory, 0755)
+	if p.stack.RemoteFabricNetwork {
+		for i, member := range p.stack.Members {
+			if err := cp.Copy(options.CCPYAMLPaths[i], path.Join(blockchainDirectory, fmt.Sprintf("%s_ccp.yaml", member.ID))); err != nil {
+				return err
+			}
+			if err := cp.Copy(options.MSPPaths[i], path.Join(blockchainDirectory, fmt.Sprintf("%s_msp", member.ID))); err != nil {
+				return err
+			}
+		}
+	} else {
+		cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 
-	if err := WriteCryptogenConfig(len(p.stack.Members), cryptogenYamlPath); err != nil {
-		return err
+		if err := WriteCryptogenConfig(len(p.stack.Members), cryptogenYamlPath); err != nil {
+			return err
+		}
+		if err := WriteNetworkConfig(path.Join(blockchainDirectory, "ccp.yaml")); err != nil {
+			return err
+		}
+		if err := p.writeConfigtxYaml(); err != nil {
+			return err
+		}
 	}
-	if err := WriteNetworkConfig(path.Join(blockchainDirectory, "ccp.yaml")); err != nil {
-		return err
-	}
+
 	if err := fabconnect.WriteFabconnectConfig(path.Join(blockchainDirectory, "fabconnect.yaml")); err != nil {
-		return err
-	}
-	if err := p.writeConfigtxYaml(); err != nil {
 		return err
 	}
 
@@ -82,43 +95,44 @@ func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *FabricProvider) FirstTimeSetup() error {
-	blockchainDirectory := path.Join(p.stack.RuntimeDir, "blockchain")
-	cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
-	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+	if !p.stack.RemoteFabricNetwork {
+		volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
+		if err := docker.CreateVolume(p.ctx, volumeName); err != nil {
+			return err
+		}
+		blockchainDirectory := path.Join(p.stack.RuntimeDir, "blockchain")
+		cryptogenYamlPath := path.Join(blockchainDirectory, "cryptogen.yaml")
 
-	if err := docker.CreateVolume(p.ctx, volumeName); err != nil {
-		return err
-	}
+		// Run cryptogen to generate MSP
+		if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
+			"run",
+			"--platform", getDockerPlatform(),
+			"--rm",
+			"-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath),
+			"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+			FabricToolsImageName,
+			"cryptogen", "generate",
+			"--config", "/etc/template.yml",
+			"--output", "/etc/firefly/organizations",
+		); err != nil {
+			return err
+		}
 
-	// Run cryptogen to generate MSP
-	if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
-		"run",
-		"--platform", getDockerPlatform(),
-		"--rm",
-		"-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath),
-		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		FabricToolsImageName,
-		"cryptogen", "generate",
-		"--config", "/etc/template.yml",
-		"--output", "/etc/firefly/organizations",
-	); err != nil {
-		return err
-	}
-
-	// Generate genesis block
-	if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
-		"run",
-		"--platform", getDockerPlatform(),
-		"--rm",
-		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-		"-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
-		FabricToolsImageName,
-		"configtxgen",
-		"-outputBlock", "/etc/firefly/firefly.block",
-		"-profile", "SingleOrgApplicationGenesis",
-		"-channelID", "firefly",
-	); err != nil {
-		return err
+		// Generate genesis block
+		if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
+			"run",
+			"--platform", getDockerPlatform(),
+			"--rm",
+			"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
+			"-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
+			FabricToolsImageName,
+			"configtxgen",
+			"-outputBlock", "/etc/firefly/firefly.block",
+			"-profile", "SingleOrgApplicationGenesis",
+			"-channelID", "firefly",
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -126,11 +140,25 @@ func (p *FabricProvider) FirstTimeSetup() error {
 
 func (p *FabricProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
 	// No config patch YAML required for Fabric, as the chaincode name is pre-determined
+	if p.stack.RemoteFabricNetwork {
+		return &types.ContractDeploymentResult{
+			DeployedContract: &types.DeployedContract{
+				Name: p.stack.ChaincodeName,
+				Location: map[string]string{
+					"channel":   p.stack.ChannelName,
+					"chaincode": p.stack.ChaincodeName,
+				},
+			},
+		}, nil
+	}
 	result, err := p.deploySmartContracts()
 	return result, err
 }
 
 func (p *FabricProvider) deploySmartContracts() (*types.ContractDeploymentResult, error) {
+	if p.stack.RemoteFabricNetwork {
+		return nil, fmt.Errorf("deploying chaincode is not supported with a remote Fabric network")
+	}
 	packageFilename := path.Join(p.stack.RuntimeDir, "contracts", "firefly_fabric.tar.gz")
 
 	if err := p.extractChaincode(); err != nil {
@@ -175,12 +203,14 @@ func (p *FabricProvider) PreStart() error {
 
 func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
 	if firstTimeSetup {
-		if err := p.createChannel(); err != nil {
-			return err
-		}
+		if !p.stack.RemoteFabricNetwork {
+			if err := p.createChannel(); err != nil {
+				return err
+			}
 
-		if err := p.joinChannel(); err != nil {
-			return err
+			if err := p.joinChannel(); err != nil {
+				return err
+			}
 		}
 
 		// Register pre-created identities
@@ -196,6 +226,9 @@ func (p *FabricProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *FabricProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
+	if p.stack.RemoteFabricNetwork {
+		return p.getFabconnectServiceDefinitions(p.stack.Members)
+	}
 	serviceDefinitions := GenerateDockerServiceDefinitions(p.stack)
 	serviceDefinitions = append(serviceDefinitions, p.getFabconnectServiceDefinitions(p.stack.Members)...)
 	return serviceDefinitions
@@ -208,14 +241,13 @@ func (p *FabricProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.
 	} else {
 		connectorURL = p.GetConnectorURL(m)
 	}
-
 	blockchainConfig = &types.BlockchainConfig{
 		Type: "fabric",
 		Fabric: &types.FabricConfig{
 			Fabconnect: &types.FabconnectConfig{
 				URL:       connectorURL,
-				Chaincode: "firefly",
-				Channel:   "firefly",
+				Chaincode: p.stack.ChaincodeName,
+				Channel:   p.stack.ChannelName,
 				Signer:    m.OrgName,
 				Topic:     m.ID,
 			},
@@ -246,18 +278,11 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organi
 				Image:         p.stack.VersionManifest.Fabconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_fabconnect_%s", p.stack.Name, member.ID),
 				Command:       "-f /fabconnect/fabconnect.yaml",
-				DependsOn: map[string]map[string]string{
-					"fabric_ca":      {"condition": "service_started"},
-					"fabric_peer":    {"condition": "service_started"},
-					"fabric_orderer": {"condition": "service_started"},
-				},
-				Ports: []string{fmt.Sprintf("%d:3000", member.ExposedConnectorPort)},
+				Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedConnectorPort)},
 				Volumes: []string{
 					fmt.Sprintf("fabconnect_receipts_%s:/fabconnect/receipts", member.ID),
 					fmt.Sprintf("fabconnect_events_%s:/fabconnect/events", member.ID),
 					fmt.Sprintf("%s:/fabconnect/fabconnect.yaml", path.Join(blockchainDirectory, "fabconnect.yaml")),
-					fmt.Sprintf("%s:/fabconnect/ccp.yaml", path.Join(blockchainDirectory, "ccp.yaml")),
-					"firefly_fabric:/etc/firefly",
 				},
 				HealthCheck: &docker.HealthCheck{
 					Test: []string{"CMD", "wget", "-O", "-", "http://localhost:3000/status"},
@@ -267,16 +292,37 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organi
 			VolumeNames: []string{
 				"fabconnect_receipts_" + member.ID,
 				"fabconnect_events_" + member.ID,
-				"firefly_fabric",
 			},
 		}
+
+		if p.stack.RemoteFabricNetwork {
+			serviceDefinitions[i].Service.Volumes = append(serviceDefinitions[i].Service.Volumes,
+				fmt.Sprintf("%s:/etc/firefly/organizations", path.Join(blockchainDirectory, fmt.Sprintf("%s_msp", member.ID))),
+				fmt.Sprintf("%s:/fabconnect/ccp.yaml", path.Join(blockchainDirectory, fmt.Sprintf("%s_ccp.yaml", member.ID))),
+			)
+		} else {
+			serviceDefinitions[i].Service.DependsOn = map[string]map[string]string{
+				"fabric_ca":      {"condition": "service_started"},
+				"fabric_peer":    {"condition": "service_started"},
+				"fabric_orderer": {"condition": "service_started"},
+			}
+			serviceDefinitions[i].Service.Volumes = append(serviceDefinitions[i].Service.Volumes,
+				"firefly_fabric:/etc/firefly",
+				fmt.Sprintf("%s:/fabconnect/ccp.yaml", path.Join(blockchainDirectory, "ccp.yaml")),
+			)
+			serviceDefinitions[i].VolumeNames = append(serviceDefinitions[i].VolumeNames, "firefly_fabric")
+		}
 	}
+
 	return serviceDefinitions
 }
 
 func (p *FabricProvider) writeConfigtxYaml() error {
-	filePath := path.Join(p.stack.InitDir, "blockchain", "configtx.yaml")
-	return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
+	if !p.stack.RemoteFabricNetwork {
+		filePath := path.Join(p.stack.InitDir, "blockchain", "configtx.yaml")
+		return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
+	}
+	return nil
 }
 
 func (p *FabricProvider) createChannel() error {
@@ -517,7 +563,7 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	}
 	result := &types.ContractDeploymentResult{
 		DeployedContract: &types.DeployedContract{
-			Name: "FireFly",
+			Name: contractName,
 			Location: map[string]string{
 				"channel":   channel,
 				"chaincode": chaincode,

@@ -43,6 +43,10 @@ func (s *StackManager) GeneratePrometheusConfig() *PrometheusConfig {
 
 	for i, member := range s.Stack.Members {
 		config.ScrapeConfigs[0].StaticConfigs[0].Targets = append(config.ScrapeConfigs[0].StaticConfigs[0].Targets, fmt.Sprintf("firefly_core_%d:%d", i, member.ExposedFireflyMetricsPort))
+
+		if s.blockchainProvider.GetConnectorName() == "evmconnect" {
+			config.ScrapeConfigs[0].StaticConfigs[0].Targets = append(config.ScrapeConfigs[0].StaticConfigs[0].Targets, fmt.Sprintf("evmconnect_%d:%d", i, member.ExposedConnectorMetricsPort))
+		}
 	}
 
 	return config
