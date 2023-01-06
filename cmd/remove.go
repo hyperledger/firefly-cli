@@ -40,9 +40,13 @@ and configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
-		if err := docker.CheckDockerConfig(); err != nil {
+
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
 			return err
 		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
+
 		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")

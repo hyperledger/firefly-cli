@@ -33,13 +33,17 @@ var accountsCreateCmd = &cobra.Command{
 	Long:  `Create a new account in the FireFly stack`,
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return docker.CheckDockerConfig()
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
+
+		version, err := docker.CheckDockerConfig()
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
+		cmd.SetContext(ctx)
+		return err
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
 		stackName := args[0]
-		stackManager := stacks.NewStackManager(ctx)
+		stackManager := stacks.NewStackManager(cmd.Context())
 		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}

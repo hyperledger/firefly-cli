@@ -31,7 +31,15 @@ import (
 )
 
 type (
-	CtxIsLogCmd struct{}
+	CtxIsLogCmdKey       struct{}
+	CtxComposeVersionKey struct{}
+	DockerComposeVersion int
+)
+
+const (
+	None DockerComposeVersion = iota
+	ComposeV1
+	ComposeV2
 )
 
 func CreateVolume(ctx context.Context, volumeName string) error {
@@ -81,10 +89,20 @@ func RunDockerCommand(ctx context.Context, workingDir string, command ...string)
 }
 
 func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...string) error {
-	dockerCmd := exec.Command("docker-compose", command...)
-	dockerCmd.Dir = workingDir
-	_, err := runCommand(ctx, dockerCmd)
-	return err
+	switch ctx.Value(CtxComposeVersionKey{}) {
+	case ComposeV1:
+		dockerCmd := exec.Command("docker-compose", command...)
+		dockerCmd.Dir = workingDir
+		_, err := runCommand(ctx, dockerCmd)
+		return err
+	case ComposeV2:
+		dockerCmd := exec.Command("docker compose", command...)
+		dockerCmd.Dir = workingDir
+		_, err := runCommand(ctx, dockerCmd)
+		return err
+	default:
+		return fmt.Errorf("No version for docker-compose has been detected.")
+	}
 }
 
 func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ...string) (string, error) {
@@ -95,7 +113,7 @@ func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ..
 
 func runCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
 	verbose := log.VerbosityFromContext(ctx)
-	isLogCmd, _ := ctx.Value(CtxIsLogCmd{}).(bool)
+	isLogCmd, _ := ctx.Value(CtxIsLogCmdKey{}).(bool)
 	if verbose {
 		fmt.Println(cmd.String())
 	}
