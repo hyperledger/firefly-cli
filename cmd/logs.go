@@ -6,7 +6,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,11 +37,14 @@ The most recent logs can be viewed, or you can follow the
 output with the -f flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
-		ctx = context.WithValue(ctx, docker.CtxIsLogCmd{}, true)
+		ctx = context.WithValue(ctx, docker.CtxIsLogCmdKey{}, true)
 		ctx = log.WithLogger(ctx, logger)
-		if err := docker.CheckDockerConfig(); err != nil {
+
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
 			return err
 		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
 
 		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {

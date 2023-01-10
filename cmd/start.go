@@ -47,9 +47,11 @@ This command will start a stack and run it in the background.
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
 
-		if err := docker.CheckDockerConfig(); err != nil {
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
 			return err
 		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
 
 		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
