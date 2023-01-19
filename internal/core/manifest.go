@@ -40,12 +40,23 @@ func GetManifestForReleaseChannel(releaseChannel fftypes.FFEnum) (*types.Version
 		return nil, err
 	}
 
-	imageDigest, err := docker.GetImageDigest(imageName)
+	manifest, err := GetReleaseManifest(gitCommit)
 	if err != nil {
 		return nil, err
 	}
 
-	manifest, err := GetReleaseManifest(gitCommit)
+	return manifest, nil
+}
+
+func GetReleaseManifest(version string) (*types.VersionManifest, error) {
+	manifest := &types.VersionManifest{}
+	if err := request("GET", fmt.Sprintf("https://raw.githubusercontent.com/hyperledger/firefly/%s/manifest.json", version), nil, &manifest); err != nil {
+		return nil, err
+	}
+
+	imageName := fmt.Sprintf("%s:%s", constants.FireFlyCoreImageName, version)
+
+	imageDigest, err := docker.GetImageDigest(imageName)
 	if err != nil {
 		return nil, err
 	}
@@ -54,16 +65,9 @@ func GetManifestForReleaseChannel(releaseChannel fftypes.FFEnum) (*types.Version
 		// Fill in the FireFly version number
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "ghcr.io/hyperledger/firefly",
+			Tag:   version,
 			SHA:   imageDigest[7:],
 		}
-	}
-	return manifest, nil
-}
-
-func GetReleaseManifest(version string) (*types.VersionManifest, error) {
-	manifest := &types.VersionManifest{}
-	if err := request("GET", fmt.Sprintf("https://raw.githubusercontent.com/hyperledger/firefly/%s/manifest.json", version), nil, &manifest); err != nil {
-		return nil, err
 	}
 
 	return manifest, nil
