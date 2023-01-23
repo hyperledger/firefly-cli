@@ -146,12 +146,12 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	} else {
 		// Otherwise, fetch the manifest file from GitHub for the specified version
 		if options.FireFlyVersion == "" || strings.ToLower(options.FireFlyVersion) == "latest" {
-			manifest, err = core.GetManifestForReleaseChannel(fftypes.FFEnum(options.ReleaseChannel))
+			manifest, err = core.GetManifestForChannel(fftypes.FFEnum(options.ReleaseChannel))
 			if err != nil {
 				return err
 			}
 		} else {
-			manifest, err = core.GetReleaseManifest(options.FireFlyVersion)
+			manifest, err = core.GetManifestForRelease(options.FireFlyVersion)
 			if err != nil {
 				return err
 			}

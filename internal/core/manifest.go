@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
-func GetManifestForReleaseChannel(releaseChannel fftypes.FFEnum) (*types.VersionManifest, error) {
+func GetManifestForChannel(releaseChannel fftypes.FFEnum) (*types.VersionManifest, error) {
 	dockerTag := releaseChannel.String()
 	if releaseChannel == types.ReleaseChannelStable {
 		dockerTag = "latest"
@@ -40,23 +40,35 @@ func GetManifestForReleaseChannel(releaseChannel fftypes.FFEnum) (*types.Version
 		return nil, err
 	}
 
-	manifest, err := GetReleaseManifest(gitCommit)
+	sha, err := getSHA(constants.FireFlyCoreImageName, dockerTag)
 	if err != nil {
 		return nil, err
+	}
+
+	manifest, err := getManifest(gitCommit)
+	if err != nil {
+		return nil, err
+	}
+
+	if manifest.FireFly == nil {
+		// Fill in the FireFly version number
+		manifest.FireFly = &types.ManifestEntry{
+			Image: "ghcr.io/hyperledger/firefly",
+			Tag:   dockerTag,
+			SHA:   sha,
+		}
 	}
 
 	return manifest, nil
 }
 
-func GetReleaseManifest(version string) (*types.VersionManifest, error) {
-	manifest := &types.VersionManifest{}
-	if err := request("GET", fmt.Sprintf("https://raw.githubusercontent.com/hyperledger/firefly/%s/manifest.json", version), nil, &manifest); err != nil {
+func GetManifestForRelease(version string) (*types.VersionManifest, error) {
+	sha, err := getSHA(constants.FireFlyCoreImageName, version)
+	if err != nil {
 		return nil, err
 	}
 
-	imageName := fmt.Sprintf("%s:%s", constants.FireFlyCoreImageName, version)
-
-	imageDigest, err := docker.GetImageDigest(imageName)
+	manifest, err := getManifest(version)
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +78,28 @@ func GetReleaseManifest(version string) (*types.VersionManifest, error) {
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "ghcr.io/hyperledger/firefly",
 			Tag:   version,
-			SHA:   imageDigest[7:],
+			SHA:   sha,
 		}
 	}
 
 	return manifest, nil
+}
+
+func getManifest(version string) (*types.VersionManifest, error) {
+	manifest := &types.VersionManifest{}
+	if err := request("GET", fmt.Sprintf("https://raw.githubusercontent.com/hyperledger/firefly/%s/manifest.json", version), nil, &manifest); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+func getSHA(imageName, imageTag string) (string, error) {
+	digest, err := docker.GetImageDigest(fmt.Sprintf("%s:%s", imageName, imageTag))
+	if err != nil {
+		return "", err
+	} else {
+		return digest[7:], nil
+	}
 }
 
 func ReadManifestFile(p string) (*types.VersionManifest, error) {
