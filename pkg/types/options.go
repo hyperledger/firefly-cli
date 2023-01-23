@@ -114,6 +114,7 @@ const ReleaseChannelSelection = "release_channel"
 
 var (
 	ReleaseChannelStable = fftypes.FFEnumValue(ReleaseChannelSelection, "stable")
+	ReleaseChannelHead   = fftypes.FFEnumValue(ReleaseChannelSelection, "head")
 	ReleaseChannelAlpha  = fftypes.FFEnumValue(ReleaseChannelSelection, "alpha")
 	ReleaseChannelBeta   = fftypes.FFEnumValue(ReleaseChannelSelection, "beta")
 	ReleaseChannelRC     = fftypes.FFEnumValue(ReleaseChannelSelection, "rc")

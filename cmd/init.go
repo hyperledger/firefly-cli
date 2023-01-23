@@ -245,7 +245,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
 	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
-	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", "Select the FireFly release version to use")
+	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", fmt.Sprintf("Select the FireFly release version to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
 	initCmd.PersistentFlags().StringVarP(&initOptions.ManifestPath, "manifest", "m", "", "Path to a manifest.json file containing the versions of each FireFly microservice to use. Overrides the --release flag.")
 	initCmd.PersistentFlags().BoolVar(&promptNames, "prompt-names", false, "Prompt for org and node names instead of using the defaults")
 	initCmd.PersistentFlags().BoolVar(&initOptions.PrometheusEnabled, "prometheus-enabled", false, "Enables Prometheus metrics exposition and aggregation to a shared Prometheus server")
