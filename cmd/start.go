@@ -42,7 +42,8 @@ This command will start a stack and run it in the background.
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var spin *spinner.Spinner
 		if fancyFeatures && !verbose {
-			logger = log.NewSpinnerLogger(spinner.New(spinner.CharSets[11], 100*time.Millisecond))
+			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+			logger = log.NewSpinnerLogger(spin)
 		}
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)

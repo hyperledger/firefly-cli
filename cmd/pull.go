@@ -42,9 +42,7 @@ Pull the images for a stack .
 		if fancyFeatures && !verbose {
 			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
 			spin.FinalMSG = "done"
-			logger = &log.SpinnerLogger{
-				Spinner: spin,
-			}
+			logger = log.NewSpinnerLogger(spin)
 		}
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
