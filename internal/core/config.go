@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -57,9 +57,6 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 		},
 		UI: &types.UIConfig{
 			Path: "./frontend",
-		},
-		Node: &types.NodeConfig{
-			Name: member.NodeName,
 		},
 		Event: &types.EventConfig{
 			DBEvents: &types.DBEventsConfig{

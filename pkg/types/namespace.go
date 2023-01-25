@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -35,6 +35,7 @@ type Plugins struct {
 type MultipartyConfig struct {
 	Enabled  bool              `yaml:"enabled"`
 	Org      *OrgConfig        `yaml:"org"`
+	Node     *NodeConfig       `yaml:"node"`
 	Contract []*ContractConfig `yaml:"contract"`
 }
 
