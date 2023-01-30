@@ -63,7 +63,7 @@ func (l *SpinnerLogger) Warn(s string) {
 }
 
 func (l *SpinnerLogger) Error(e error) {
-	if l.logLevel <= Trace && l.Spinner != nil {
+	if l.logLevel <= Error && l.Spinner != nil {
 		l.Spinner.Suffix = fmt.Sprintf(" Error: %s...", e.Error())
 	}
 }
