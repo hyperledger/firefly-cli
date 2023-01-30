@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -160,7 +160,6 @@ type FireflyConfig struct {
 	SPI        *SPIServerConfig     `yaml:"spi,omitempty"`   // V1.1 and later SPI
 	Metrics    *MetricsServerConfig `yaml:"metrics,omitempty"`
 	UI         *UIConfig            `yaml:"ui,omitempty"`
-	Node       *NodeConfig          `yaml:"node,omitempty"`
 	Event      *EventConfig         `yaml:"event,omitempty"`
 	Plugins    *Plugins             `yaml:"plugins"`
 	Namespaces *NamespacesConfig    `yaml:"namespaces"`

@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -914,6 +914,9 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
+				Node: &types.NodeConfig{
+					Name: member.NodeName,
+				},
 				Contract: []*types.ContractConfig{
 					{
 						Location: contractLocation,
