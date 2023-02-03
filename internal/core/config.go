@@ -162,7 +162,7 @@ func getPostgresURL(member *types.Organization) string {
 
 func getSQLitePath(member *types.Organization, runtimeDir string) string {
 	if !member.External {
-		return "/etc/firefly/db?_busy_timeout=5000"
+		return "/etc/firefly/db/sqlite.db?_busy_timeout=5000"
 	} else {
 		return path.Join(runtimeDir, member.ID+".db")
 	}
