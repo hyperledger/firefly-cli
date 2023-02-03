@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -41,11 +42,16 @@ Pull the images for a stack .
 		var spin *spinner.Spinner
 		if fancyFeatures && !verbose {
 			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-			spin.FinalMSG = "done"
 			logger = log.NewSpinnerLogger(spin)
 		}
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
+
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
+			return err
+		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
 
 		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {

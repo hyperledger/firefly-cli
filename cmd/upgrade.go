@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,36 +19,56 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/briandowns/spinner"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/spf13/cobra"
 )
 
 var upgradeCmd = &cobra.Command{
-	Use:   "upgrade <stack_name>",
-	Short: "Upgrade a stack",
-	Long: `Upgrade a stack by pulling newer images.
-	This operation will restart the stack if running.
+	Use:   "upgrade <stack_name> <version>",
+	Short: "Upgrade a stack to different version",
+	Long: `Upgrade a stack by pulling updated images.
+	This operation will stop the stack if running.
 	If certain containers were pinned to a specific image at init,
 	this command will have no effect on those containers.`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var spin *spinner.Spinner
+		if fancyFeatures && !verbose {
+			spin = spinner.New(spinner.CharSets[11], 100*time.Millisecond)
+			logger = log.NewSpinnerLogger(spin)
+		}
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
+
+		dockerVersion, err := docker.CheckDockerConfig()
+		if err != nil {
+			return err
+		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, dockerVersion)
+
 		stackManager := stacks.NewStackManager(ctx)
 		if len(args) == 0 {
 			return fmt.Errorf("no stack specified")
 		}
 		stackName := args[0]
+		if len(args) <= 1 {
+			return fmt.Errorf("no version specified")
+		}
+		version := args[1]
 
 		if err := stackManager.LoadStack(stackName); err != nil {
 			return err
 		}
 		fmt.Printf("upgrading stack '%s'... ", stackName)
-		if err := stackManager.UpgradeStack(); err != nil {
+		if err := stackManager.UpgradeStack(version); err != nil {
 			return err
 		}
-		fmt.Printf("done\n\nYour stack has been upgraded. To start your upgraded stack run:\n\n%s start %s\n\n", rootCmd.Use, stackName)
+		fmt.Printf("\n\nYour stack has been upgraded to %s\n\nTo start your upgraded stack run:\n\n%s start %s\n\n", version, rootCmd.Use, stackName)
 		return nil
 	},
 }

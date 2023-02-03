@@ -418,10 +418,7 @@ func (s *StackManager) writeStackConfig() error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755); err != nil {
-		return err
-	}
-	return s.writeStackStateJSON(s.Stack.InitDir)
+	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
@@ -457,6 +454,9 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 	}
 
 	if err := s.writeStackConfig(); err != nil {
+		return err
+	}
+	if err := s.writeStackStateJSON(s.Stack.InitDir); err != nil {
 		return err
 	}
 
@@ -1013,11 +1013,73 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 	return fmt.Errorf("waited for %v seconds for firefly to start on port %v but it was never available", retries*retryPeriod/1000, port)
 }
 
-func (s *StackManager) UpgradeStack() error {
-	if err := s.runDockerComposeCommand("down"); err != nil {
+func (s *StackManager) UpgradeStack(version string) error {
+	// stop the currently running stack
+	if err := s.StopStack(); err != nil {
 		return err
 	}
-	return s.runDockerComposeCommand("pull")
+	oldManifest := s.Stack.VersionManifest
+
+	// get the version manifest for the new version
+	newManifest, err := core.GetManifestForRelease(version)
+	if err != nil {
+		return err
+	}
+
+	if err := replaceVersions(oldManifest, newManifest, filepath.Join(s.Stack.StackDir, "docker-compose.yml")); err != nil {
+		return err
+	}
+
+	s.Stack.VersionManifest = newManifest
+	s.writeStackConfig()
+
+	if err := s.PullStack(&types.PullOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename string) error {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	s := string(b)
+
+	old := oldManifest.FireFly.GetDockerImageString()
+	new := newManifest.FireFly.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.Ethconnect.GetDockerImageString()
+	new = newManifest.Ethconnect.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.Evmconnect.GetDockerImageString()
+	new = newManifest.Evmconnect.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.Fabconnect.GetDockerImageString()
+	new = newManifest.Fabconnect.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.DataExchange.GetDockerImageString()
+	new = newManifest.DataExchange.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.TokensERC1155.GetDockerImageString()
+	new = newManifest.TokensERC1155.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.TokensERC20ERC721.GetDockerImageString()
+	new = newManifest.TokensERC20ERC721.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.Signer.GetDockerImageString()
+	new = newManifest.Signer.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	return ioutil.WriteFile(filename, []byte(s), 0755)
 }
 
 func (s *StackManager) PrintStackInfo() error {
