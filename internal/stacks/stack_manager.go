@@ -111,6 +111,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
 		ChannelName:       options.ChannelName,
 		ChaincodeName:     options.ChaincodeName,
+		GlobalListener:    options.GlobalListener,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
@@ -911,6 +912,11 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			} else {
 				contractLocation = contractDeploymentResult.DeployedContract.Location
 			}
+			options := make(map[string]interface{})
+			if s.Stack.GlobalListener {
+				options["globalListener"] = true
+			}
+
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
@@ -920,6 +926,7 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				Contract: []*types.ContractConfig{
 					{
 						Location: contractLocation,
+						Options:  options,
 					},
 				},
 			}
