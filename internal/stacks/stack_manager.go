@@ -996,7 +996,7 @@ func (s *StackManager) ensureFireflyNodesUp(firstTimeSetup bool) error {
 }
 
 func (s *StackManager) waitForFireflyStart(port int) error {
-	retries := 120
+	retries := 600
 	retryPeriod := 1000 // ms
 	retriesRemaining := retries
 	for retriesRemaining > 0 {
