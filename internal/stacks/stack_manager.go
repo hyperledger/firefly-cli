@@ -919,7 +919,8 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				},
 				Contract: []*types.ContractConfig{
 					{
-						Location: contractLocation,
+						Location:   contractLocation,
+						FirstEvent: "0",
 					},
 				},
 			}
