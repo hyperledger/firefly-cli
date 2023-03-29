@@ -62,7 +62,7 @@ type InitOptions struct {
 	MSPPaths                 []string
 	ChannelName              string
 	ChaincodeName            string
-	GlobalListener           bool
+	CustomPinSupport         bool
 }
 
 const IPFSMode = "ipfs_mode"

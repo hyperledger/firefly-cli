@@ -73,6 +73,6 @@ func init() {
 	initFabricCmd.Flags().StringArrayVar(&initOptions.MSPPaths, "msp", nil, "Path to the MSP directory for an org in your Fabric network")
 	initFabricCmd.Flags().StringVar(&initOptions.ChannelName, "channel", "", "The name of the Fabric channel on which the FireFly chaincode has been deployed")
 	initFabricCmd.Flags().StringVar(&initOptions.ChaincodeName, "chaincode", "", "The name given to the FireFly chaincode when it was deployed")
-	initFabricCmd.Flags().BoolVar(&initOptions.GlobalListener, "global-listener", false, "Configure the blockchain listener to listen for BatchPin events from any chaincode on the channel")
+	initFabricCmd.Flags().BoolVar(&initOptions.CustomPinSupport, "custom-pin-support", false, "Configure the blockchain listener to listen for BatchPin events from any chaincode on the channel")
 	initCmd.AddCommand(initFabricCmd)
 }
