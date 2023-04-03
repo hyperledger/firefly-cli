@@ -41,7 +41,7 @@ type MultipartyConfig struct {
 
 type ContractConfig struct {
 	Location   interface{} `yaml:"location"`
-	FirstEvent string      `yaml:"firstEvent"`
+	FirstEvent string      `yaml:"firstEvent,omitempty"`
 	Options    interface{} `yaml:"options"`
 }
 

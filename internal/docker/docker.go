@@ -96,7 +96,7 @@ func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...
 		_, err := runCommand(ctx, dockerCmd)
 		return err
 	case ComposeV2:
-		dockerCmd := exec.Command("docker compose", command...)
+		dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
 		dockerCmd.Dir = workingDir
 		_, err := runCommand(ctx, dockerCmd)
 		return err
