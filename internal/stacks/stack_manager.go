@@ -111,6 +111,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
 		ChannelName:       options.ChannelName,
 		ChaincodeName:     options.ChaincodeName,
+		CustomPinSupport:  options.CustomPinSupport,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
@@ -911,6 +912,11 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			} else {
 				contractLocation = contractDeploymentResult.DeployedContract.Location
 			}
+			options := make(map[string]interface{})
+			if s.Stack.CustomPinSupport {
+				options["customPinSupport"] = true
+			}
+
 			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
 				Enabled: true,
 				Org:     orgConfig,
@@ -921,6 +927,7 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 					{
 						Location:   contractLocation,
 						FirstEvent: "0",
+						Options:    options,
 					},
 				},
 			}

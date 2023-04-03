@@ -48,6 +48,7 @@ type Stack struct {
 	RemoteFabricNetwork    bool             `json:"remoteFabricNetwork,omitempty"`
 	ChannelName            string           `json:"channelName,omitempty"`
 	ChaincodeName          string           `json:"chaincodeName,omitempty"`
+	CustomPinSupport       bool             `json:"customPinSupport,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`
