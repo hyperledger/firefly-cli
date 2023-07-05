@@ -112,6 +112,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		ChannelName:       options.ChannelName,
 		ChaincodeName:     options.ChaincodeName,
 		CustomPinSupport:  options.CustomPinSupport,
+		RemoteNodeDeploy:  options.RemoteNodeDeploy,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
