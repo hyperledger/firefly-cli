@@ -30,8 +30,9 @@ builds:
 archives:
   - name_template: >-
       {{ .ProjectName }}_
+      {{ .Version }}_
       {{- if eq .Os "darwin" }}macOS
-      {{- else if eq .Arch "linux" }}Linux
+      {{- else if eq .Os "linux" }}Linux
       {{- else }}{{ .Os }}{{ end }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
