@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -543,7 +544,9 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	chaincodeInstalled := false
 	packageID := ""
 	for _, installedChaincode := range res.InstalledChaincodes {
-		if installedChaincode.Label == chaincode {
+		validLabel := regexp.MustCompile(`^([^_]+)_.+$`)
+		matches := validLabel.FindStringSubmatch(installedChaincode.Label)
+		if len(matches) > 0 && matches[1] == chaincode {
 			chaincodeInstalled = true
 			packageID = installedChaincode.PackageID
 			break
