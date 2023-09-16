@@ -27,8 +27,9 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <stack_name>",
-	Short: "Get info about a stack",
+	Use:               "info <stack_name>",
+	Short:             "Get info about a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Get info about a stack such as each container name
 	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {

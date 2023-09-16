@@ -22,6 +22,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/hyperledger/firefly-cli/internal/stacks"
+	"github.com/spf13/cobra"
 )
 
 func prompt(promptText string, validate func(string) error) (string, error) {
@@ -90,4 +93,21 @@ func printError(err error) {
 	} else {
 		fmt.Printf("Error: %s\n", err.Error())
 	}
+}
+
+// listStacks return a list of available stacks on the local machine from "$HOME/.firefly/stack". The function
+// is intended to add completion to command that require <stack_name> as arguement.
+//
+// Expected usage:
+//
+//	var Cmd = &cobra.Command{
+//			...
+//			ValidArgsFunction: listStacks,
+//			...
+func listStacks(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	stacks, err := stacks.ListStacks()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	return stacks, cobra.ShellCompDirectiveNoFileComp
 }

@@ -33,8 +33,9 @@ import (
 var startOptions types.StartOptions
 
 var startCmd = &cobra.Command{
-	Use:   "start <stack_name>",
-	Short: "Start a stack",
+	Use:               "start <stack_name>",
+	Short:             "Start a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Start a stack
 
 This command will start a stack and run it in the background.

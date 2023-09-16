@@ -28,10 +28,11 @@ import (
 
 // deployFabricCmd represents the "deploy fabric" command
 var deployFabricCmd = &cobra.Command{
-	Use:   "fabric <stack_name> <chaincode_package> <channel> <chaincodeName> <version>",
-	Short: "Deploy fabric chaincode",
-	Long:  `Deploy a packaged chaincode to the Fabric network used by a FireFly stack`,
-	Args:  cobra.ExactArgs(5),
+	Use:               "fabric <stack_name> <chaincode_package> <channel> <chaincodeName> <version>",
+	Short:             "Deploy fabric chaincode",
+	Long:              `Deploy a packaged chaincode to the Fabric network used by a FireFly stack`,
+	Args:              cobra.ExactArgs(5),
+	ValidArgsFunction: listStacks,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)

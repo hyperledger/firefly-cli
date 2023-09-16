@@ -37,7 +37,8 @@ To compile a .sol file to a .json file run:
 
 solc --combined-json abi,bin contract.sol > contract.json
 `,
-	Args: cobra.MinimumNArgs(2),
+	Args:              cobra.MinimumNArgs(2),
+	ValidArgsFunction: listStacks,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
