@@ -62,6 +62,7 @@ would otherwise be a time consuming manual task. It also wraps docker compose
 commands to manage the lifecycle of stacks.
 
 To get started run: ff init
+Optional: Set FIREFLY_HOME env variable for FireFly stack configuration path.
 	`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if ansi == "always" {
