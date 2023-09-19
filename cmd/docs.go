@@ -4,7 +4,9 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -16,9 +18,9 @@ var docsCmd = &cobra.Command{
 	Use:   "docs",
 	Short: "Generate markdown docs",
 	Long: `Generate markdown docs for the entire command tree.
-			
-	The command takes an optional argument specifying directory to put the
-	generated documentation, default is "{cwd}/docs/command_docs/"`,
+	
+The command takes an optional argument specifying directory to put the
+generated documentation, default is "{cwd}/docs/command_docs/"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var path string
 
@@ -33,6 +35,10 @@ var docsCmd = &cobra.Command{
 			}
 		} else {
 			path = args[0]
+			if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) || err != nil {
+				err = fmt.Errorf("path you supplied for documentation is invalid: %v", err)
+				return err
+			}
 		}
 
 		err := doc.GenMarkdownTree(rootCmd, path)
