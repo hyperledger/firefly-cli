@@ -33,6 +33,7 @@ var infoCmd = &cobra.Command{
 	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
+		ctx = context.WithValue(ctx, docker.CtxIsLogCmdKey{}, true)
 		ctx = log.WithLogger(ctx, logger)
 
 		version, err := docker.CheckDockerConfig()
