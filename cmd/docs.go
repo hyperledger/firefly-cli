@@ -16,8 +16,8 @@ import (
 // docsCmd represents the docs command
 var docsCmd = &cobra.Command{
 	Use:   "docs",
-	Short: "Generate markdown docs",
-	Long: `Generate markdown docs for the entire command tree.
+	Short: "Generate markdown documentation for all command",
+	Long: `Generate markdown documentation for the entire command tree.
 	
 The command takes an optional argument specifying directory to put the
 generated documentation, default is "{cwd}/docs/command_docs/"`,
