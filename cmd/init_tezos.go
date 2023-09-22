@@ -40,7 +40,7 @@ var initTezosCmd = &cobra.Command{
 		initOptions.BlockchainProvider = types.BlockchainProviderTezos.String()
 		initOptions.BlockchainConnector = types.BlockchainConnectorTezosconnect.String()
 		initOptions.BlockchainNodeProvider = types.BlockchainNodeProviderRemoteRPC.String()
-		// By default we turn off multipart mode while it's not supported yet
+		// By default we turn off multiparty mode while it's not supported yet
 		initOptions.MultipartyEnabled = false
 		initOptions.TokenProviders = []string{}
 		if err := initCommon(args); err != nil {
