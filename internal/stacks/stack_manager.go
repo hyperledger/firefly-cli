@@ -32,8 +32,9 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
+	ethremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
+	tezosremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/tezos/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -1066,6 +1067,10 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 	new = newManifest.Evmconnect.GetDockerImageString()
 	s = strings.Replace(s, old, new, -1)
 
+	old = oldManifest.Tezosconnect.GetDockerImageString()
+	new = newManifest.Tezosconnect.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
 	old = oldManifest.Fabconnect.GetDockerImageString()
 	new = newManifest.Fabconnect.GetDockerImageString()
 	s = strings.Replace(s, old, new, -1)
@@ -1221,10 +1226,13 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 			return besu.NewBesuProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
-			return remoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
+			return ethremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 		default:
 			return nil
 		}
+	case types.BlockchainProviderTezos:
+		s.Stack.DisableTokenFactories = true
+		return tezosremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 	case types.BlockchainProviderFabric:
 		s.Stack.DisableTokenFactories = true
 		return fabric.NewFabricProvider(s.ctx, s.Stack)
