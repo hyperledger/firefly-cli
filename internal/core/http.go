@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -89,7 +88,7 @@ func request(method, url string, body, result interface{}) (err error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var responseBytes []byte
 		if resp.StatusCode != 204 {
-			responseBytes, _ = ioutil.ReadAll(resp.Body)
+			responseBytes, _ = io.ReadAll(resp.Body)
 		}
 		return fmt.Errorf("%s [%d] %s", url, resp.StatusCode, responseBytes)
 	}

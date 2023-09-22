@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -61,7 +60,7 @@ type StackManager struct {
 }
 
 func ListStacks() ([]string, error) {
-	files, err := ioutil.ReadDir(constants.StacksDir)
+	files, err := os.ReadDir(constants.StacksDir)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +249,7 @@ func (s *StackManager) LoadStack(stackName string) error {
 	if !exists {
 		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
-	d, err := ioutil.ReadFile(filepath.Join(stackDir, "stack.json"))
+	d, err := os.ReadFile(filepath.Join(stackDir, "stack.json"))
 	if err != nil {
 		return err
 	}
@@ -349,7 +348,7 @@ func (s *StackManager) loadStackStateJSON() error {
 		return err
 	}
 
-	b, err := ioutil.ReadFile(stackStatePath)
+	b, err := os.ReadFile(stackStatePath)
 	if err != nil {
 		return err
 	}
@@ -373,7 +372,7 @@ func (s *StackManager) writeStackStateJSON(directory string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
+	return os.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
 }
 
 func (s *StackManager) ensureInitDirectories() error {
@@ -400,7 +399,7 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 		return err
 	}
 	bytes = append(bytes, yamlBytes...)
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeConfig) error {
@@ -411,7 +410,7 @@ func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeC
 		return err
 	}
 	bytes = append(bytes, yamlBytes...)
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeStackConfig() error {
@@ -419,7 +418,7 @@ func (s *StackManager) writeStackConfig() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
@@ -471,7 +470,7 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path.Join(s.Stack.InitDir, "config", "prometheus.yml"), configBytes, 0755); err != nil {
+		if err := os.WriteFile(path.Join(s.Stack.InitDir, "config", "prometheus.yml"), configBytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -497,7 +496,7 @@ func (s *StackManager) writeDataExchangeCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755); err != nil {
+		if err := os.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -1049,7 +1048,7 @@ func (s *StackManager) UpgradeStack(version string) error {
 }
 
 func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename string) error {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -1087,7 +1086,7 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 	new = newManifest.Signer.GetDockerImageString()
 	s = strings.Replace(s, old, new, -1)
 
-	return ioutil.WriteFile(filename, []byte(s), 0755)
+	return os.WriteFile(filename, []byte(s), 0755)
 }
 
 func (s *StackManager) PrintStackInfo() error {
@@ -1134,7 +1133,7 @@ func (s *StackManager) patchFireFlyCoreConfigs(workingDir string, org *types.Org
 		if err != nil {
 			return err
 		}
-		if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
+		if err = os.WriteFile(configFile, configData, 0755); err != nil {
 			return err
 		}
 	}

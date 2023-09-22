@@ -18,7 +18,7 @@ package ethconnect
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
@@ -59,7 +59,7 @@ type HTTP struct {
 
 func (e *Config) WriteConfig(filename string, extraConnectorConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
-	if err := ioutil.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
 		return err
 	}
 	if extraConnectorConfigPath != "" {
@@ -71,7 +71,7 @@ func (e *Config) WriteConfig(filename string, extraConnectorConfigPath string) e
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(filename, bytes, 0755); err != nil {
+		if err := os.WriteFile(filename, bytes, 0755); err != nil {
 			return err
 		}
 	}

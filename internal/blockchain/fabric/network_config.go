@@ -17,7 +17,7 @@
 package fabric
 
 import (
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -200,5 +200,5 @@ func WriteNetworkConfig(outputPath string) error {
 		Version: "1.1.0%",
 	}
 	networkConfigBytes, _ := yaml.Marshal(networkConfig)
-	return ioutil.WriteFile(outputPath, networkConfigBytes, 0755)
+	return os.WriteFile(outputPath, networkConfigBytes, 0755)
 }
