@@ -27,7 +27,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
@@ -58,21 +60,20 @@ type StackManager struct {
 	blockchainProvider blockchain.IBlockchainProvider
 	tokenProviders     []tokens.ITokensProvider
 	IsOldFileStructure bool
+	once               sync.Once
 }
 
 func ListStacks() ([]string, error) {
-	files, err := ioutil.ReadDir(constants.StacksDir)
+	files, err := os.ReadDir(constants.StacksDir)
 	if err != nil {
 		return nil, err
 	}
 
-	stacks := make([]string, 0)
-	i := 0
+	stacks := make([]string, 0, len(files))
 	for _, f := range files {
 		if f.IsDir() {
 			if exists, err := CheckExists(f.Name()); err == nil && exists {
 				stacks = append(stacks, f.Name())
-				i++
 			}
 		}
 	}
@@ -250,7 +251,7 @@ func (s *StackManager) LoadStack(stackName string) error {
 	if !exists {
 		return fmt.Errorf("stack '%s' does not exist", stackName)
 	}
-	d, err := ioutil.ReadFile(filepath.Join(stackDir, "stack.json"))
+	d, err := os.ReadFile(filepath.Join(stackDir, "stack.json"))
 	if err != nil {
 		return err
 	}
@@ -1100,6 +1101,33 @@ func (s *StackManager) PrintStackInfo() error {
 		return err
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	return nil
+}
+
+// IsRunning prints to the stdout, the stack name and it status as "running" or "not_running".
+func (s *StackManager) IsRunning() error {
+	output, err := docker.RunDockerComposeCommandReturnsStdout(s.Stack.StackDir, "ps")
+	if err != nil {
+		return err
+	}
+
+	formatHeader := "\n %s\t%s\t  "
+	formatBody := "\n %s\t%s\t"
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 8, 8, 8, '\t', 0)
+
+	s.once.Do(func() {
+		fmt.Fprintf(w, formatHeader, "STACK", "STATUS")
+	})
+
+	if strings.Contains(string(output), s.Stack.Name) { // if the output contains the stack name, it means the container is running.
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "running")
+	} else {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "not_running")
+	}
+	fmt.Fprintln(w)
+	w.Flush()
 	return nil
 }
 
