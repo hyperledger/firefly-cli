@@ -17,7 +17,7 @@
 package fabric
 
 import (
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -94,5 +94,5 @@ func WriteCryptogenConfig(memberCount int, path string) error {
 	}
 
 	cryptogenConfigBytes, _ := yaml.Marshal(cryptogenConfig)
-	return ioutil.WriteFile(path, cryptogenConfigBytes, 0755)
+	return os.WriteFile(path, cryptogenConfigBytes, 0755)
 }

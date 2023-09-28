@@ -19,7 +19,6 @@ package besu
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -80,7 +79,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 	// Generate node key
 	nodeAddress, nodeKey := ethereum.GenerateAddressAndPrivateKey()
 	// Write the node key to disk
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "nodeKey"), []byte(nodeKey), 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(initDir, "blockchain", "nodeKey"), []byte(nodeKey), 0755); err != nil {
 		return err
 	}
 	// Drop the 0x on the front of the address here because that's what is expected in the genesis.json

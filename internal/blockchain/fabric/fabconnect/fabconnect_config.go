@@ -17,7 +17,7 @@
 package fabconnect
 
 import (
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -86,5 +86,5 @@ func WriteFabconnectConfig(filePath string) error {
 	}
 
 	fabconnectConfigBytes, _ := yaml.Marshal(fabconnectConfig)
-	return ioutil.WriteFile(filePath, fabconnectConfigBytes, 0755)
+	return os.WriteFile(filePath, fabconnectConfigBytes, 0755)
 }

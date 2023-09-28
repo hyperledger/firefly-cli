@@ -17,7 +17,7 @@
 package ethsigner
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
@@ -65,7 +65,7 @@ type Config struct {
 
 func (e *Config) WriteConfig(filename string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
-	return ioutil.WriteFile(filepath.Join(filename), configYamlBytes, 0755)
+	return os.WriteFile(filepath.Join(filename), configYamlBytes, 0755)
 }
 
 func GenerateSignerConfig(chainID int64, rpcURL string) *Config {

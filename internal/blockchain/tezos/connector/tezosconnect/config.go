@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package evmconnect
+package tezosconnect
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/miracl/conflate"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -34,7 +34,6 @@ type Config struct {
 	Persistence   *PersistenceConfig         `yaml:"persistence,omitempty"`
 	FFCore        *FFCoreConfig              `yaml:"ffcore,omitempty"`
 	Confirmations *ConfirmationsConfig       `yaml:"confirmations,omitempty"`
-	PolicyEngine  *PolicyEngineSimpleConfig  `yaml:"policyengine.simple,omitempty"`
 	API           *APIConfig                 `yaml:"api,omitempty"`
 }
 
@@ -65,22 +64,13 @@ type ConfirmationsConfig struct {
 	Required *int `yaml:"required,omitempty"`
 }
 
-type PolicyEngineSimpleConfig struct {
-	FixedGasPrice *int             `yaml:"fixedGasPrice,omitempty"`
-	GasOracle     *GasOracleConfig `yaml:"gasOracle,omitempty"`
-}
-
-type GasOracleConfig struct {
-	Mode string `yaml:"mode,omitempty"`
-}
-
-func (e *Config) WriteConfig(filename string, extraEvmconnectConfigPath string) error {
-	configYamlBytes, _ := yaml.Marshal(e)
+func (c *Config) WriteConfig(filename string, extraTezosconnectConfigPath string) error {
+	configYamlBytes, _ := yaml.Marshal(c)
 	if err := os.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
 		return err
 	}
-	if extraEvmconnectConfigPath != "" {
-		c, err := conflate.FromFiles(filename, extraEvmconnectConfigPath)
+	if extraTezosconnectConfigPath != "" {
+		c, err := conflate.FromFiles(filename, extraTezosconnectConfigPath)
 		if err != nil {
 			return err
 		}
@@ -95,11 +85,9 @@ func (e *Config) WriteConfig(filename string, extraEvmconnectConfigPath string) 
 	return nil
 }
 
-func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization, blockchainServiceName string) connector.Config {
+func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organization) connector.Config {
 	confirmations := new(int)
 	*confirmations = 0
-	fixedGasPrice := new(int)
-	*fixedGasPrice = 0
 	var metrics *types.MetricsServerConfig
 
 	if stack.PrometheusEnabled {
@@ -121,16 +109,13 @@ func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization,
 			Level: "debug",
 		},
 		API: &APIConfig{
-			Port:      e.Port(),
+			Port:      t.Port(),
 			Address:   "0.0.0.0",
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort),
 		},
-		Connector: &ConnectorConfig{
-			URL: fmt.Sprintf("http://%s:8545", blockchainServiceName),
-		},
 		Persistence: &PersistenceConfig{
 			LevelDB: &LevelDBConfig{
-				Path: "/evmconnect/leveldb",
+				Path: "/tezosconnect/leveldb",
 			},
 		},
 		FFCore: &FFCoreConfig{
@@ -140,12 +125,6 @@ func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization,
 		Metrics: metrics,
 		Confirmations: &ConfirmationsConfig{
 			Required: confirmations,
-		},
-		PolicyEngine: &PolicyEngineSimpleConfig{
-			FixedGasPrice: fixedGasPrice,
-			GasOracle: &GasOracleConfig{
-				Mode: "fixed",
-			},
 		},
 	}
 }

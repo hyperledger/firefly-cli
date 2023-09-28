@@ -18,7 +18,7 @@ package core
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -177,7 +177,7 @@ func getDataExchangeURL(member *types.Organization) string {
 }
 
 func ReadFireflyConfig(filePath string) (*types.FireflyConfig, error) {
-	if bytes, err := ioutil.ReadFile(filePath); err != nil {
+	if bytes, err := os.ReadFile(filePath); err != nil {
 		return nil, err
 	} else {
 		var config *types.FireflyConfig
@@ -190,7 +190,7 @@ func WriteFireflyConfig(config *types.FireflyConfig, filePath, extraCoreConfigPa
 	if bytes, err := yaml.Marshal(config); err != nil {
 		return err
 	} else {
-		if err := ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+		if err := os.WriteFile(filePath, bytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -203,7 +203,7 @@ func WriteFireflyConfig(config *types.FireflyConfig, filePath, extraCoreConfigPa
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(filePath, bytes, 0755); err != nil {
+		if err := os.WriteFile(filePath, bytes, 0755); err != nil {
 			return err
 		}
 	}
