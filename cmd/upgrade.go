@@ -35,7 +35,8 @@ var upgradeCmd = &cobra.Command{
 	This operation will stop the stack if running.
 	If certain containers were pinned to a specific image at init,
 	this command will have no effect on those containers.`,
-	Args: cobra.ExactArgs(2),
+	Args:              cobra.ExactArgs(2),
+	ValidArgsFunction: listStacks,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var spin *spinner.Spinner
 		if fancyFeatures && !verbose {

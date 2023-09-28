@@ -28,8 +28,9 @@ import (
 
 // deployEthereumCmd represents the "deploy ethereum" command
 var deployEthereumCmd = &cobra.Command{
-	Use:   "ethereum <stack_name> <contract_json_file> [constructor_param1 [constructor_param2 ...]]",
-	Short: "Deploy a compiled solidity contract",
+	Use:               "ethereum <stack_name> <contract_json_file> [constructor_param1 [constructor_param2 ...]]",
+	Short:             "Deploy a compiled solidity contract",
+	ValidArgsFunction: listStacks,
 	Long: `Deploy a solidity contract compiled with solc to the blockchain used by a FireFly stack. If the
 contract has a constructor that takes arguments specify them as arguments to the command after the filename.
 
