@@ -26,7 +26,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
@@ -58,6 +60,7 @@ type StackManager struct {
 	blockchainProvider blockchain.IBlockchainProvider
 	tokenProviders     []tokens.ITokensProvider
 	IsOldFileStructure bool
+	once               sync.Once
 }
 
 func ListStacks() ([]string, error) {
@@ -66,13 +69,11 @@ func ListStacks() ([]string, error) {
 		return nil, err
 	}
 
-	stacks := make([]string, 0)
-	i := 0
+	stacks := make([]string, 0, len(files))
 	for _, f := range files {
 		if f.IsDir() {
 			if exists, err := CheckExists(f.Name()); err == nil && exists {
 				stacks = append(stacks, f.Name())
-				i++
 			}
 		}
 	}
@@ -1094,6 +1095,39 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 	return os.WriteFile(filename, []byte(s), 0755)
 }
 
+// initTabwriter takes the stackManger, the format of the Header row and a variadic arguement
+// of strings (Headers) that is expected to comply with the Header format. It returns a Writer with sane defaults
+// to write the body row.
+func initTabwriter(s *StackManager, formatHeader string, headers ...interface{}) *tabwriter.Writer {
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 8, 8, 8, ' ', 0)
+	s.once.Do(func() {
+		fmt.Fprintf(w, formatHeader, headers...)
+	})
+	return w
+}
+// PrintStacksInfo prints to os.Stdout information about the stack.
+func (s *StackManager) PrintStacksInfo() error {
+	formatHeader := "%-15s %-22s %-10s %-20s %-25s\n"
+	formatBody := "  %-18s %-18s %-7s %-14s %-20s\n"
+
+	w := initTabwriter(s, formatHeader, "STACK-NAME", "BLOCKCHAIN-PROVIDER", "MEMBERS", "STATUS", "DOCKER COMPOSE DIR")
+
+	status, err := isRunning(s)
+	if err != nil {
+		return err
+	}
+
+	if status {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, s.Stack.BlockchainProvider, fmt.Sprint(len(s.Stack.Members)), "running", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	} else {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, s.Stack.BlockchainProvider, fmt.Sprint(len(s.Stack.Members)), "not_running", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	}
+	fmt.Fprintln(w)
+	w.Flush()
+
+	return nil
+}
 func (s *StackManager) PrintStackInfo() error {
 	fmt.Print("\n")
 	if err := s.runDockerComposeCommand("images"); err != nil {
@@ -1105,6 +1139,42 @@ func (s *StackManager) PrintStackInfo() error {
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
 	return nil
+}
+
+// IsRunning prints to the stdout, the stack name and it status as "running" or "not_running".
+func (s *StackManager) IsRunning() error {
+	formatHeader := " %-15s %-20s\n"
+	formatBody := "  %-13s %-20s"
+
+	w := initTabwriter(s, formatHeader, "STACK-NAME", "STATUS")
+
+	status, err := isRunning(s)
+	if err != nil {
+		return err
+	}
+
+	if status {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "running")
+	} else {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "not_running")
+	}
+	fmt.Fprintln(w)
+	w.Flush()
+
+	return nil
+}
+
+// isRunning returns true if a stack on the local machine is currently running, otherwise false.
+func isRunning(s *StackManager) (bool, error) {
+	output, err := docker.RunDockerComposeCommandReturnsStdout(s.Stack.StackDir, "ps")
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(output), s.Stack.Name) { // from running `docker compose ps`, if the output contains the stack name, it means the container is running.
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (s *StackManager) disableFireflyCoreContainers() error {

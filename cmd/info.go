@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
@@ -27,10 +28,10 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <stack_name>",
+	Use:   "info [a stack name]...",
 	Short: "Get info about a stack",
 	Long: `Get info about a stack such as each container name
-	and image version.`,
+	and image version. If non is given, it run the "info" command for all stack on the local machine.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = context.WithValue(ctx, docker.CtxIsLogCmdKey{}, true)
@@ -42,17 +43,33 @@ var infoCmd = &cobra.Command{
 		}
 		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
 
-		stackManager := stacks.NewStackManager(ctx)
-		if len(args) == 0 {
-			return fmt.Errorf("no stack specified")
+		allStacks, err := stacks.ListStacks()
+		if err != nil {
+			return err
 		}
-		stackName := args[0]
 
-		if err := stackManager.LoadStack(stackName); err != nil {
-			return err
+		if len(args) > 0 {
+			namedStacks := make([]string, 0, len(args))
+			for _, stackName := range args {
+				if contains(allStacks, strings.TrimSpace(stackName)) {
+					namedStacks = append(namedStacks, stackName)
+				} else {
+					fmt.Printf("stack name - %s, is not present on your local machine. Run `ff ls` to see all available stacks.\n", stackName)
+				}
+			}
+
+			allStacks = namedStacks // replace only the user specified stacks in the slice instead.
 		}
-		if err := stackManager.PrintStackInfo(); err != nil {
-			return err
+
+		stackManager := stacks.NewStackManager(ctx)
+		for _, stackName := range allStacks {
+			if err := stackManager.LoadStack(stackName); err != nil {
+				return err
+			}
+
+			if err := stackManager.PrintStacksInfo(); err != nil {
+				return err
+			}
 		}
 		return nil
 	},
