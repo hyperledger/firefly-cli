@@ -72,6 +72,12 @@ type EthconnectConfig struct {
 	Auth  *BasicAuth `yaml:"auth,omitempty"`
 }
 
+type TezosconnectConfig struct {
+	URL   string     `yaml:"url,omitempty"`
+	Topic string     `yaml:"topic,omitempty"`
+	Auth  *BasicAuth `yaml:"auth,omitempty"`
+}
+
 type FabconnectConfig struct {
 	URL       string `yaml:"url,omitempty"`
 	Channel   string `yaml:"channel,omitempty"`
@@ -84,6 +90,10 @@ type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
 }
 
+type TezosConfig struct {
+	Tezosconnect *TezosconnectConfig `yaml:"tezosconnect,omitempty"`
+}
+
 type FabricConfig struct {
 	Fabconnect *FabconnectConfig `yaml:"fabconnect,omitempty"`
 }
@@ -92,6 +102,7 @@ type BlockchainConfig struct {
 	Name     string          `yaml:"name,omitempty"`
 	Type     string          `yaml:"type,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
+	Tezos    *TezosConfig    `yaml:"tezos,omitempty"`
 	Fabric   *FabricConfig   `yaml:"fabric,omitempty"`
 }
 

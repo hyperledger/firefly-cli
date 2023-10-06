@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -58,7 +57,7 @@ func (p *EthSignerProvider) WriteConfig(options *types.InitOptions, rpcURL strin
 	if err := os.MkdirAll(blockchainDirectory, 0755); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte(keyPassword), 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(initDir, "blockchain", "password"), []byte(keyPassword), 0755); err != nil {
 		return err
 	}
 

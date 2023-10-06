@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -321,7 +320,7 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organi
 func (p *FabricProvider) writeConfigtxYaml() error {
 	if !p.stack.RemoteFabricNetwork {
 		filePath := path.Join(p.stack.InitDir, "blockchain", "configtx.yaml")
-		return ioutil.WriteFile(filePath, []byte(configtxYaml), 0755)
+		return os.WriteFile(filePath, []byte(configtxYaml), 0755)
 	}
 	return nil
 }

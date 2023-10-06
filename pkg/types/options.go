@@ -76,6 +76,7 @@ const BlockchainProvider = "blockchain_provider"
 
 var (
 	BlockchainProviderEthereum = fftypes.FFEnumValue(BlockchainProvider, "ethereum")
+	BlockchainProviderTezos    = fftypes.FFEnumValue(BlockchainProvider, "tezos")
 	BlockchainProviderFabric   = fftypes.FFEnumValue(BlockchainProvider, "fabric")
 	BlockchainProviderCorda    = fftypes.FFEnumValue(BlockchainProvider, "corda")
 )
@@ -83,9 +84,10 @@ var (
 const BlockchainConnector = "blockchain_connector"
 
 var (
-	BlockchainConnectorEthconnect = fftypes.FFEnumValue(BlockchainConnector, "ethconnect")
-	BlockchainConnectorEvmconnect = fftypes.FFEnumValue(BlockchainConnector, "evmconnect")
-	BlockchainConnectorFabconnect = fftypes.FFEnumValue(BlockchainConnector, "fabric")
+	BlockchainConnectorEthconnect   = fftypes.FFEnumValue(BlockchainConnector, "ethconnect")
+	BlockchainConnectorEvmconnect   = fftypes.FFEnumValue(BlockchainConnector, "evmconnect")
+	BlockchainConnectorTezosconnect = fftypes.FFEnumValue(BlockchainConnector, "tezosconnect")
+	BlockchainConnectorFabconnect   = fftypes.FFEnumValue(BlockchainConnector, "fabric")
 )
 
 const BlockchainNodeProvider = "blockchain_node_provider"

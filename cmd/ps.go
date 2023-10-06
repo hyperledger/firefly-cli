@@ -19,7 +19,8 @@ var psCmd = &cobra.Command{
 	Short: "Returns information on running stacks",
 	Long: `ps returns currently running stacks on your local machine.
 	
-	It also takes a continuous list of whitespace optional arguement - stack name.`,
+	It also takes a continuous list of whitespace optional arguement - stack name. If non
+	is given, it run the "ps" command for all stack on the local machine.`,
 	Aliases: []string{"process"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 

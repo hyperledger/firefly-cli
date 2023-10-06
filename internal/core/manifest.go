@@ -19,7 +19,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -103,7 +103,7 @@ func getSHA(imageName, imageTag string) (string, error) {
 }
 
 func ReadManifestFile(p string) (*types.VersionManifest, error) {
-	d, err := ioutil.ReadFile(p)
+	d, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}

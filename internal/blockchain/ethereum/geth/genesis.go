@@ -19,7 +19,7 @@ package geth
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -108,7 +108,7 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 
 func (g *Genesis) WriteGenesisJson(filename string) error {
 	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
-	if err := ioutil.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
 		return err
 	}
 	return nil

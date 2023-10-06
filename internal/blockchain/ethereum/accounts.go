@@ -19,7 +19,6 @@ package ethereum
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -45,7 +44,7 @@ func CreateWalletFile(outputDirectory, prefix, password string) (*secp256k1.KeyP
 	} else {
 		filename = filepath.Join(outputDirectory, keyPair.Address.String()[2:])
 	}
-	err = ioutil.WriteFile(filename, wallet.JSON(), 0755)
+	err = os.WriteFile(filename, wallet.JSON(), 0755)
 	if err != nil {
 		return nil, "", err
 	}

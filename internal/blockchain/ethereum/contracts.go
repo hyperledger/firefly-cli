@@ -19,7 +19,7 @@ package ethereum
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -32,7 +32,7 @@ type truffleCompiledContract struct {
 }
 
 func ReadTruffleCompiledContract(filePath string) (*ethtypes.CompiledContracts, error) {
-	d, _ := ioutil.ReadFile(filePath)
+	d, _ := os.ReadFile(filePath)
 	var truffleCompiledContract *truffleCompiledContract
 	err := json.Unmarshal(d, &truffleCompiledContract)
 	if err != nil {
@@ -51,7 +51,7 @@ func ReadTruffleCompiledContract(filePath string) (*ethtypes.CompiledContracts, 
 }
 
 func ReadSolcCompiledContract(filePath string) (*ethtypes.CompiledContracts, error) {
-	d, _ := ioutil.ReadFile(filePath)
+	d, _ := os.ReadFile(filePath)
 	var contracts *ethtypes.CompiledContracts
 	err := json.Unmarshal(d, &contracts)
 	if err != nil {

@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -35,8 +34,9 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
+	ethremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
+	tezosremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/tezos/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/core"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -350,7 +350,7 @@ func (s *StackManager) loadStackStateJSON() error {
 		return err
 	}
 
-	b, err := ioutil.ReadFile(stackStatePath)
+	b, err := os.ReadFile(stackStatePath)
 	if err != nil {
 		return err
 	}
@@ -374,7 +374,7 @@ func (s *StackManager) writeStackStateJSON(directory string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
+	return os.WriteFile(filepath.Join(directory, "stackState.json"), stackStateBytes, 0755)
 }
 
 func (s *StackManager) ensureInitDirectories() error {
@@ -401,7 +401,7 @@ func (s *StackManager) writeDockerCompose(compose *docker.DockerComposeConfig) e
 		return err
 	}
 	bytes = append(bytes, yamlBytes...)
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeConfig) error {
@@ -412,7 +412,7 @@ func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeC
 		return err
 	}
 	bytes = append(bytes, yamlBytes...)
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
 }
 
 func (s *StackManager) writeStackConfig() error {
@@ -420,7 +420,7 @@ func (s *StackManager) writeStackConfig() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
+	return os.WriteFile(filepath.Join(s.Stack.StackDir, "stack.json"), stackConfigBytes, 0755)
 }
 
 func (s *StackManager) writeConfig(options *types.InitOptions) error {
@@ -472,7 +472,7 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path.Join(s.Stack.InitDir, "config", "prometheus.yml"), configBytes, 0755); err != nil {
+		if err := os.WriteFile(path.Join(s.Stack.InitDir, "config", "prometheus.yml"), configBytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -498,7 +498,7 @@ func (s *StackManager) writeDataExchangeCerts() error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755); err != nil {
+		if err := os.WriteFile(path.Join(memberDXDir, "config.json"), configBytes, 0755); err != nil {
 			return err
 		}
 	}
@@ -1050,7 +1050,7 @@ func (s *StackManager) UpgradeStack(version string) error {
 }
 
 func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename string) error {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -1066,6 +1066,10 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 
 	old = oldManifest.Evmconnect.GetDockerImageString()
 	new = newManifest.Evmconnect.GetDockerImageString()
+	s = strings.Replace(s, old, new, -1)
+
+	old = oldManifest.Tezosconnect.GetDockerImageString()
+	new = newManifest.Tezosconnect.GetDockerImageString()
 	s = strings.Replace(s, old, new, -1)
 
 	old = oldManifest.Fabconnect.GetDockerImageString()
@@ -1088,9 +1092,42 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 	new = newManifest.Signer.GetDockerImageString()
 	s = strings.Replace(s, old, new, -1)
 
-	return ioutil.WriteFile(filename, []byte(s), 0755)
+	return os.WriteFile(filename, []byte(s), 0755)
 }
 
+// initTabwriter takes the stackManger, the format of the Header row and a variadic arguement
+// of strings (Headers) that is expected to comply with the Header format. It returns a Writer with sane defaults
+// to write the body row.
+func initTabwriter(s *StackManager, formatHeader string, headers ...interface{}) *tabwriter.Writer {
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 8, 8, 8, ' ', 0)
+	s.once.Do(func() {
+		fmt.Fprintf(w, formatHeader, headers...)
+	})
+	return w
+}
+// PrintStacksInfo prints to os.Stdout information about the stack.
+func (s *StackManager) PrintStacksInfo() error {
+	formatHeader := "%-15s %-22s %-10s %-20s %-25s\n"
+	formatBody := "  %-18s %-18s %-7s %-14s %-20s\n"
+
+	w := initTabwriter(s, formatHeader, "STACK-NAME", "BLOCKCHAIN-PROVIDER", "MEMBERS", "STATUS", "DOCKER COMPOSE DIR")
+
+	status, err := isRunning(s)
+	if err != nil {
+		return err
+	}
+
+	if status {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, s.Stack.BlockchainProvider, fmt.Sprint(len(s.Stack.Members)), "running", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	} else {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, s.Stack.BlockchainProvider, fmt.Sprint(len(s.Stack.Members)), "not_running", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	}
+	fmt.Fprintln(w)
+	w.Flush()
+
+	return nil
+}
 func (s *StackManager) PrintStackInfo() error {
 	fmt.Print("\n")
 	if err := s.runDockerComposeCommand("images"); err != nil {
@@ -1106,29 +1143,38 @@ func (s *StackManager) PrintStackInfo() error {
 
 // IsRunning prints to the stdout, the stack name and it status as "running" or "not_running".
 func (s *StackManager) IsRunning() error {
-	output, err := docker.RunDockerComposeCommandReturnsStdout(s.Stack.StackDir, "ps")
+	formatHeader := " %-15s %-20s\n"
+	formatBody := "  %-13s %-20s"
+
+	w := initTabwriter(s, formatHeader, "STACK-NAME", "STATUS")
+
+	status, err := isRunning(s)
 	if err != nil {
 		return err
 	}
 
-	formatHeader := "\n %s\t%s\t  "
-	formatBody := "\n %s\t%s\t"
-
-	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 8, 8, 8, '\t', 0)
-
-	s.once.Do(func() {
-		fmt.Fprintf(w, formatHeader, "STACK", "STATUS")
-	})
-
-	if strings.Contains(string(output), s.Stack.Name) { // if the output contains the stack name, it means the container is running.
+	if status {
 		fmt.Fprintf(w, formatBody, s.Stack.Name, "running")
 	} else {
 		fmt.Fprintf(w, formatBody, s.Stack.Name, "not_running")
 	}
 	fmt.Fprintln(w)
 	w.Flush()
+
 	return nil
+}
+
+// isRunning returns true if a stack on the local machine is currently running, otherwise false.
+func isRunning(s *StackManager) (bool, error) {
+	output, err := docker.RunDockerComposeCommandReturnsStdout(s.Stack.StackDir, "ps")
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(output), s.Stack.Name) { // from running `docker compose ps`, if the output contains the stack name, it means the container is running.
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (s *StackManager) disableFireflyCoreContainers() error {
@@ -1162,7 +1208,7 @@ func (s *StackManager) patchFireFlyCoreConfigs(workingDir string, org *types.Org
 		if err != nil {
 			return err
 		}
-		if err = ioutil.WriteFile(configFile, configData, 0755); err != nil {
+		if err = os.WriteFile(configFile, configData, 0755); err != nil {
 			return err
 		}
 	}
@@ -1250,10 +1296,13 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 			return besu.NewBesuProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
-			return remoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
+			return ethremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 		default:
 			return nil
 		}
+	case types.BlockchainProviderTezos:
+		s.Stack.DisableTokenFactories = true
+		return tezosremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 	case types.BlockchainProviderFabric:
 		s.Stack.DisableTokenFactories = true
 		return fabric.NewFabricProvider(s.ctx, s.Stack)

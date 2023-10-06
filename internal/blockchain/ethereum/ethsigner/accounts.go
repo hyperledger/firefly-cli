@@ -19,7 +19,7 @@ package ethsigner
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -38,7 +38,7 @@ key-file = "/data/keystore/%s"
 password-file = "/data/password"
 `, keyFile)
 	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.toml", keyFile))
-	return filename, ioutil.WriteFile(filename, []byte(toml), 0755)
+	return filename, os.WriteFile(filename, []byte(toml), 0755)
 }
 
 func (p *EthSignerProvider) copyTomlFileToVolume(ctx context.Context, tomlFilePath, volumeName string) error {

@@ -26,6 +26,7 @@ type VersionManifest struct {
 	FireFly           *ManifestEntry `json:"firefly,omitempty"`
 	Ethconnect        *ManifestEntry `json:"ethconnect"`
 	Evmconnect        *ManifestEntry `json:"evmconnect"`
+	Tezosconnect      *ManifestEntry `json:"tezosconnect"`
 	Fabconnect        *ManifestEntry `json:"fabconnect"`
 	DataExchange      *ManifestEntry `json:"dataexchange-https"`
 	TokensERC1155     *ManifestEntry `json:"tokens-erc1155"`
@@ -41,6 +42,7 @@ func (m *VersionManifest) Entries() []*ManifestEntry {
 		m.FireFly,
 		m.Ethconnect,
 		m.Evmconnect,
+		m.Tezosconnect,
 		m.Fabconnect,
 		m.DataExchange,
 		m.TokensERC1155,
