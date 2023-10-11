@@ -32,6 +32,7 @@ type VersionManifest struct {
 	TokensERC1155     *ManifestEntry `json:"tokens-erc1155"`
 	TokensERC20ERC721 *ManifestEntry `json:"tokens-erc20-erc721"`
 	Signer            *ManifestEntry `json:"signer"`
+	TezosSigner       *ManifestEntry `json:"tezossigner"`
 }
 
 func (m *VersionManifest) Entries() []*ManifestEntry {
@@ -48,6 +49,7 @@ func (m *VersionManifest) Entries() []*ManifestEntry {
 		m.TokensERC1155,
 		m.TokensERC20ERC721,
 		m.Signer,
+		m.TezosSigner,
 	}
 }
 
