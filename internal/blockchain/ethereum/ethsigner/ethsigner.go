@@ -129,15 +129,6 @@ func (p *EthSignerProvider) getCommand(rpcURL string) string {
 }
 
 func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.ServiceDefinition {
-	addresses := ""
-	for i, member := range p.stack.Members {
-		account := member.Account.(*ethereum.Account)
-		addresses = addresses + account.Address
-		if i+1 < len(p.stack.Members) {
-			addresses = addresses + ","
-		}
-	}
-
 	return &docker.ServiceDefinition{
 		ServiceName: "ethsigner",
 		Service: &docker.Service{
