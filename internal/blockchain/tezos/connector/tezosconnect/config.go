@@ -92,7 +92,7 @@ func (c *Config) WriteConfig(filename string, extraTezosconnectConfigPath string
 	return nil
 }
 
-func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organization, blockchainServiceName, rpcURL string) connector.Config {
+func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organization, signerHostname, rpcURL string) connector.Config {
 	confirmations := new(int)
 	*confirmations = 0
 	var metrics *types.MetricsServerConfig
@@ -129,7 +129,7 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 			Blockchain: &BlockchainConfig{
 				Network:   network,
 				RPC:       rpcURL,
-				Signatory: fmt.Sprintf("http://%s:6732", blockchainServiceName),
+				Signatory: fmt.Sprintf("http://%s:6732", signerHostname),
 			},
 		},
 		Persistence: &PersistenceConfig{
