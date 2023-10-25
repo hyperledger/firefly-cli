@@ -86,7 +86,7 @@ func (p *TezosSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.
 	return &docker.ServiceDefinition{
 		ServiceName: "tezossigner",
 		Service: &docker.Service{
-			Image:         p.stack.VersionManifest.TezosSigner.GetDockerImageString(),
+			Image:         "ecadlabs/signatory",
 			ContainerName: fmt.Sprintf("%s_tezossigner", p.stack.Name),
 			User:          "root",
 			Command:       "-c /etc/signatory.yaml --base-dir /data",
