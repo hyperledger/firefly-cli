@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector/tezosconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/tezossigner"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -35,6 +36,7 @@ type RemoteRPCProvider struct {
 	ctx       context.Context
 	stack     *types.Stack
 	connector connector.Connector
+	signer    *tezossigner.TezosSignerProvider
 }
 
 func NewRemoteRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCProvider {
@@ -42,6 +44,7 @@ func NewRemoteRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCPro
 		ctx:       ctx,
 		stack:     stack,
 		connector: tezosconnect.NewTezosconnect(ctx),
+		signer:    tezossigner.NewTezosSignerProvider(ctx, stack),
 	}
 }
 
@@ -50,15 +53,19 @@ func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
 	for i, member := range p.stack.Members {
 		// Generate the connector config for each member
 		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
-		if err := p.connector.GenerateConfig(p.stack, member).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
+		if err := p.connector.GenerateConfig(p.stack, member, "tezossigner", options.RemoteNodeURL).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return p.signer.WriteConfig(options)
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
+	if err := p.signer.FirstTimeSetup(); err != nil {
+		return err
+	}
+
 	for i := range p.stack.Members {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
@@ -82,7 +89,11 @@ func (p *RemoteRPCProvider) DeployFireFlyContract() (*types.ContractDeploymentRe
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	defs := p.connector.GetServiceDefinitions(p.stack, map[string]string{})
+	defs := []*docker.ServiceDefinition{
+		p.signer.GetDockerServiceDefinition(p.stack.RemoteNodeURL),
+	}
+	defs = append(defs, p.connector.GetServiceDefinitions(p.stack, map[string]string{"tezossigner": "service_healthy"})...)
+
 	return defs
 }
 
@@ -130,18 +141,7 @@ func (p *RemoteRPCProvider) DeployContract(filename, contractName, instanceName 
 }
 
 func (p *RemoteRPCProvider) CreateAccount(args []string) (interface{}, error) {
-	// Currently, accounts (private/public keys) created by FireFly are not involved in the tx signing process.
-	// Accounts should be created in any key management system supported by the signatory service https://signatory.io/
-	// And then account address (derivative of the public key) must be provided during each transaction sending via FireFly
-	address, pk, err := tezos.GenerateAddressAndPrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tezos.Account{
-		Address:    address,
-		PrivateKey: pk,
-	}, nil
+	return p.signer.CreateAccount(args)
 }
 
 func (p *RemoteRPCProvider) GetConnectorName() string {
