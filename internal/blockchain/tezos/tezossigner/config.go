@@ -18,7 +18,6 @@ package tezossigner
 
 import (
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 )
@@ -61,7 +60,7 @@ type AllowedTransactionsConfig struct {
 
 func (c *Config) WriteConfig(filename string) error {
 	configYamlBytes, _ := yaml.Marshal(c)
-	return os.WriteFile(filepath.Join(filename), configYamlBytes, 0755)
+	return os.WriteFile(filename, configYamlBytes, 0755)
 }
 
 func GenerateSignerConfig(accountsAddresses []string) *Config {

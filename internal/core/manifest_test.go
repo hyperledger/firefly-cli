@@ -23,26 +23,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetFireFlyManifest(T *testing.T) {
+func TestGetFireFlyManifest(t *testing.T) {
 	manifest, err := GetManifestForRelease("main")
-	assert.NoError(T, err)
-	assert.NotNil(T, manifest)
-	assert.NotNil(T, manifest.FireFly)
-	assert.NotNil(T, manifest.Ethconnect)
-	assert.NotNil(T, manifest.Fabconnect)
-	assert.NotNil(T, manifest.DataExchange)
-	assert.NotNil(T, manifest.TokensERC1155)
-	assert.NotNil(T, manifest.TokensERC20ERC721)
+	assert.NoError(t, err)
+	assert.NotNil(t, manifest)
+	assert.NotNil(t, manifest.FireFly)
+	assert.NotNil(t, manifest.Ethconnect)
+	assert.NotNil(t, manifest.Fabconnect)
+	assert.NotNil(t, manifest.DataExchange)
+	assert.NotNil(t, manifest.TokensERC1155)
+	assert.NotNil(t, manifest.TokensERC20ERC721)
 }
 
-func TestGetLatestReleaseManifest(T *testing.T) {
+func TestGetLatestReleaseManifest(t *testing.T) {
 	manifest, err := GetManifestForChannel(types.ReleaseChannelStable)
-	assert.NoError(T, err)
-	assert.NotNil(T, manifest)
-	assert.NotNil(T, manifest.FireFly)
-	assert.NotNil(T, manifest.Ethconnect)
-	assert.NotNil(T, manifest.Fabconnect)
-	assert.NotNil(T, manifest.DataExchange)
-	assert.NotNil(T, manifest.TokensERC1155)
-	assert.NotNil(T, manifest.TokensERC20ERC721)
+	assert.NoError(t, err)
+	assert.NotNil(t, manifest)
+	assert.NotNil(t, manifest.FireFly)
+	assert.NotNil(t, manifest.Ethconnect)
+	assert.NotNil(t, manifest.Fabconnect)
+	assert.NotNil(t, manifest.DataExchange)
+	assert.NotNil(t, manifest.TokensERC1155)
+	assert.NotNil(t, manifest.TokensERC20ERC721)
 }

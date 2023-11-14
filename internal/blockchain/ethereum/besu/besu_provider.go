@@ -148,9 +148,9 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	addresses := ""
 	for i, member := range p.stack.Members {
 		account := member.Account.(*ethereum.Account)
-		addresses = addresses + account.Address
+		addresses += account.Address
 		if i+1 < len(p.stack.Members) {
-			addresses = addresses + ","
+			addresses += ","
 		}
 	}
 	besuCommand := fmt.Sprintf(`--genesis-file=/data/genesis.json --network-id %d --rpc-http-enabled --rpc-http-api=ETH,NET,CLIQUE --host-allowlist="*" --rpc-http-cors-origins="all" --sync-mode=FULL --discovery-enabled=false --node-private-key-file=/data/nodeKey --min-gas-price=0`, p.stack.ChainID())
