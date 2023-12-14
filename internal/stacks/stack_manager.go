@@ -379,7 +379,7 @@ func (s *StackManager) writeStackStateJSON(directory string) error {
 func (s *StackManager) ensureInitDirectories() error {
 	configDir := filepath.Join(s.Stack.InitDir, "config")
 
-	if err := os.MkdirAll(filepath.Join(configDir), 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
 
@@ -566,7 +566,6 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 
 	if options.SandboxEnabled {
 		member.ExposedSandboxPort = nextPort
-		nextPort++
 	}
 	return member, nil
 }
@@ -1057,39 +1056,39 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 
 	old := oldManifest.FireFly.GetDockerImageString()
 	new := newManifest.FireFly.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Ethconnect.GetDockerImageString()
 	new = newManifest.Ethconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Evmconnect.GetDockerImageString()
 	new = newManifest.Evmconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Tezosconnect.GetDockerImageString()
 	new = newManifest.Tezosconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Fabconnect.GetDockerImageString()
 	new = newManifest.Fabconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.DataExchange.GetDockerImageString()
 	new = newManifest.DataExchange.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.TokensERC1155.GetDockerImageString()
 	new = newManifest.TokensERC1155.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.TokensERC20ERC721.GetDockerImageString()
 	new = newManifest.TokensERC20ERC721.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Signer.GetDockerImageString()
 	new = newManifest.Signer.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	return os.WriteFile(filename, []byte(s), 0755)
 }

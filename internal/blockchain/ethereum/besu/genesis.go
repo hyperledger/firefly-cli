@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -64,7 +63,7 @@ type Alloc struct {
 
 func (g *Genesis) WriteGenesisJson(filename string) error {
 	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
-	if err := os.WriteFile(filepath.Join(filename), genesisJsonBytes, 0755); err != nil {
+	if err := os.WriteFile(filename, genesisJsonBytes, 0755); err != nil {
 		return err
 	}
 	return nil
@@ -80,7 +79,7 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 		alloc[address] = &Alloc{
 			Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 		}
-		extraData = extraData + address
+		extraData += extraData
 	}
 	extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 	return &Genesis{
