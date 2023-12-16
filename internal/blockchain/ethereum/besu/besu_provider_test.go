@@ -28,8 +28,11 @@ func TestNewBesuProvider(t *testing.T) {
 			},
 		},
 		{
-			Name: "TestBesuProviderWithEvmconnect",
+			Name: "testcase2",
+			Ctx:  ctx,
 			Stack: &types.Stack{
+				Members:                []*types.Organization{{OrgName: "Org2"}, {OrgName: "org4"}},
+				Name:                   "TestBesuProviderWithEvmconnect",
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Geth"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "EvmConnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "Geth"),
@@ -43,4 +46,3 @@ func TestNewBesuProvider(t *testing.T) {
 		})
 	}
 }
-
