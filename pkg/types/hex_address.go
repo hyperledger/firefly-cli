@@ -20,10 +20,22 @@ import "gopkg.in/yaml.v3"
 
 type HexAddress string
 
+// Explicitly converts a string representation of a hex address to HexAddress type.
+// This function assumes that hexStr is a valid hex address.
+func ConvertToHexAddress(hexStr string) HexAddress {
+	return HexAddress(hexStr)
+}
+
+//describe the HexValue type to be in string format
+type MyType struct {
+	HexValue HexAddress `yaml:"hexvalue"`
+}
+
 // Explicitly quote hex addresses so that they are interpreted as string (not int)
-func (h HexAddress) MarshalYAML() (interface{}, error) {
+func (mt *MyType) MarshalYAML() (interface{}, error) {
+	hexAddr := ConvertToHexAddress(string(mt.HexValue))
 	return yaml.Node{
-		Value: string(h),
+		Value: string(hexAddr),
 		Kind:  yaml.ScalarNode,
 		Style: yaml.DoubleQuotedStyle,
 	}, nil
