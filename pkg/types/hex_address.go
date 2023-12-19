@@ -16,24 +16,52 @@
 
 package types
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
 
 type HexAddress string
 
-// Explicitly converts a string representation of a hex address to HexAddress type.
-// This function assumes that hexStr is a valid hex address.
-func ConvertToHexAddress(hexStr string) HexAddress {
-	return HexAddress(hexStr)
+// checks whether a string is a valid Hexaddress
+func IsValidHex(s string) (HexAddress, error) {
+	//remove the 0x value if present
+	hexDigits := strings.TrimPrefix(s, "0x")
+	// Check if the remaining characters are valid hexadecimal digits
+	match, err := regexp.MatchString("^[0-9a-fA-F]+$", hexDigits)
+	if err != nil {
+		return "", fmt.Errorf("error in validating hex address: %v", err)
+	}
+	if match {
+		return HexAddress("0x" + hexDigits), nil
+	} else {
+		return "", fmt.Errorf("invalid hex address: %s", s)
+	}
 }
 
-//describe the HexValue type to be in string format
+// Explicitly converts hex address to HexAddress type.
+func ConvertToHexAddress(hexStr string) (HexAddress, error) {
+	validAddress, err := IsValidHex(hexStr)
+	if err != nil {
+		return "", err
+	}
+	return validAddress, nil
+}
+
+// describe the HexValue type to be in string format
 type MyType struct {
 	HexValue HexAddress `yaml:"hexvalue"`
 }
 
 // Explicitly quote hex addresses so that they are interpreted as string (not int)
 func (mt *MyType) MarshalYAML() (interface{}, error) {
-	hexAddr := ConvertToHexAddress(string(mt.HexValue))
+	hexAddr, err := ConvertToHexAddress(string(mt.HexValue))
+	if err != nil {
+		return nil, err
+	}
 	return yaml.Node{
 		Value: string(hexAddr),
 		Kind:  yaml.ScalarNode,
