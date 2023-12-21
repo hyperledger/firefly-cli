@@ -60,8 +60,8 @@ var initTezosCmd = &cobra.Command{
 }
 
 func validateTezosFlags() error {
-	if initOptions.RemoteNodeURL == "" {
-		return fmt.Errorf("you must provide 'remote-node-url' flag as local node mode is not supported")
+	if initOptions.ExtraConnectorConfigPath == "" {
+		return fmt.Errorf("you must provide 'connector-config' flag with path to 'tezosconnect.yml' config file")
 	}
 	return nil
 }
@@ -69,7 +69,6 @@ func validateTezosFlags() error {
 func init() {
 	initTezosCmd.Flags().IntVar(&initOptions.BlockPeriod, "block-period", -1, "Block period in seconds. Default is variable based on selected blockchain provider.")
 	initTezosCmd.Flags().StringVar(&initOptions.ContractAddress, "contract-address", "", "Do not automatically deploy a contract, instead use a pre-configured address")
-	initTezosCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
 
 	initCmd.AddCommand(initTezosCmd)
 }

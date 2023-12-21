@@ -19,7 +19,6 @@ package tezosconnect
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -91,7 +90,7 @@ func (c *Config) WriteConfig(filename string, extraTezosconnectConfigPath string
 	return nil
 }
 
-func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organization, signerHostname, rpcURL string) connector.Config {
+func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organization, signerHostname string) connector.Config {
 	confirmations := new(int)
 	*confirmations = 0
 	var metrics *types.MetricsServerConfig
@@ -110,11 +109,6 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 		metrics = nil
 	}
 
-	network := "mainnet"
-	if strings.Contains(rpcURL, "ghost") {
-		network = "ghostnet"
-	}
-
 	return &Config{
 		Log: &types.LogConfig{
 			Level: "debug",
@@ -123,13 +117,6 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 			Port:      t.Port(),
 			Address:   "0.0.0.0",
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort),
-		},
-		Connector: &ConnectorConfig{
-			Blockchain: &BlockchainConfig{
-				Network:   network,
-				RPC:       rpcURL,
-				Signatory: fmt.Sprintf("http://%s:6732", signerHostname),
-			},
 		},
 		Persistence: &PersistenceConfig{
 			LevelDB: &LevelDBConfig{
