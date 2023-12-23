@@ -17,53 +17,37 @@
 package types
 
 import (
-	"fmt"
-	"regexp"
-	"strings"
+	"encoding/hex"
 
+	"github.com/hyperledger/firefly-signer/pkg/ethtypes"
 	"gopkg.in/yaml.v3"
 )
 
-type HexAddress string
-
-// checks whether a string is a valid Hexaddress
-func IsValidHex(s string) (HexAddress, error) {
-	//remove the 0x value if present
-	hexDigits := strings.TrimPrefix(s, "0x")
-	// Check if the remaining characters are valid hexadecimal digits
-	match, err := regexp.MatchString("^[0-9a-fA-F]+$", hexDigits)
-	if err != nil {
-		return "", fmt.Errorf("error in validating hex address: %v", err)
-	}
-	if match {
-		return HexAddress("0x" + hexDigits), nil
-	} else {
-		return "", fmt.Errorf("invalid hex address: %s", s)
-	}
+type HexAddress struct {
+	ethtypes.Address0xHex
 }
 
-// Explicitly converts hex address to HexAddress type.
-func ConvertToHexAddress(hexStr string) (HexAddress, error) {
-	validAddress, err := IsValidHex(hexStr)
-	if err != nil {
+// WrapHexAddress wraps a hex address as HexAddress
+func (h *HexAddress) WrapHexAddress(addr [20]byte) (string, error) {
+	hexStr := "0x" + hex.EncodeToString(addr[:])
+	if err := h.SetString(hexStr); err != nil {
 		return "", err
 	}
-	return validAddress, nil
+	return hexStr, nil
 }
 
-// describe the HexValue type to be in string format
-type MyType struct {
+type HexType struct {
 	HexValue HexAddress `yaml:"hexvalue"`
 }
 
 // Explicitly quote hex addresses so that they are interpreted as string (not int)
-func (mt *MyType) MarshalYAML() (interface{}, error) {
-	hexAddr, err := ConvertToHexAddress(string(mt.HexValue))
+func (ht *HexType) MarshalYAML() (interface{}, error) {
+	hexAddr, err := ht.HexValue.WrapHexAddress(ht.HexValue.Address0xHex)
 	if err != nil {
 		return nil, err
 	}
 	return yaml.Node{
-		Value: string(hexAddr),
+		Value: hexAddr,
 		Kind:  yaml.ScalarNode,
 		Style: yaml.DoubleQuotedStyle,
 	}, nil
