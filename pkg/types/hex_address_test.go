@@ -114,7 +114,7 @@ type HexAddr struct {
 	ethtypes.Address0xHex
 }
 
-func TestYamlMarshall(t *testing.T) {
+func TestYamlMarshal(t *testing.T) {
 	testAddress := []struct {
 		Name     string
 		Hexvalue string `yaml:"hexvalue"`
