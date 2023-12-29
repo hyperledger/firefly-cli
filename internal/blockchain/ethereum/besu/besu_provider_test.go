@@ -73,7 +73,6 @@ func TestParseAccount(t *testing.T) {
 }
 
 func TestGetContracts(t *testing.T) {
-	// Create a temporary contract JSON file for testing (replace with your actual test file)
 	FilePath := "testdata"
 	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
 	// Sample contract JSON content for testing
