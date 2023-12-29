@@ -120,3 +120,58 @@ func CompareStringSlices(a, b []string) bool {
 	}
 	return true
 }
+
+func TestGetOrgConfig(t *testing.T) {
+	testCases := []struct {
+		Name      string
+		Org       *types.Organization
+		Stack     *types.Stack
+		OrgConfig *types.OrgConfig
+	}{
+		{
+			Name: "Testcase1",
+			Stack: &types.Stack{
+				Name: "Org-1",
+			},
+			Org: &types.Organization{
+				OrgName:  "Org-1",
+				NodeName: "besu",
+				Account: &ethereum.Account{
+					Address:    "0x1234567890abcdef0123456789abcdef6789abcd",
+					PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+				},
+			},
+			OrgConfig: &types.OrgConfig{
+				Name: "Org-1",
+				Key:  "0x1234567890abcdef0123456789abcdef6789abcd",
+			},
+		},
+		{
+			Name: "Testcase2",
+			Stack: &types.Stack{
+				Name: "Org-2",
+			},
+			Org: &types.Organization{
+				OrgName:  "Org-2",
+				NodeName: "besu",
+				Account: &ethereum.Account{
+					Address:    "0x1f2a000000000000000000000000000000000000",
+					PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
+				},
+			},
+			OrgConfig: &types.OrgConfig{
+				Name: "Org-2",
+				Key:  "0x1f2a000000000000000000000000000000000000",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			p := &BesuProvider{}
+
+			Orgconfig := p.GetOrgConfig(tc.Stack, tc.Org)
+			assert.NotNil(t, Orgconfig)
+			assert.Equal(t, tc.OrgConfig, Orgconfig)
+		})
+	}
+}

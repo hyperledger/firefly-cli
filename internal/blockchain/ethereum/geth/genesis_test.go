@@ -1,7 +1,9 @@
 package geth
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -89,4 +91,79 @@ func TestCreateGenesis(t *testing.T) {
 
 		})
 	}
+}
+
+func TestWriteGenesisJSON(t *testing.T) {
+	filepath := "testdata"
+
+	testCases := []struct {
+		Name          string
+		SampleGenesis Genesis
+		filename      string
+	}{
+		{
+			Name: "TestCase1",
+			SampleGenesis: Genesis{
+				Config: &GenesisConfig{
+					ChainId:             int64(456),
+					Eip155Block:         0,
+					Eip158Block:         0,
+					ByzantiumBlock:      0,
+					ConstantinopleBlock: 0,
+					IstanbulBlock:       0,
+					Clique: &CliqueConfig{
+						Period: 20,
+						Epoch:  2000,
+					},
+				},
+			},
+			filename: filepath + "/genesis1_output.json",
+		},
+		{
+			Name: "TestCase2",
+			SampleGenesis: Genesis{
+				Config: &GenesisConfig{
+					ChainId:             int64(338),
+					ConstantinopleBlock: 0,
+					Eip155Block:         0,
+					Eip158Block:         0,
+					ByzantiumBlock:      0,
+					IstanbulBlock:       0,
+					Clique: &CliqueConfig{
+						Period: 40,
+						Epoch:  4000,
+					},
+				},
+			},
+			filename: filepath + "/genesis2_output.json",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			err := tc.SampleGenesis.WriteGenesisJson(tc.filename)
+			if err != nil {
+				t.Log("unable to write Genesis JSON", err)
+			}
+			// Assert that there is no error
+			assert.NoError(t, err)
+
+			writtenJSONBytes, err := os.ReadFile(tc.filename)
+			if err != nil {
+				t.Log("Unable to write JSON Bytes", err)
+			}
+			assert.NoError(t, err)
+			var writtenGenesis Genesis
+
+			err = json.Unmarshal(writtenJSONBytes, &writtenGenesis)
+			if err != nil {
+				t.Log("unable to unmarshal JSON", err)
+			}
+			assert.NoError(t, err)
+
+			// Assert that the written Genesis matches the original Genesis
+			assert.Equal(t, tc.SampleGenesis, writtenGenesis)
+		})
+
+	}
+
 }
