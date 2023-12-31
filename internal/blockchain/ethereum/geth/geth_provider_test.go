@@ -2,6 +2,7 @@ package geth
 
 import (
 	"context"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 
@@ -241,4 +242,95 @@ func CompareStringSlices(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestGetConnectorExternal(t *testing.T) {
+	testcase := []struct {
+		Name         string
+		Org          *types.Organization
+		ExpectedPort string
+	}{
+		{
+			Name: "testcase1",
+			Org: &types.Organization{
+				OrgName:  "Org-1",
+				NodeName: "geth",
+				Account: &ethereum.Account{
+					Address:    "0x1f2a000000000000000000000000000000000000",
+					PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
+				},
+				ExposedConnectorPort: 8584,
+			},
+			ExpectedPort: "http://127.0.0.1:8584",
+		},
+		{
+			Name: "testcase2",
+			Org: &types.Organization{
+				OrgName:  "Org-2",
+				NodeName: "geth",
+				Account: &ethereum.Account{
+					Address:    "0xabcdeffedcba9876543210abcdeffedc00000000",
+					PrivateKey: "aabbccddeeff0011223344556677889900112233445566778899aabbccddeeff",
+				},
+				ExposedConnectorPort: 8000,
+			},
+			ExpectedPort: "http://127.0.0.1:8000",
+		},
+	}
+	for _, tc := range testcase {
+		p := &GethProvider{}
+		result := p.GetConnectorExternalURL(tc.Org)
+		assert.Equal(t, tc.ExpectedPort, result)
+	}
+}
+
+func TestCreateAccount(t *testing.T) {
+	testcases := []struct {
+		Name  string
+		Stack *types.Stack
+		Args  []string
+	}{
+		{
+			Name: "testcase1",
+			Stack: &types.Stack{
+				Name:                   "Org-1_geth",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+			},
+			Args: []string{},
+		},
+		{
+			Name: "testcase1",
+			Stack: &types.Stack{
+				Name:                   "Org-2_geth",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+			},
+			Args: []string{},
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			p := &GethProvider{
+				stack: tc.Stack,
+			}
+			Account, err := p.CreateAccount(tc.Args)
+			if err != nil {
+				t.Log("unable to create account", err)
+			}
+			//validate properties of account
+			assert.NotNil(t, Account)
+			account, ok := Account.(*ethereum.Account)
+			assert.True(t, ok, "unexpected Type for account")
+
+			//check if Ethereum Addresss is valid
+			assert.NotEmpty(t, account.Address)
+			// Check if the private key is a non-empty hex string
+			assert.NotEmpty(t, account.PrivateKey)
+			_, err = hex.DecodeString(account.PrivateKey)
+			assert.NoError(t, err, "invalid private key format")
+		})
+	}
 }

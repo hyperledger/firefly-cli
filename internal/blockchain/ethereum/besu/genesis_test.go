@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -142,4 +144,44 @@ func TestWriteGenesisJSON(t *testing.T) {
 
 	}
 
+}
+
+func TestGetConnectorExternal(t *testing.T) {
+	testcase := []struct {
+		Name         string
+		Org          *types.Organization
+		ExpectedPort string
+	}{
+		{
+			Name: "testcase1",
+			Org: &types.Organization{
+				OrgName:  "Org-1",
+				NodeName: "besu",
+				Account: &ethereum.Account{
+					Address:    "0x1f2a000000000000000000000000000000000000",
+					PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
+				},
+				ExposedConnectorPort: 8584,
+			},
+			ExpectedPort: "http://127.0.0.1:8584",
+		},
+		{
+			Name: "testcase2",
+			Org: &types.Organization{
+				OrgName:  "Org-2",
+				NodeName: "besu",
+				Account: &ethereum.Account{
+					Address:    "0xabcdeffedcba9876543210abcdeffedc00000000",
+					PrivateKey: "aabbccddeeff0011223344556677889900112233445566778899aabbccddeeff",
+				},
+				ExposedConnectorPort: 8000,
+			},
+			ExpectedPort: "http://127.0.0.1:8000",
+		},
+	}
+	for _, tc := range testcase {
+		p := &BesuProvider{}
+		result := p.GetConnectorExternalURL(tc.Org)
+		assert.Equal(t, tc.ExpectedPort, result)
+	}
 }
