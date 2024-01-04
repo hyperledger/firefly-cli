@@ -101,7 +101,7 @@ func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...
 		_, err := runCommand(ctx, dockerCmd)
 		return err
 	default:
-		return fmt.Errorf("No version for docker-compose has been detected.")
+		return fmt.Errorf("no version for docker-compose has been detected")
 	}
 }
 

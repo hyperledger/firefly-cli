@@ -19,7 +19,6 @@ package tezosconnect
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
@@ -73,7 +72,7 @@ type ConfirmationsConfig struct {
 
 func (c *Config) WriteConfig(filename string, extraTezosconnectConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(c)
-	if err := os.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
+	if err := os.WriteFile(filename, configYamlBytes, 0755); err != nil {
 		return err
 	}
 	if extraTezosconnectConfigPath != "" {
