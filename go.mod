@@ -25,6 +25,7 @@ require (
 	github.com/google/go-containerregistry v0.8.0
 	github.com/hyperledger/firefly-common v1.1.2
 	github.com/hyperledger/firefly-signer v0.9.6
+	github.com/jarcoal/httpmock v1.3.1 // indirect
 	github.com/mattn/go-isatty v0.0.19
 	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/go-homedir v1.1.0

@@ -11,7 +11,6 @@ type TestHelper struct {
 	FabricURL     string
 	EthConnectURL string
 	EvmConnectURL string
-	BaseURL       string
 }
 
 var (
