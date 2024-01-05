@@ -1,0 +1,21 @@
+{
+ "config": {
+  "chainId": 338,
+  "constantinoplefixblock": 0,
+  "clique": {
+   "epochlength": 4000,
+   "blockperiodseconds": 40
+  }
+ },
+ "nonce": "",
+ "timestamp": "",
+ "extraData": "",
+ "gasLimit": "",
+ "difficulty": "",
+ "mixHash": "",
+ "coinbase": "",
+ "alloc": null,
+ "number": "",
+ "gasUsed": "",
+ "parentHash": ""
+}

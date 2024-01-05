@@ -32,7 +32,8 @@ require (
 	github.com/otiai10/copy v1.7.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.1-0.20220712161005-5247643f0235
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/objx v0.5.1 // indirect
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.10.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
