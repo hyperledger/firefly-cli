@@ -23,14 +23,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type HexAddress struct {
-	ethtypes.Address0xHex
+type HexAddress string
+
+type HexWrapper struct {
+	addrStr *ethtypes.Address0xHex
 }
 
 // WrapHexAddress wraps a hex address as HexAddress
-func (h *HexAddress) WrapHexAddress(addr [20]byte) (string, error) {
+func (h *HexWrapper) WrapHexAddress(addr [20]byte) (string, error) {
 	hexStr := "0x" + hex.EncodeToString(addr[:])
-	if err := h.SetString(hexStr); err != nil {
+	// Initialize addrStr before using it
+	h.addrStr = new(ethtypes.Address0xHex)
+	if err := h.addrStr.SetString(hexStr); err != nil {
 		return "", err
 	}
 	return hexStr, nil
@@ -38,11 +42,20 @@ func (h *HexAddress) WrapHexAddress(addr [20]byte) (string, error) {
 
 type HexType struct {
 	HexValue HexAddress `yaml:"hexvalue"`
+	HexWrap  HexWrapper
 }
 
 // Explicitly quote hex addresses so that they are interpreted as string (not int)
 func (ht *HexType) MarshalYAML() (interface{}, error) {
-	hexAddr, err := ht.HexValue.WrapHexAddress(ht.HexValue.Address0xHex)
+	//convert to byte type
+	hexBytes, err := hex.DecodeString(string(ht.HexValue[2:]))
+	if err != nil {
+		return nil, err
+	}
+	//copy bytes to fixed array
+	var hexArray [20]byte
+	copy(hexArray[:], hexBytes)
+	hexAddr, err := ht.HexWrap.WrapHexAddress([20]byte(hexArray))
 	if err != nil {
 		return nil, err
 	}

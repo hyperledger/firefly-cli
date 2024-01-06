@@ -45,7 +45,9 @@ func TestWrapHexAddress(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			var hexType HexAddress
+			var hexType HexType
+			//[2:] is used to skip the "0x" prefix before decoding the hexadecimal string into a byte slice.
+			//because x isnt a valid hexadecimal digit
 			hexBytes, err := hex.DecodeString(tc.Hexvalue[2:])
 			if err != nil {
 				t.Log("Unable to decode values:", err)
@@ -56,7 +58,9 @@ func TestWrapHexAddress(t *testing.T) {
 			// Copy bytes to a fixed-size array
 			var hexArray [20]byte
 			copy(hexArray[:], hexBytes)
-			result, err := hexType.WrapHexAddress([20]byte(hexArray))
+			//encodes the decoded values to hexadecimal and returns string
+			//Ethereum convention for representing hexadecimal values, the prefix must have "0x"
+			result, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
 			if err != nil {
 				t.Log("error in generating result", err)
 				t.Fail()
@@ -89,7 +93,7 @@ func TestFailWrapHexAddress(t *testing.T) {
 	}
 	for _, tc := range testData {
 		t.Run(tc.Name, func(t *testing.T) {
-			var hexType HexAddress
+			var hexType HexType
 			hexBytes, err := hex.DecodeString(tc.HexValue[2:])
 			if err != nil {
 				t.Log("unable to decode hexvalue:", err)
@@ -99,7 +103,7 @@ func TestFailWrapHexAddress(t *testing.T) {
 			}
 			var hexArray [20]byte
 			copy(hexArray[:], hexBytes)
-			result, err := hexType.WrapHexAddress([20]byte(hexArray))
+			result, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
 			if err != nil {
 				t.Log("error in generating result", err)
 				t.Fail()
@@ -138,14 +142,14 @@ func TestYamlMarshal(t *testing.T) {
 	}
 	for _, tc := range testAddress {
 		t.Run(tc.Name, func(t *testing.T) {
-			var hexType HexAddress
+			var hexType HexType
 			hexbyte, err := hex.DecodeString(tc.Hexvalue[2:])
 			if err != nil {
 				t.Log("unable to decode values")
 			}
 			var hexArray [20]byte
 			copy(hexArray[:], hexbyte)
-			YamlHex, err := hexType.WrapHexAddress([20]byte(hexArray))
+			YamlHex, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
 			if err != nil {
 				t.Log("unable to generate yaml string")
 			}
