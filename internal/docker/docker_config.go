@@ -97,12 +97,12 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				},
 				Volumes: []string{
 					fmt.Sprintf("%s:/etc/firefly/firefly.core.yml:ro", configFile),
-					fmt.Sprintf("firefly_core_db_%s:/etc/firefly/db", member.ID),
+					fmt.Sprintf("firefly_core_data_%s:/etc/firefly/data", member.ID),
 				},
 				DependsOn: map[string]map[string]string{},
 				Logging:   StandardLogOptions,
 			}
-			compose.Volumes[fmt.Sprintf("firefly_core_db_%s", member.ID)] = struct{}{}
+			compose.Volumes[fmt.Sprintf("firefly_core_data_%s", member.ID)] = struct{}{}
 			compose.Services["firefly_core_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
 			compose.Services["firefly_core_"+member.ID].DependsOn["ipfs_"+member.ID] = map[string]string{"condition": "service_healthy"}
 		}

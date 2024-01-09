@@ -48,11 +48,17 @@ func CreateVolume(ctx context.Context, volumeName string) error {
 
 func CopyFileToVolume(ctx context.Context, volumeName string, sourcePath string, destPath string) error {
 	fileName := path.Base(sourcePath)
-	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:/source/%s", sourcePath, fileName), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "cp", "-R", path.Join("/", "source", fileName), path.Join("/", "dest", destPath))
+	source := path.Join("/", "source", fileName)
+	dest := path.Join("/", "dest", destPath)
+	// command := fmt.Sprintf("run --rm -v %s:%s -v %s:%s alpine /bin/sh -c 'cp -R %s %s '", sourcePath, source, volumeName, dest, source, dest, dest, dest)
+	command := fmt.Sprintf("cp -R %s %s && chgrp -R 0 %s && chmod -R g+rwX %s", source, dest, dest, dest)
+	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:%s", sourcePath, source), "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "/bin/sh", "-c", command)
 }
 
 func MkdirInVolume(ctx context.Context, volumeName string, directory string) error {
-	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "mkdir", "-p", path.Join("/", "dest", directory))
+	dest := path.Join("/", "dest", directory)
+	command := fmt.Sprintf("mkdir -p %s && chgrp -R 0 %s && chmod -R g+rwX %s", dest, dest, dest)
+	return RunDockerCommand(ctx, ".", "run", "--rm", "-v", fmt.Sprintf("%s:/dest", volumeName), "alpine", "/bin/sh", "-c", command)
 }
 
 func RemoveVolume(ctx context.Context, volumeName string) error {
@@ -83,6 +89,15 @@ func RunDockerCommandRetry(ctx context.Context, workingDir string, retries int, 
 
 func RunDockerCommand(ctx context.Context, workingDir string, command ...string) error {
 	dockerCmd := exec.Command("docker", command...)
+	dockerCmd.Dir = workingDir
+	_, err := runCommand(ctx, dockerCmd)
+	return err
+}
+
+func RunDockerCommandLine(ctx context.Context, workingDir string, command string) error {
+	parsedCommand := strings.Split(command, " ")
+	fmt.Println(parsedCommand)
+	dockerCmd := exec.Command("docker", parsedCommand...)
 	dockerCmd.Dir = workingDir
 	_, err := runCommand(ctx, dockerCmd)
 	return err

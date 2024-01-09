@@ -933,6 +933,11 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 			}
 		}
 		s.patchFireFlyCoreConfigs(configDir, member, newConfig)
+
+		// Create data directory with correct permissions inside volume
+		dataVolumeName := fmt.Sprintf("%s_firefly_core_data_%s", s.Stack.Name, member.ID)
+		docker.CreateVolume(s.ctx, dataVolumeName)
+		docker.MkdirInVolume(s.ctx, dataVolumeName, "db")
 	}
 
 	// Re-write the docker-compose config again, in case new values have been added
