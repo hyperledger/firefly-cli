@@ -511,6 +511,7 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
 		docker.MkdirInVolume(s.ctx, volumeName, "destinations")
+		docker.MkdirInVolume(s.ctx, volumeName, "peers")
 		docker.MkdirInVolume(s.ctx, volumeName, "peer-certs")
 		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "config.json"), "/config.json"); err != nil {
 			return err
