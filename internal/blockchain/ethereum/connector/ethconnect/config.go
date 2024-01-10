@@ -87,8 +87,8 @@ func (e *Ethconnect) GenerateConfig(stack *types.Stack, member *types.Organizati
 				RPC:           &RPC{URL: fmt.Sprintf("http://%s:8545", blockchainServiceName)},
 				OpenAPI: &OpenAPI{
 					EventPollingIntervalSec: 1,
-					StoragePath:             "./abis",
-					EventsDB:                "./events",
+					StoragePath:             "./data/abis",
+					EventsDB:                "./data/events",
 				},
 				HTTP: &HTTP{
 					Port: 8080,
