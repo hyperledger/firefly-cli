@@ -2,6 +2,8 @@ package fabric
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
@@ -148,6 +150,59 @@ func TestGetConnectorName(t *testing.T) {
 	assert.Equal(t, testString, connector)
 }
 
+func TestGetConnectorExternalURL(t *testing.T) {
+	testCases := []struct {
+		Name        string
+		Org         *types.Organization
+		ExpectedURL string
+	}{
+		{
+			Name: "testcase-1",
+			Org: &types.Organization{
+				ID:       "user-1",
+				NodeName: "fabric",
+				Account: &Account{
+					Name:    "Nicko",
+					OrgName: "hyperledger",
+				},
+				ExposedConnectorPort: 8900,
+			},
+			ExpectedURL: "http://127.0.0.1:8900",
+		},
+		{
+			Name: "testcase-2",
+			Org: &types.Organization{
+				ID:       "user-2",
+				NodeName: "fabric",
+				Account: &Account{
+					Name:    "Richardson",
+					OrgName: "hyperledger",
+				},
+				ExposedConnectorPort: 3000,
+			},
+			ExpectedURL: "http://127.0.0.1:3000",
+		},
+		{
+			Name: "testcase-3",
+			Org: &types.Organization{
+				ID:       "user-3",
+				NodeName: "fabric",
+				Account: &Account{
+					Name:    "Philip",
+					OrgName: "hyperledger",
+				},
+				ExposedConnectorPort: 4005,
+			},
+			ExpectedURL: "http://127.0.0.1:4005",
+		},
+	}
+	for _, tc := range testCases {
+		p := &FabricProvider{}
+		ExternalURL := p.GetConnectorExternalURL(tc.Org)
+		assert.Equal(t, tc.ExpectedURL, ExternalURL)
+	}
+}
+
 func TestGetConnectorURL(t *testing.T) {
 	testCases := []struct {
 		Name        string
@@ -201,24 +256,44 @@ func TestGetConnectorURL(t *testing.T) {
 
 }
 
-func TestGetConnectorExternalURL(t*testing.T){
-	testCases := []struct {
-		Name        string
-		Org         *types.Organization
-		ExpectedURL string
-	}{
-		{
-			
-		},
-	}
-}
-
 func TestGetDockerPlatform(t *testing.T) {
 	expectedString := "linux/amd64"
 	String := getDockerPlatform()
 	assert.Equal(t, expectedString, String)
 }
 
+func TestGetContracts(t *testing.T) {
+	FilePath := "testdata"
+	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
+	// Sample contract JSON content for testing
+	const testContractJSON = `{
+			"contracts": {
+				"Contract1": {
+					"name": "fabric_1",
+					"abi": "fabric_abi_1",
+					"bin": "sample_bin_1"
+				},
+				"Contract2": {
+					"name": "fabric_2",
+					"abi": "fabric_abi_2",
+					"bin": "fabric_bin_2"
+				}
+			}
+		}`
+	p := &FabricProvider{}
+
+	err := os.WriteFile(testContractFile, []byte(testContractJSON), 0755)
+	if err != nil {
+		t.Log("unable to write file:", err)
+	}
+	contracts, err := p.GetContracts(testContractFile, nil)
+	if err != nil {
+		t.Log("unable to get contract", err)
+	}
+	assert.NotNil(t, contracts)
+}
+
+//Implement a Mock logger to make this work
 // func TestCreateChannel(t *testing.T) {
 // 	ctx := log.WithLogger(context.Background(), &log.StdoutLogger{
 // 		LogLevel: log.Info,
