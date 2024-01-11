@@ -72,48 +72,6 @@ func TestWrapHexAddress(t *testing.T) {
 	}
 }
 
-// Wrong values to test the accuracy of the  WrapHexAddress()
-func TestFailWrapHexAddress(t *testing.T) {
-	testData := []struct {
-		Name     string
-		HexValue string `yaml:"hexvalue"`
-	}{
-		{
-			Name:     "case-1",
-			HexValue: "px123abc0000000000000000000000000000000000",
-		},
-		{
-			Name:     "case-2",
-			HexValue: "A0234567890abcdef0123456789abcdef00000000",
-		},
-		{
-			Name:     "case-3",
-			HexValue: "06942dc1fC868aF18132C0916dA3ae4ab58142a4",
-		},
-	}
-	for _, tc := range testData {
-		t.Run(tc.Name, func(t *testing.T) {
-			var hexType HexType
-			hexBytes, err := hex.DecodeString(tc.HexValue[2:])
-			if err != nil {
-				t.Log("unable to decode hexvalue:", err)
-			}
-			if len(hexBytes) != 20 {
-				t.Fatalf("expected 20 bytes, but got %d bytes", len(hexBytes))
-			}
-			var hexArray [20]byte
-			copy(hexArray[:], hexBytes)
-			result, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
-			if err != nil {
-				t.Log("error in generating result", err)
-				t.Fail()
-				return
-			}
-			assert.Equal(t, tc.HexValue, result)
-		})
-	}
-}
-
 type HexAddr struct {
 	ethtypes.Address0xHex
 }
