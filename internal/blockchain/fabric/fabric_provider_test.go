@@ -201,6 +201,24 @@ func TestGetConnectorURL(t *testing.T) {
 
 }
 
+func TestGetConnectorExternalURL(t*testing.T){
+	testCases := []struct {
+		Name        string
+		Org         *types.Organization
+		ExpectedURL string
+	}{
+		{
+			
+		},
+	}
+}
+
+func TestGetDockerPlatform(t *testing.T) {
+	expectedString := "linux/amd64"
+	String := getDockerPlatform()
+	assert.Equal(t, expectedString, String)
+}
+
 // func TestCreateChannel(t *testing.T) {
 // 	ctx := log.WithLogger(context.Background(), &log.StdoutLogger{
 // 		LogLevel: log.Info,
