@@ -21,3 +21,4 @@ ff/ff
 dist/
 *.iml
 .idea/
+docs/command_docs
