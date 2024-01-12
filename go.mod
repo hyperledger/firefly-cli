@@ -16,16 +16,18 @@
 
 module github.com/hyperledger/firefly-cli
 
-go 1.20
+go 1.21
+
+toolchain go1.21.0
 
 require (
 	blockwatch.cc/tzgo v1.17.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/google/go-containerregistry v0.17.0
-	github.com/hyperledger/firefly-common v1.4.1
+	github.com/hyperledger/firefly-common v1.4.2
 	github.com/hyperledger/firefly-signer v1.1.11
-	github.com/jarcoal/httpmock v1.2.0
+	github.com/jarcoal/httpmock v1.3.1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/miracl/conflate v1.3.2
 	github.com/mitchellh/go-homedir v1.1.0
@@ -39,7 +41,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.111.0 // indirect
+	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
@@ -100,7 +102,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e // indirect
+	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
@@ -109,7 +111,7 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	google.golang.org/api v0.155.0 // indirect
+	google.golang.org/api v0.156.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240108191215-35c7eff3a6b1 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240108191215-35c7eff3a6b1 // indirect
