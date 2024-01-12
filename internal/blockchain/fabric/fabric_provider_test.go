@@ -2,14 +2,17 @@ package fabric
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/utils"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -291,6 +294,121 @@ func TestGetContracts(t *testing.T) {
 		t.Log("unable to get contract", err)
 	}
 	assert.NotNil(t, contracts)
+}
+
+func TestCreateAccount(t *testing.T) {
+	testAccounts := []struct {
+		Name  string
+		Stack *types.Stack
+		Args  []string
+	}{
+		{
+			Name: "TestAccount-1",
+			Args: []string{},
+			Stack: &types.Stack{
+				Name:                   "user-1",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "fabric"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "fabric"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "fabric"),
+				Members: []*types.Organization{
+					{
+						ID:                   "org1",
+						OrgName:              "hyperledger",
+						ExposedConnectorPort: 4000,
+					},
+				},
+			},
+		},
+		{
+			Name: "TestAccount-2",
+			Args: []string{},
+			Stack: &types.Stack{
+				Name:                   "user-2",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "fabric"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "fabric"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "fabric"),
+				Members: []*types.Organization{
+					{
+						ID:                   "org1",
+						OrgName:              "solana",
+						ExposedConnectorPort: 4001,
+					},
+				},
+			},
+		},
+
+		{
+			Name: "TestAccount-3",
+			Args: []string{},
+			Stack: &types.Stack{
+				Name:                   "user-3",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "fabric"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "fabric"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "fabric"),
+				Members: []*types.Organization{
+					{
+						ID:                   "org1",
+						OrgName:              "ethereum",
+						ExposedConnectorPort: 4002,
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testAccounts {
+		p := &FabricProvider{
+			stack: tc.Stack,
+		}
+		Account, err := p.CreateAccount(tc.Args)
+		if err != nil {
+			t.Log("unable to create account", err)
+		}
+		assert.NotNil(t, Account)
+	}
+}
+
+func TestRegisterIdentity(t *testing.T) {
+	t.Run("register", func(t *testing.T) {
+		utils.StartMockServer(t)
+
+		Member := &types.Organization{
+			ID:                   "fabric_user-1",
+			NodeName:             "fabric",
+			Account:              &Account{Name: "Nicko", OrgName: "hyperledger"},
+			ExposedConnectorPort: 3000,
+		}
+		createIdentityURL := fmt.Sprintf("http://127.0.0.1:%v/identities", Member.ExposedConnectorPort)
+		enrollIdentityURL := fmt.Sprintf("http://127.0.0.1:%v/identities/Nicko/enroll", Member.ExposedConnectorPort)
+
+		IdentityName := "Nicko"
+		createdApiResponse := `
+		{
+			"Name": "Nicko",
+			"Secret": "9876543210987654321098765432109876543210987654321098765432109876"
+		}`
+		enrolledApiResponse := `
+		{
+			"Name": "Nicko",
+			"OrgName": "hyperledger"
+		}`
+
+		httpmock.RegisterResponder("POST", createIdentityURL,
+			httpmock.NewStringResponder(200, createdApiResponse))
+
+		httpmock.RegisterResponder("POST", enrollIdentityURL,
+			httpmock.NewStringResponder(200, enrolledApiResponse))
+
+		p := &FabricProvider{}
+
+		account, err := p.registerIdentity(Member, IdentityName)
+		if err != nil {
+			t.Log("cannot register identity:", err)
+		}
+		assert.NotNil(t, account)
+		assert.NotNil(t, account.Name)
+		assert.NotNil(t, account.OrgName)
+	})
+
 }
 
 //Implement a Mock logger to make this work
