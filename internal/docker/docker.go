@@ -111,6 +111,12 @@ func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ..
 	return runCommand(ctx, dockerCmd)
 }
 
+func RunDockerComposeCommandReturnsStdout(workingDir string, command ...string) ([]byte, error) {
+	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
+	dockerCmd.Dir = workingDir
+	return dockerCmd.Output()
+}
+
 func runCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
 	verbose := log.VerbosityFromContext(ctx)
 	isLogCmd, _ := ctx.Value(CtxIsLogCmdKey{}).(bool)
