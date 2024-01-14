@@ -27,8 +27,9 @@ import (
 )
 
 var resetCmd = &cobra.Command{
-	Use:   "reset <stack_name>",
-	Short: "Clear all data in a stack",
+	Use:               "reset <stack_name>",
+	Short:             "Clear all data in a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Clear all data in a stack
 
 This command clears all data in a stack, but leaves the stack configuration.

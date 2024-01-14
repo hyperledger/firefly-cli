@@ -29,8 +29,9 @@ var follow bool
 
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
-	Use:   "logs <stack_name>",
-	Short: "View log output from a stack",
+	Use:               "logs <stack_name>",
+	Short:             "View log output from a stack",
+	ValidArgsFunction: listStacks,
 	Long: `View log output from a stack.
 
 The most recent logs can be viewed, or you can follow the
