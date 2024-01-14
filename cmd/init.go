@@ -263,5 +263,6 @@ func init() {
 	initCmd.PersistentFlags().StringVar(&initOptions.IPFSMode, "ipfs-mode", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.OrgNames, "org-name", []string{}, "Organization name")
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.NodeNames, "node-name", []string{}, "Node name")
+	initCmd.Flags().StringVar(&initOptions.CustomPath, "override", "", "copy data from custom path to  docker-compose.override.yml")
 	rootCmd.AddCommand(initCmd)
 }

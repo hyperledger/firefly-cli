@@ -63,6 +63,7 @@ type InitOptions struct {
 	ChannelName              string
 	ChaincodeName            string
 	CustomPinSupport         bool
+	CustomPath               string
 }
 
 const IPFSMode = "ipfs_mode"
