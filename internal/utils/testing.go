@@ -4,13 +4,16 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/sirupsen/logrus"
 )
 
 type TestHelper struct {
@@ -18,6 +21,8 @@ type TestHelper struct {
 	EthConnectURL string
 	EvmConnectURL string
 }
+
+var logMutex sync.Mutex
 
 var (
 	FabricEndpoint     = "http://localhost:7054"
@@ -70,6 +75,11 @@ func CaptureOutput() (*os.File, *bytes.Buffer) {
 
 	// Create a buffer to capture the output
 	buffer := &bytes.Buffer{}
+
+	// Redirect logrus output to the same buffer
+	logMutex.Lock()
+	logrus.SetOutput(io.MultiWriter(originalOutput, buffer))
+	logMutex.Unlock()
 
 	return originalOutput, buffer
 }

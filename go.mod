@@ -30,6 +30,7 @@ require (
 	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/otiai10/copy v1.7.0
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.1-0.20220712161005-5247643f0235
 	github.com/stretchr/objx v0.5.1 // indirect
