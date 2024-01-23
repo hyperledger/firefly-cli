@@ -187,9 +187,10 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	if err := s.writeDockerComposeOverride(compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.override.yml: %s", err)
 	}
-	options.CustomPath = "docker-compose.yml"
-	if err := s.copyToDockerComposeOverride(options.CustomPath); err != nil {
-		return fmt.Errorf("failed to copy file data to docker-compose.override.yml: %s", err)
+	if options.CustomPath == "docker-compose.yml" {
+		if err := s.copyToDockerComposeOverride(options.CustomPath); err != nil {
+			return fmt.Errorf("failed to copy file data to docker-compose.override.yml: %s", err)
+		}
 	}
 	return s.writeConfig(options)
 }
