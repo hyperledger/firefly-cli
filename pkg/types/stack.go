@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -49,6 +49,7 @@ type Stack struct {
 	ChannelName            string           `json:"channelName,omitempty"`
 	ChaincodeName          string           `json:"chaincodeName,omitempty"`
 	CustomPinSupport       bool             `json:"customPinSupport,omitempty"`
+	RemoteNodeDeploy       bool             `json:"remoteNodeDeploy,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`
