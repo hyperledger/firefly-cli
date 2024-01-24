@@ -225,25 +225,8 @@ func TestGetContracts(t *testing.T) {
 	}
 	// Assert that the returned contracts match the expected contract names
 	expectedContracts := []string{"Contract1", "Contract2"}
-	if !CompareStringSlices(contracts, expectedContracts) {
-		t.Errorf("Expected contracts: %v, Got: %v", expectedContracts, contracts)
-	}
+	assert.ElementsMatch(t, contracts, expectedContracts)
 }
-
-func CompareStringSlices(a, b []string) bool {
-	//compare string lengths
-	if len(a) != len(b) {
-		return false
-	}
-	//compare values
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func TestGetConnectorExternal(t *testing.T) {
 	testcase := []struct {
 		Name         string
