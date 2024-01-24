@@ -64,7 +64,7 @@ type InitOptions struct {
 	ChaincodeName            string
 	CustomPinSupport         bool
 	RemoteNodeDeploy         bool
-  CustomPath               string
+	CustomPath               string
 }
 
 const IPFSMode = "ipfs_mode"
