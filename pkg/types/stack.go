@@ -49,6 +49,7 @@ type Stack struct {
 	ChannelName            string           `json:"channelName,omitempty"`
 	ChaincodeName          string           `json:"chaincodeName,omitempty"`
 	CustomPinSupport       bool             `json:"customPinSupport,omitempty"`
+	RemoteNodeDeploy       bool             `json:"remoteNodeDeploy,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`
