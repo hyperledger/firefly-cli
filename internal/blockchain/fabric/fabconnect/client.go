@@ -81,7 +81,9 @@ func CreateIdentity(fabconnectUrl string, signer string) (*CreateIdentityRespons
 		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var createIdentityResponseBody *CreateIdentityResponse
-	json.Unmarshal(responseBody, &createIdentityResponseBody)
+	if err := json.Unmarshal(responseBody, &createIdentityResponseBody); err != nil {
+		return nil, err
+	}
 	return createIdentityResponseBody, nil
 }
 
@@ -121,6 +123,8 @@ func EnrollIdentity(fabconnectUrl, signer, secret string) (*EnrollIdentityRespon
 		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var enrollIdentityResponse *EnrollIdentityResponse
-	json.Unmarshal(responseBody, &enrollIdentityResponse)
+	if err := json.Unmarshal(responseBody, &enrollIdentityResponse); err != nil {
+		return nil, err
+	}
 	return enrollIdentityResponse, nil
 }

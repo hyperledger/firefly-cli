@@ -20,7 +20,7 @@ GITREF := $(shell git rev-parse --short HEAD)
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LINT := $(GOBIN)/golangci-lint
 
-all: build test
+all: build lint test
 test: deps
 		$(VGO) test ./internal/... ./pkg/... ./cmd/... -cover -coverprofile=coverage.txt -covermode=atomic -timeout=30s ${TEST_ARGS}
 build: ## Builds all go code

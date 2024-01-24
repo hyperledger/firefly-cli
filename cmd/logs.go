@@ -72,7 +72,9 @@ output with the -f flag.`,
 			if follow {
 				commandLine = append(commandLine, "-f")
 			}
-			docker.RunDockerComposeCommand(ctx, stackManager.Stack.RuntimeDir, commandLine...)
+			if err := docker.RunDockerComposeCommand(ctx, stackManager.Stack.RuntimeDir, commandLine...); err != nil {
+				return err
+			}
 		} else {
 			fmt.Println("no logs found - stack has not been started")
 		}

@@ -21,9 +21,11 @@ import (
 	"encoding/hex"
 )
 
-func GenerateSwarmKey() string {
+func GenerateSwarmKey() (string, error) {
 	key := make([]byte, 32)
-	rand.Read(key)
+	if _, err := rand.Read(key); err != nil {
+		return "", err
+	}
 	hexKey := hex.EncodeToString(key)
-	return "/key/swarm/psk/1.0.0/\n/base16/\n" + hexKey
+	return "/key/swarm/psk/1.0.0/\n/base16/\n" + hexKey, nil
 }

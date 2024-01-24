@@ -63,7 +63,9 @@ func NewFabricProvider(ctx context.Context, stack *types.Stack) *FabricProvider 
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.stack.InitDir, "blockchain")
 
-	os.MkdirAll(blockchainDirectory, 0755)
+	if err := os.MkdirAll(blockchainDirectory, 0755); err != nil {
+		return err
+	}
 	if p.stack.RemoteFabricNetwork {
 		for i, member := range p.stack.Members {
 			if err := cp.Copy(options.CCPYAMLPaths[i], path.Join(blockchainDirectory, fmt.Sprintf("%s_ccp.yaml", member.ID))); err != nil {

@@ -74,10 +74,14 @@ func (p *TezosSignerProvider) FirstTimeSetup() error {
 	// Copy the signer config to the volume
 	signerConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", "tezossigner.yaml")
 	signerConfigVolumeName := fmt.Sprintf("%s_tezossigner_config", p.stack.Name)
-	docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, signerConfigPath, "signatory.yaml")
+	if err := docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, signerConfigPath, "signatory.yaml"); err != nil {
+		return err
+	}
 
 	// Copy the members wallets to the volume
-	docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, filepath.Join(blockchainDir, "keystore", "secret.json"), "secret.json")
+	if err := docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, filepath.Join(blockchainDir, "keystore", "secret.json"), "secret.json"); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -149,7 +153,9 @@ func (p *TezosSignerProvider) CreateAccount(args []string) (interface{}, error) 
 ]`, address, pk)
 
 	filename := filepath.Join(outputDirectory, "secret.json")
-	os.WriteFile(filename, []byte(json), 0755)
+	if err := os.WriteFile(filename, []byte(json), 0755); err != nil {
+		return nil, err
+	}
 
 	if stackHasRunBefore {
 		// Copy the signer secret to the volume

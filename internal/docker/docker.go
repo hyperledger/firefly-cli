@@ -152,7 +152,9 @@ outputCapture:
 			return "", err
 		}
 	}
-	cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return outputBuff.String(), err
+	}
 	statusCode := cmd.ProcessState.ExitCode()
 	if statusCode != 0 {
 		return "", fmt.Errorf("%s [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
@@ -171,7 +173,9 @@ func pipeCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, 
 		errChan <- err
 		return
 	}
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		fmt.Println(err.Error())
+	}
 	go readPipe(stdout, stdoutChan, errChan)
 	go readPipe(stderr, stderrChan, errChan)
 }

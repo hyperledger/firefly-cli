@@ -122,7 +122,10 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	s.Stack.TokenProviders = tokenProviders
 
 	if s.Stack.IPFSMode.Equals(types.IPFSModePrivate) {
-		s.Stack.SwarmKey = GenerateSwarmKey()
+		s.Stack.SwarmKey, err = GenerateSwarmKey()
+		if err != nil {
+			return err
+		}
 	}
 
 	if options.PrometheusEnabled {
@@ -196,7 +199,9 @@ func (s *StackManager) runDockerComposeCommand(command ...string) error {
 	if _, err := os.Stat(baseCompose); os.IsNotExist(err) {
 		if _, err := os.Stat(runtimeCompose); err == nil {
 			// Handle copying the docker-compose file out of the old "runtime" directory
-			copy.Copy(runtimeCompose, baseCompose)
+			if err := copy.Copy(runtimeCompose, baseCompose); err != nil {
+				return err
+			}
 		}
 	}
 	return docker.RunDockerComposeCommand(s.ctx, s.Stack.StackDir, command...)
@@ -511,7 +516,9 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 		// Copy files into docker volumes
 		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
-		docker.MkdirInVolume(s.ctx, volumeName, "peer-certs")
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "peer-certs"); err != nil {
+			return err
+		}
 		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "config.json"), "/config.json"); err != nil {
 			return err
 		}
@@ -669,7 +676,7 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	return nil
 }
 
-func (s *StackManager) removeVolumes() {
+func (s *StackManager) removeVolumes() error {
 	var volumes []string
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
 		volumes = append(volumes, service.VolumeNames...)
@@ -683,8 +690,11 @@ func (s *StackManager) removeVolumes() {
 		volumes = append(volumes, volumeName)
 	}
 	for _, volumeName := range volumes {
-		docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName))
+		if err := docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName)); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (s *StackManager) runStartupSequence(firstTimeSetup bool) error {
@@ -718,7 +728,9 @@ func (s *StackManager) ResetStack() error {
 	if err := s.blockchainProvider.Reset(); err != nil {
 		return err
 	}
-	s.removeVolumes()
+	if err := s.removeVolumes(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -726,7 +738,9 @@ func (s *StackManager) RemoveStack() error {
 	if err := s.runDockerComposeCommand("down"); err != nil {
 		return err
 	}
-	s.removeVolumes()
+	if err := s.removeVolumes(); err != nil {
+		return err
+	}
 	return os.RemoveAll(s.Stack.StackDir)
 }
 
@@ -932,7 +946,9 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				},
 			}
 		}
-		s.patchFireFlyCoreConfigs(configDir, member, newConfig)
+		if err := s.patchFireFlyCoreConfigs(configDir, member, newConfig); err != nil {
+			return messages, err
+		}
 	}
 
 	// Re-write the docker-compose config again, in case new values have been added
@@ -1039,7 +1055,9 @@ func (s *StackManager) UpgradeStack(version string) error {
 	}
 
 	s.Stack.VersionManifest = newManifest
-	s.writeStackConfig()
+	if err := s.writeStackConfig(); err != nil {
+		return err
+	}
 
 	if err := s.PullStack(&types.PullOptions{}); err != nil {
 		return err
