@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -263,6 +263,7 @@ func init() {
 	initCmd.PersistentFlags().StringVar(&initOptions.IPFSMode, "ipfs-mode", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.OrgNames, "org-name", []string{}, "Organization name")
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.NodeNames, "node-name", []string{}, "Node name")
-	initCmd.PersistentFlags().StringVarP(&initOptions.CustomPath, "override", "o", "", "copy data from custom path to docker-compose.override.yml")
+	initCmd.PersistentFlags().BoolVar(&initOptions.RemoteNodeDeploy, "remote-node-deploy", false, "Enable or disable deployment of FireFly contracts on remote nodes")
+  initCmd.PersistentFlags().StringVarP(&initOptions.CustomPath, "override", "o", "", "copy data from custom path to docker-compose.override.yml")
 	rootCmd.AddCommand(initCmd)
 }

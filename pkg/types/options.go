@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -63,7 +63,8 @@ type InitOptions struct {
 	ChannelName              string
 	ChaincodeName            string
 	CustomPinSupport         bool
-	CustomPath               string
+	RemoteNodeDeploy         bool
+  CustomPath               string
 }
 
 const IPFSMode = "ipfs_mode"
