@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2023 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -94,6 +94,13 @@ func (p *RemoteRPCProvider) PostStart(fistTimeSetup bool) error {
 }
 
 func (p *RemoteRPCProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
+	if p.stack.RemoteNodeDeploy {
+		contract, err := ethereum.ReadFireFlyContract(p.ctx, p.stack)
+		if err != nil {
+			return nil, err
+		}
+		return p.connector.DeployContract(contract, "FireFly", p.stack.Members[0], nil)
+	}
 	return nil, fmt.Errorf("you must pre-deploy your FireFly contract when using a remote RPC endpoint")
 }
 
