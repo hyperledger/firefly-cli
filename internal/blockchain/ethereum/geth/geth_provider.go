@@ -279,7 +279,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 
 	return &ethereum.Account{
 		Address:    keyPair.Address.String(),
-		PrivateKey: hex.EncodeToString(keyPair.PrivateKey.Serialize()),
+		PrivateKey: hex.EncodeToString(keyPair.PrivateKeyBytes()),
 	}, nil
 }
 

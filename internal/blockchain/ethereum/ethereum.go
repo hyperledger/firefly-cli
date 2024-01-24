@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	secp256k1 "github.com/btcsuite/btcd/btcec"
+	secp256k1 "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"golang.org/x/crypto/sha3"
 
@@ -37,7 +37,7 @@ type Account struct {
 }
 
 func GenerateAddressAndPrivateKey() (address string, privateKey string) {
-	newPrivateKey, _ := secp256k1.NewPrivateKey(secp256k1.S256())
+	newPrivateKey, _ := secp256k1.NewPrivateKey()
 	privateKeyBytes := newPrivateKey.Serialize()
 	encodedPrivateKey := "0x" + hex.EncodeToString(privateKeyBytes)
 	// Remove the "04" Suffix byte when computing the address. This byte indicates that it is an uncompressed public key.
