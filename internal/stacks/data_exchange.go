@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -37,7 +37,7 @@ type DataExchangePeerConfig struct {
 	Peers []*PeerConfig               `json:"peers"`
 }
 
-func (s *StackManager) GenerateDataExchangeHTTPSConfig(memberId string) *DataExchangePeerConfig {
+func (s *StackManager) GenerateDataExchangeHTTPSConfig(memberID string) *DataExchangePeerConfig {
 	return &DataExchangePeerConfig{
 		API: &DataExchangeListenerConfig{
 			Hostname: "0.0.0.0",
@@ -46,7 +46,7 @@ func (s *StackManager) GenerateDataExchangeHTTPSConfig(memberId string) *DataExc
 		P2P: &DataExchangeListenerConfig{
 			Hostname: "0.0.0.0",
 			Port:     3001,
-			Endpoint: fmt.Sprintf("https://dataexchange_%s:3001", memberId),
+			Endpoint: fmt.Sprintf("https://dataexchange_%s:3001", memberID),
 		},
 		Peers: []*PeerConfig{},
 	}

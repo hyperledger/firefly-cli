@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -140,9 +140,9 @@ func (e *Evmconnect) getTransactionStatus(evmconnectURL, id string) (*Evmconnect
 	if err != nil {
 		return nil, err
 	}
-	requestUrl := u.String()
+	requestURL := u.String()
 
 	reply := &EvmconnectTransactionResponse{}
-	err = core.RequestWithRetry(e.ctx, "GET", requestUrl, nil, reply)
+	err = core.RequestWithRetry(e.ctx, "GET", requestURL, nil, reply)
 	return reply, err
 }

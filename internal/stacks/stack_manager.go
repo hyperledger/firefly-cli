@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -238,11 +238,12 @@ func (s *StackManager) buildDockerCompose() *docker.DockerComposeConfig {
 
 func CheckExists(stackName string) (bool, error) {
 	_, err := os.Stat(filepath.Join(constants.StacksDir, stackName, "stack.json"))
-	if os.IsNotExist(err) {
+	switch {
+	case os.IsNotExist(err):
 		return false, nil
-	} else if err != nil {
+	case err != nil:
 		return false, err
-	} else {
+	default:
 		return true, nil
 	}
 }
@@ -487,13 +488,15 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 
 func (s *StackManager) writeDataExchangeCerts() error {
 	configDir := filepath.Join(s.Stack.InitDir, "config")
+	const dataexchange = "dataexchange"
 	for _, member := range s.Stack.Members {
 
-		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
+		memberDXDir := path.Join(configDir, dataexchange+"_"+member.ID)
 
 		// TODO: remove dependency on openssl here
-		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=dataexchange_%s/O=member_%s", member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
-		opensslCmd.Dir = filepath.Join(configDir, "dataexchange_"+member.ID)
+		//nolint:gosec
+		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=%s_%s/O=member_%s", dataexchange, member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
+		opensslCmd.Dir = filepath.Join(configDir, dataexchange+"_"+member.ID)
 		if err := opensslCmd.Run(); err != nil {
 			return err
 		}
@@ -794,6 +797,7 @@ func checkPortAvailable(port int) (bool, error) {
 	switch t := err.(type) {
 
 	case *net.OpError:
+		//nolint:gocritic // can't rewrite this as an if, because .(type) cannot be used outside a switch
 		switch t := t.Unwrap().(type) {
 		case *os.SyscallError:
 			if t.Syscall == "connect" {
@@ -819,6 +823,7 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
+//nolint:gocyclo // TODO: Breaking this function apart would be great for code tidiness, but it's not an urgent priority
 func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
@@ -1291,7 +1296,7 @@ func (s *StackManager) getITokenProviders() []tokens.ITokensProvider {
 		switch tp {
 		case types.TokenProviderERC1155:
 			tps[i] = erc1155.NewERC1155Provider(s.ctx, s.Stack, s.getBlockchainProvider())
-		case types.TokenProviderERC20_ERC721:
+		case types.TokenProviderERC20ERC721:
 			tps[i] = erc20erc721.NewERC20ERC721Provider(s.ctx, s.Stack, s.getBlockchainProvider())
 		default:
 			return nil

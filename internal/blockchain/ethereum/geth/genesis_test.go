@@ -62,7 +62,7 @@ func TestCreateGenesis(t *testing.T) {
 			extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 			expectedGenesis := &Genesis{
 				Config: &GenesisConfig{
-					ChainId:             tc.chainID,
+					ChainID:             tc.chainID,
 					HomesteadBlock:      0,
 					Eip150Hash:          "0x0000000000000000000000000000000000000000000000000000000000000000",
 					Eip155Block:         0,
@@ -105,7 +105,7 @@ func TestWriteGenesisJSON(t *testing.T) {
 			Name: "TestCase1",
 			SampleGenesis: Genesis{
 				Config: &GenesisConfig{
-					ChainId:             int64(456),
+					ChainID:             int64(456),
 					Eip155Block:         0,
 					Eip158Block:         0,
 					ByzantiumBlock:      0,
@@ -123,7 +123,7 @@ func TestWriteGenesisJSON(t *testing.T) {
 			Name: "TestCase2",
 			SampleGenesis: Genesis{
 				Config: &GenesisConfig{
-					ChainId:             int64(338),
+					ChainID:             int64(338),
 					ConstantinopleBlock: 0,
 					Eip155Block:         0,
 					Eip158Block:         0,
@@ -140,7 +140,7 @@ func TestWriteGenesisJSON(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			err := tc.SampleGenesis.WriteGenesisJson(tc.filename)
+			err := tc.SampleGenesis.WriteGenesisJSON(tc.filename)
 			if err != nil {
 				t.Log("unable to write Genesis JSON", err)
 			}

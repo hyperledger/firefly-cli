@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -81,7 +81,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 		addresses[i] = address[2:]
 	}
 	genesis := CreateGenesis(addresses, options.BlockPeriod, p.stack.ChainID())
-	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
+	if err := genesis.WriteGenesisJSON(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
 

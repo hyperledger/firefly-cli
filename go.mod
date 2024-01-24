@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,14 +25,13 @@ require (
 	github.com/google/go-containerregistry v0.8.0
 	github.com/hyperledger/firefly-common v1.1.2
 	github.com/hyperledger/firefly-signer v0.9.6
-	github.com/jarcoal/httpmock v1.3.1 // indirect
+	github.com/jarcoal/httpmock v1.3.1
 	github.com/mattn/go-isatty v0.0.19
 	github.com/miracl/conflate v1.2.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/otiai10/copy v1.7.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.1-0.20220712161005-5247643f0235
-	github.com/stretchr/objx v0.5.1 // indirect
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.10.0
 	gopkg.in/yaml.v2 v2.4.0

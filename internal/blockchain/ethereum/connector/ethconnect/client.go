@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -103,7 +103,7 @@ func (e *Ethconnect) Port() int {
 }
 
 func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
-	ethconnectUrl := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
+	ethconnectURL := fmt.Sprintf("http://127.0.0.1:%v", member.ExposedConnectorPort)
 	address := member.Account.(*ethereum.Account).Address
 	hexBytecode, err := hex.DecodeString(strings.TrimPrefix(contract.Bytecode, "0x"))
 	if err != nil {
@@ -127,10 +127,10 @@ func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contrac
 	}
 
 	ethconnectResponse := &EthconnectMessageResponse{}
-	if err := core.RequestWithRetry(e.ctx, "POST", ethconnectUrl, requestBody, ethconnectResponse); err != nil {
+	if err := core.RequestWithRetry(e.ctx, "POST", ethconnectURL, requestBody, ethconnectResponse); err != nil {
 		return nil, err
 	}
-	reply, err := getReply(e.ctx, ethconnectUrl, ethconnectResponse.ID)
+	reply, err := getReply(e.ctx, ethconnectURL, ethconnectResponse.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +147,8 @@ func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contrac
 	return result, nil
 }
 
-func getReply(ctx context.Context, ethconnectUrl, id string) (*EthconnectReply, error) {
-	u, err := url.Parse(ethconnectUrl)
+func getReply(ctx context.Context, ethconnectURL, id string) (*EthconnectReply, error) {
+	u, err := url.Parse(ethconnectURL)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +156,9 @@ func getReply(ctx context.Context, ethconnectUrl, id string) (*EthconnectReply, 
 	if err != nil {
 		return nil, err
 	}
-	requestUrl := u.String()
+	requestURL := u.String()
 
 	reply := &EthconnectReply{}
-	err = core.RequestWithRetry(ctx, "GET", requestUrl, nil, reply)
+	err = core.RequestWithRetry(ctx, "GET", requestURL, nil, reply)
 	return reply, err
 }
