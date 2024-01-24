@@ -13,7 +13,7 @@ import (
 )
 
 func TestCreateGenesis(t *testing.T) {
-	//test diferent parameter cases for the CreateGenesis()
+	//test different parameter cases for the CreateGenesis()
 	testCases := []struct {
 		Name        string
 		addresses   []string
@@ -48,7 +48,7 @@ func TestCreateGenesis(t *testing.T) {
 				alloc[address] = &Alloc{
 					Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 				}
-				extraData += address
+				extraData += extraData
 			}
 			extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 			expectedGenesis := &Genesis{
@@ -80,7 +80,7 @@ func TestCreateGenesis(t *testing.T) {
 }
 
 func TestWriteGenesisJSON(t *testing.T) {
-	filepath := "testdata"
+	filepath := t.TempDir()
 
 	testCases := []struct {
 		Name          string

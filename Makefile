@@ -20,7 +20,9 @@ GITREF := $(shell git rev-parse --short HEAD)
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LINT := $(GOBIN)/golangci-lint
 
-all: build
+all: build test
+test: deps
+		$(VGO) test ./internal/... ./pkg/... ./cmd/... -cover -coverprofile=coverage.txt -covermode=atomic -timeout=30s ${TEST_ARGS}
 build: ## Builds all go code
 		cd ff && go build -ldflags="-X 'github.com/hyperledger/firefly-cli/cmd.BuildDate=$(DATE)' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit=$(GITREF)'"
 install: ## Installs the package
@@ -31,8 +33,8 @@ lint: ${LINT} ## Checks and reports lint errors
 
 ${LINT}:
 		$(VGO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-
+deps:
+		cd ff && $(VGO) get
 help:   ## Show this help
 	@echo 'usage: make [target] ...'
 	@echo ''

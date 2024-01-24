@@ -196,7 +196,7 @@ func TestGetOrgConfig(t *testing.T) {
 }
 
 func TestGetContracts(t *testing.T) {
-	FilePath := "testdata"
+	FilePath := t.TempDir()
 	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
 	// Sample contract JSON content for testing
 	const testContractJSON = `{
@@ -297,6 +297,8 @@ func TestCreateAccount(t *testing.T) {
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
 			},
 			Args: []string{},
 		},
@@ -307,6 +309,8 @@ func TestCreateAccount(t *testing.T) {
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
 			},
 			Args: []string{},
 		},

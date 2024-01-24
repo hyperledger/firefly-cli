@@ -22,3 +22,4 @@ dist/
 *.iml
 .idea/
 docs/command_docs
+coverage.txt

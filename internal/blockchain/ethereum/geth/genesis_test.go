@@ -94,7 +94,7 @@ func TestCreateGenesis(t *testing.T) {
 }
 
 func TestWriteGenesisJSON(t *testing.T) {
-	filepath := "testdata"
+	filepath := t.TempDir()
 
 	testCases := []struct {
 		Name          string

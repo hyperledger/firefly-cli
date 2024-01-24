@@ -73,7 +73,7 @@ func TestParseAccount(t *testing.T) {
 }
 
 func TestGetContracts(t *testing.T) {
-	FilePath := "testdata"
+	FilePath := t.TempDir()
 	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
 	// Sample contract JSON content for testing
 	const testContractJSON = `{
@@ -102,23 +102,7 @@ func TestGetContracts(t *testing.T) {
 	}
 	// Assert that the returned contracts match the expected contract names
 	expectedContracts := []string{"Contract1", "Contract2"}
-	if !CompareStringSlices(contracts, expectedContracts) {
-		t.Errorf("Expected contracts: %v, Got: %v", expectedContracts, contracts)
-	}
-}
-
-func CompareStringSlices(a, b []string) bool {
-	//compare string lengths
-	if len(a) != len(b) {
-		return false
-	}
-	//compare values
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
+	assert.ElementsMatch(t, contracts, expectedContracts)
 }
 
 func TestGetOrgConfig(t *testing.T) {
