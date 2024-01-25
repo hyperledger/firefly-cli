@@ -1,0 +1,12 @@
+{
+	"name": "fabric-user-1",
+	"version": "1.0",
+	"contracts": {
+		"MyChaincode": {
+			"GoPath": "firefly",
+			"Languages": ["go"],
+			"Dependencies": [],
+			"Instantiation": {}
+		}
+	}
+}

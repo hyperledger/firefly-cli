@@ -16,7 +16,7 @@ func TestAccountListCmd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create account for testing: %v", err)
 		}
-		Args := []string{"ff", "ls"}
+		Args := []string{ "ls"}
 		t.Run("Test-Account-List", func(t *testing.T) {
 			cmd := accountsListCmd
 			cmd.SetArgs(Args)

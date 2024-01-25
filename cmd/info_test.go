@@ -11,12 +11,12 @@ func TestInfoCmd(t *testing.T) {
 	accNames := []string{"acc-1", "acc-2", "acc-3"}
 	for _, stacks := range accNames {
 		createAcc := accountsCreateCmd
-		createAcc.SetArgs([]string{"ff", "create", stacks})
+		createAcc.SetArgs([]string{"create", stacks})
 		err := createAcc.Execute()
 		if err != nil {
 			t.Fatalf("unable to execute command :%v", err)
 		}
-		args := []string{"ff", "info"}
+		args := []string{"info"}
 		t.Run("Info Cmd Test", func(t *testing.T) {
 			InfoCmd := infoCmd
 			InfoCmd.SetArgs(args)

@@ -19,32 +19,32 @@ func TestCreateAccountCmd(t *testing.T) {
 	}{
 		{
 			Name:             "testcase1",
-			Args:             []string{"ff", "create", "stack-1"},
+			Args:             []string{"create", "stack-1"},
 			ExpectedResponse: "account1.output",
 		},
 		{
 			Name:             "testcase-2",
-			Args:             []string{"ff", "create", "stack-2"},
+			Args:             []string{"create", "stack-2"},
 			ExpectedResponse: "account1.output",
 		},
 		{
 			Name:             "testcase-3",
-			Args:             []string{"ff", "create", "stack-3"},
+			Args:             []string{"create", "stack-3"},
 			ExpectedResponse: "account1.output",
 		},
 		{
 			Name:             "testcase-4",
-			Args:             []string{"ff", "create", "stack-4"},
+			Args:             []string{"create", "stack-4"},
 			ExpectedResponse: "account1.output",
 		},
 		{
 			Name:             "testcase-5",
-			Args:             []string{"ff", "create", "stack-5"},
+			Args:             []string{"create", "stack-5"},
 			ExpectedResponse: "account1.output",
 		},
 		{
 			Name:             "testcase-6",
-			Args:             []string{"ff", "create", "stack-6"},
+			Args:             []string{"create", "stack-6"},
 			ExpectedResponse: "account1.output",
 		},
 	}
