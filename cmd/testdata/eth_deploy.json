@@ -1,0 +1,27 @@
+{
+	"contracts": {
+		"firefly-Ethereum-contrats": {
+			"abi": [
+				{
+					"constant": false,
+					"inputs": [
+						{
+							"name": "param1",
+							"type": "uint256"
+						},
+						{
+							"name": "aram2",
+							"type": "string"
+						}
+					],
+					"name": "myFunction",
+					"outputs": [],
+					"payable": false,
+					"stateMutability": "nonpayable",
+					"type": "function"
+				}
+			],
+			"bin": "0x606060..."
+		}
+	}
+}
