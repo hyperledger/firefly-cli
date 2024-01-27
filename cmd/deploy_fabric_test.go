@@ -33,7 +33,7 @@ func TestDeployFabricCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read expected response file: %v", err)
 	}
-	Args := []string{"fabric", ChaincodePackage, "firefly", "fabric-user-1", "1.0"}
+	Args := []string{"fabric", "stack-1", ChaincodePackage, "firefly", "fabric-user-1", "1.0"}
 
 	t.Run("Test Deploy Cmd", func(t *testing.T) {
 		DeployFabric := deployFabricCmd

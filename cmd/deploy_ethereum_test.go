@@ -34,7 +34,7 @@ func TestDeployEthereumCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read expected response file: %v", err)
 	}
-	Args := []string{"ethereum", "stack-2", ethPackage, "param1", "param2"}
+	Args := []string{"deploy", "ethereum", "stack-2", ethPackage, "param1", "param2"}
 	ethDeployCmd := deployEthereumCmd
 	ethDeployCmd.SetArgs(Args)
 	ethDeployCmd.ExecuteContext(ctx)
