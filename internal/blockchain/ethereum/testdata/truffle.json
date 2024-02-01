@@ -1,0 +1,48 @@
+{
+	"abi": [
+		{
+			"constant": false,
+			"inputs": [
+				{
+					"name": "_value",
+					"type": "uint256"
+				}
+			],
+			"name": "setValue",
+			"outputs": [],
+			"payable": false,
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"constant": true,
+			"inputs": [],
+			"name": "getValue",
+			"outputs": [
+				{
+					"name": "transaction",
+					"type": "uint256"
+				}
+			],
+			"payable": false,
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"constant": true,
+			"inputs": [],
+			"name": "getOwner",
+			"outputs": [
+				{
+					"name": "hyperledger_client",
+					"type": "address"
+				}
+			],
+			"payable": false,
+			"stateMutability": "view",
+			"type": "function"
+		}
+	],
+	"bytecode": "0x60606033445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+	"contractName": "FireFly_Client"
+}
