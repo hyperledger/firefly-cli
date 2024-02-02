@@ -28,6 +28,20 @@ func TestReadTruffleCompiledContract(t *testing.T) {
 	})
 }
 
-func TestReadSolCompiledContract(t *testing.T){
+func TestReadSolCompiledContract(t *testing.T) {
+	dir := "testdata"
+	contractFile := filepath.Join(dir, "sol.json")
+
+	t.Run("TestReadSolContract", func(t *testing.T) {
+		SolContract, err := ReadSolcCompiledContract(contractFile)
+		if err != nil {
+			t.Logf("Unable to read sol contract: %v", err)
+		}
 	
+		assert.NotNil(t, SolContract)
+		contractMap := SolContract.Contracts
+		assert.NotNil(t, contractMap)
+		
+	})
+
 }
