@@ -47,15 +47,7 @@ type HexType struct {
 
 // Explicitly quote hex addresses so that they are interpreted as string (not int)
 func (ht *HexType) MarshalYAML() (interface{}, error) {
-	//convert to byte type
-	hexBytes, err := hex.DecodeString(string(ht.HexValue[2:]))
-	if err != nil {
-		return nil, err
-	}
-	//copy bytes to fixed array
-	var hexArray []byte
-	copy(hexArray[:], hexBytes)
-	hexAddr, err := ht.HexWrap.WrapHexAddress([]byte(hexArray))
+	hexAddr, err := ht.HexWrap.WrapHexAddress([]byte(ht.HexValue))
 	if err != nil {
 		return nil, err
 	}
