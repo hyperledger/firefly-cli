@@ -56,11 +56,11 @@ func TestWrapHexAddress(t *testing.T) {
 				t.Fatalf("expected 20 bytes, got %d bytes", len(hexBytes))
 			}
 			// Copy bytes to a fixed-size array
-			var hexArray [20]byte
+			var hexArray []byte
 			copy(hexArray[:], hexBytes)
 			//encodes the decoded values to hexadecimal and returns string
 			//Ethereum convention for representing hexadecimal values, the prefix must have "0x"
-			result, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
+			result, err := hexType.HexWrap.WrapHexAddress([]byte(hexArray))
 			if err != nil {
 				t.Log("error in generating result", err)
 				t.Fail()
@@ -105,9 +105,9 @@ func TestYamlMarshal(t *testing.T) {
 			if err != nil {
 				t.Log("unable to decode values")
 			}
-			var hexArray [20]byte
+			var hexArray []byte
 			copy(hexArray[:], hexbyte)
-			YamlHex, err := hexType.HexWrap.WrapHexAddress([20]byte(hexArray))
+			YamlHex, err := hexType.HexWrap.WrapHexAddress([]byte(hexArray))
 			if err != nil {
 				t.Log("unable to generate yaml string")
 			}

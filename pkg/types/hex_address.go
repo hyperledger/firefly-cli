@@ -30,7 +30,7 @@ type HexWrapper struct {
 }
 
 // WrapHexAddress wraps a hex address as HexAddress
-func (h *HexWrapper) WrapHexAddress(addr [20]byte) (string, error) {
+func (h *HexWrapper) WrapHexAddress(addr []byte) (string, error) {
 	hexStr := "0x" + hex.EncodeToString(addr[:])
 	// Initialize addrStr before using it
 	h.addrStr = new(ethtypes.Address0xHex)
@@ -53,9 +53,9 @@ func (ht *HexType) MarshalYAML() (interface{}, error) {
 		return nil, err
 	}
 	//copy bytes to fixed array
-	var hexArray [20]byte
+	var hexArray []byte
 	copy(hexArray[:], hexBytes)
-	hexAddr, err := ht.HexWrap.WrapHexAddress([20]byte(hexArray))
+	hexAddr, err := ht.HexWrap.WrapHexAddress([]byte(hexArray))
 	if err != nil {
 		return nil, err
 	}
