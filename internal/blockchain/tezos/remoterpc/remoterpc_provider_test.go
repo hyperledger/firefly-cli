@@ -2,6 +2,7 @@ package remoterpc
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos"
@@ -23,22 +24,6 @@ type MockConnector struct {
 	PortFn                  func() int
 	GenerateConfigFn        func(stack *types.Stack, member *types.Organization, connectorName string, remoteNodeURL string) connector.Config
 	GetServiceDefinitionsfn func(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
-}
-
-func (wg *WriteConfig) WriteConfig(filename string, extraConnectorConfigPath string) error {
-	return nil
-}
-func (m *MockConnector) Name() string {
-	return m.NameFn()
-}
-func (m *MockConnector) Port() int {
-	return m.PortFn()
-}
-func (m *MockConnector) GenerateConfig(stack *types.Stack, member *types.Organization, connectorName string, remoteNodeURL string) connector.Config {
-	return m.GenerateConfigFn(stack, member, connectorName, remoteNodeURL)
-}
-func (m *MockConnector) GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition {
-	return m.GetServiceDefinitionsfn(s, dependentServices)
 }
 
 func TestWriteConfig(t *testing.T) {
@@ -295,4 +280,58 @@ func TestNewRemoteRPCProvider(t *testing.T) {
 			assert.NotNil(t, rpcProvider)
 		})
 	}
+}
+
+func TestGetConnectorExternalURL(t *testing.T) {
+
+	testURLS := []struct {
+		Name        string
+		OrgPort     *types.Organization
+		ExpectedURL string
+	}{
+		{
+			Name: "TestCase-1", OrgPort: &types.Organization{ExposedConnectorPort: 8000}, ExpectedURL: fmt.Sprintf("http://127.0.0.1:%v", 8000),
+		},
+		{
+			Name: "TestCase-2", OrgPort: &types.Organization{ExposedConnectorPort: 8001}, ExpectedURL: fmt.Sprintf("http://127.0.0.1:%v", 8001),
+		},
+		{
+			Name: "TestCase-3", OrgPort: &types.Organization{ExposedConnectorPort: 8003}, ExpectedURL: fmt.Sprintf("http://127.0.0.1:%v", 8003),
+		},
+		{
+			Name: "TestCase-4", OrgPort: &types.Organization{ExposedConnectorPort: 7008}, ExpectedURL: fmt.Sprintf("http://127.0.0.1:%v", 7008),
+		},
+		{
+			Name: "TestCase-3", OrgPort: &types.Organization{ExposedConnectorPort: 8080}, ExpectedURL: fmt.Sprintf("http://127.0.0.1:%v", 8080),
+		},
+	}
+	for _, tc := range testURLS {
+		t.Run(tc.Name, func(t *testing.T) {
+			p := &RemoteRPCProvider{}
+			ExternalURL := p.GetConnectorExternalURL(tc.OrgPort)
+			assert.NotNil(t, ExternalURL)
+			assert.Equal(t, tc.ExpectedURL, ExternalURL)
+		})
+	}
+}
+
+func TestGetConnectorURL(t *testing.T) {
+	orgID := &types.Organization{
+		ID: "fireflyconnector",
+	}
+	pConnector := &MockConnector{
+		NameFn: func() string {
+			return "tezosconnector"
+		},
+		PortFn: func() int {
+			return 7079
+		},
+	}
+
+	p := RemoteRPCProvider{
+		connector: pConnector,
+	}
+	URL := p.GetConnectorURL(orgID)
+	assert.NotNil(t, URL)
+
 }
