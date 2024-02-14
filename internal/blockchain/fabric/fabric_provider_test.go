@@ -411,24 +411,3 @@ func TestRegisterIdentity(t *testing.T) {
 
 }
 
-//Implement a Mock logger to make this work
-// func TestCreateChannel(t *testing.T) {
-// 	ctx := log.WithLogger(context.Background(), &log.StdoutLogger{
-// 		LogLevel: log.Info,
-// 	})
-
-// 	Stack := &types.Stack{
-// 		Name:     "fabric_user-1",
-// 		StackDir: "mock_stack_dir",
-// 	}
-
-// 	p := &FabricProvider{
-// 		stack: Stack,
-// 		ctx:   ctx,
-// 		log:   Log,
-// 	}
-// 	err := p.createChannel()
-// 	if err != nil {
-// 		t.Log("unable to create channel:", err)
-// 	}
-// }
