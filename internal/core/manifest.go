@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -63,7 +63,11 @@ func GetManifestForChannel(releaseChannel fftypes.FFEnum) (*types.VersionManifes
 }
 
 func GetManifestForRelease(version string) (*types.VersionManifest, error) {
-	sha, err := getSHA(constants.FireFlyCoreImageName, version)
+	tag := version
+	if version == "main" {
+		tag = "head"
+	}
+	sha, err := getSHA(constants.FireFlyCoreImageName, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +81,7 @@ func GetManifestForRelease(version string) (*types.VersionManifest, error) {
 		// Fill in the FireFly version number
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "ghcr.io/hyperledger/firefly",
-			Tag:   version,
+			Tag:   tag,
 			SHA:   sha,
 		}
 	}

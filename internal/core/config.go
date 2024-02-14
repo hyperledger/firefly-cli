@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,7 +30,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 	// TODO: If we move to support multiple namespaces at the same time, we will need to
 	// change the Name field of some of these plugins
 
-	spiHttpConfig := types.HttpServerConfig{
+	spiHTTPConfig := types.HTTPServerConfig{
 		Port:      member.ExposedFireflyAdminSPIPort,
 		Address:   "0.0.0.0",
 		PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyAdminSPIPort),
@@ -39,20 +39,20 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 		Log: &types.LogConfig{
 			Level: "debug",
 		},
-		Debug: &types.HttpServerConfig{
+		Debug: &types.HTTPServerConfig{
 			Port: 6060,
 		},
-		HTTP: &types.HttpServerConfig{
+		HTTP: &types.HTTPServerConfig{
 			Port:      member.ExposedFireflyPort,
 			Address:   "0.0.0.0",
 			PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyPort),
 		},
 		Admin: &types.AdminServerConfig{
-			HttpServerConfig: spiHttpConfig,
+			HTTPServerConfig: spiHTTPConfig,
 			Enabled:          true,
 		},
 		SPI: &types.SPIServerConfig{
-			HttpServerConfig: spiHttpConfig,
+			HTTPServerConfig: spiHTTPConfig,
 			Enabled:          true,
 		},
 		UI: &types.UIConfig{
@@ -71,10 +71,10 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 			Type: "ipfs",
 			Name: "sharedstorage0",
 			IPFS: &types.FireflyIPFSConfig{
-				API: &types.HttpEndpointConfig{
+				API: &types.HTTPEndpointConfig{
 					URL: getIPFSAPIURL(member),
 				},
-				Gateway: &types.HttpEndpointConfig{
+				Gateway: &types.HTTPEndpointConfig{
 					URL: getIPFSGatewayURL(member),
 				},
 			},
@@ -85,7 +85,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 		{
 			Type: "ffdx",
 			Name: "dataexchange0",
-			FFDX: &types.HttpEndpointConfig{
+			FFDX: &types.HTTPEndpointConfig{
 				URL: getDataExchangeURL(member),
 			},
 		},
@@ -93,7 +93,7 @@ func NewFireflyConfig(stack *types.Stack, member *types.Organization) *types.Fir
 
 	if stack.PrometheusEnabled {
 		memberConfig.Metrics = &types.MetricsServerConfig{
-			HttpServerConfig: types.HttpServerConfig{
+			HTTPServerConfig: types.HTTPServerConfig{
 				Port:      member.ExposedFireflyMetricsPort,
 				Address:   "0.0.0.0",
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", member.ExposedFireflyMetricsPort),

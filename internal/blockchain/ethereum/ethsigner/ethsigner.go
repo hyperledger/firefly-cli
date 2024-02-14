@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -85,10 +85,14 @@ func (p *EthSignerProvider) FirstTimeSetup() error {
 	// Copy the signer config to the volume
 	signerConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", "ethsigner.yaml")
 	signerConfigVolumeName := fmt.Sprintf("%s_ethsigner_config", p.stack.Name)
-	docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, signerConfigPath, "firefly.ffsigner")
+	if err := docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, signerConfigPath, "firefly.ffsigner"); err != nil {
+		return err
+	}
 
 	// Copy the wallet files all members to the blockchain volume
-	docker.CopyFileToVolume(p.ctx, ethsignerVolumeName, filepath.Join(blockchainDir, "keystore"), "/")
+	if err := docker.CopyFileToVolume(p.ctx, ethsignerVolumeName, filepath.Join(blockchainDir, "keystore"), "/"); err != nil {
+		return err
+	}
 
 	// Copy the password (to be used for decrypting private keys)
 	if err := docker.CopyFileToVolume(p.ctx, ethsignerVolumeName, path.Join(blockchainDir, "password"), "password"); err != nil {
@@ -202,6 +206,6 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 
 	return &ethereum.Account{
 		Address:    keyPair.Address.String(),
-		PrivateKey: hex.EncodeToString(keyPair.PrivateKey.Serialize()),
+		PrivateKey: hex.EncodeToString(keyPair.PrivateKeyBytes()),
 	}, nil
 }

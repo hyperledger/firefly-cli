@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -82,6 +82,7 @@ func RunDockerCommandRetry(ctx context.Context, workingDir string, retries int, 
 }
 
 func RunDockerCommand(ctx context.Context, workingDir string, command ...string) error {
+	//nolint:gosec
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
 	_, err := runCommand(ctx, dockerCmd)
@@ -91,11 +92,13 @@ func RunDockerCommand(ctx context.Context, workingDir string, command ...string)
 func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...string) error {
 	switch ctx.Value(CtxComposeVersionKey{}) {
 	case ComposeV1:
+		//nolint:gosec
 		dockerCmd := exec.Command("docker-compose", command...)
 		dockerCmd.Dir = workingDir
 		_, err := runCommand(ctx, dockerCmd)
 		return err
 	case ComposeV2:
+		//nolint:gosec
 		dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
 		dockerCmd.Dir = workingDir
 		_, err := runCommand(ctx, dockerCmd)
@@ -106,12 +109,14 @@ func RunDockerComposeCommand(ctx context.Context, workingDir string, command ...
 }
 
 func RunDockerCommandBuffered(ctx context.Context, workingDir string, command ...string) (string, error) {
+	//nolint:gosec
 	dockerCmd := exec.Command("docker", command...)
 	dockerCmd.Dir = workingDir
 	return runCommand(ctx, dockerCmd)
 }
 
 func RunDockerComposeCommandReturnsStdout(workingDir string, command ...string) ([]byte, error) {
+	//nolint:gosec
 	dockerCmd := exec.Command("docker", append([]string{"compose"}, command...)...)
 	dockerCmd.Dir = workingDir
 	return dockerCmd.Output()
@@ -152,7 +157,9 @@ outputCapture:
 			return "", err
 		}
 	}
-	cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return outputBuff.String(), err
+	}
 	statusCode := cmd.ProcessState.ExitCode()
 	if statusCode != 0 {
 		return "", fmt.Errorf("%s [%d] %s", strings.Join(cmd.Args, " "), statusCode, outputBuff.String())
@@ -171,7 +178,9 @@ func pipeCommand(cmd *exec.Cmd, stdoutChan chan string, stderrChan chan string, 
 		errChan <- err
 		return
 	}
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		fmt.Println(err.Error())
+	}
 	go readPipe(stdout, stdoutChan, errChan)
 	go readPipe(stderr, stderrChan, errChan)
 }

@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -63,7 +63,9 @@ func NewFabricProvider(ctx context.Context, stack *types.Stack) *FabricProvider 
 func (p *FabricProvider) WriteConfig(options *types.InitOptions) error {
 	blockchainDirectory := path.Join(p.stack.InitDir, "blockchain")
 
-	os.MkdirAll(blockchainDirectory, 0755)
+	if err := os.MkdirAll(blockchainDirectory, 0755); err != nil {
+		return err
+	}
 	if p.stack.RemoteFabricNetwork {
 		for i, member := range p.stack.Members {
 			if err := cp.Copy(options.CCPYAMLPaths[i], path.Join(blockchainDirectory, fmt.Sprintf("%s_ccp.yaml", member.ID))); err != nil {
@@ -440,7 +442,7 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 	return res, nil
 }
 
-func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId string) error {
+func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageID string) error {
 	p.log.Info("approving chaincode")
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, p.stack.RuntimeDir,
@@ -461,7 +463,7 @@ func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageId
 		"--channelID", channel,
 		"--name", chaincode,
 		"--version", version,
-		"--package-id", packageId,
+		"--package-id", packageID,
 		"--sequence", "1",
 		"--tls",
 		"--cafile", "/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem",

@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -32,6 +32,8 @@ func checkHome() string {
 	var homeDir, _ = os.UserHomeDir()
 	var StacksDir = filepath.Join(homeDir, ".firefly", "stacks")
 	var fireflyhome, present = os.LookupEnv("FIREFLY_HOME")
-	if present { StacksDir = filepath.Join(fireflyhome, "stacks") }
+	if present {
+		StacksDir = filepath.Join(fireflyhome, "stacks")
+	}
 	return StacksDir
 }

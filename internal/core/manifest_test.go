@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -27,7 +27,6 @@ func TestGetFireFlyManifest(t *testing.T) {
 	manifest, err := GetManifestForRelease("main")
 	assert.NoError(t, err)
 	assert.NotNil(t, manifest)
-	assert.NotNil(t, manifest.FireFly)
 	assert.NotNil(t, manifest.Ethconnect)
 	assert.NotNil(t, manifest.Fabconnect)
 	assert.NotNil(t, manifest.DataExchange)

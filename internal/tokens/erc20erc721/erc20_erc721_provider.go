@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
+//nolint:gosec // These are not credentials
 const tokenProviderName = "erc20_erc721"
 
 type ERC20ERC721Provider struct {
@@ -71,8 +72,8 @@ func (p *ERC20ERC721Provider) FirstTimeSetup(tokenIdx int) error {
 	l := log.LoggerFromContext(p.ctx)
 	for _, member := range p.stack.Members {
 		l.Info(fmt.Sprintf("initializing tokens on member %s", member.ID))
-		tokenInitUrl := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
-		if err := core.RequestWithRetry(p.ctx, "POST", tokenInitUrl, nil, nil); err != nil {
+		tokenInitURL := fmt.Sprintf("http://localhost:%d/api/v1/init", member.ExposedTokensPorts[tokenIdx])
+		if err := core.RequestWithRetry(p.ctx, "POST", tokenInitURL, nil, nil); err != nil {
 			return err
 		}
 	}
@@ -87,6 +88,7 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 		var factoryAddress types.HexAddress
 		for _, contract := range p.stack.State.DeployedContracts {
 			if contract.Name == contractName(tokenIdx) {
+				//nolint:gocritic // can't rewrite this as an if, because .(type) cannot be used outside a switch
 				switch loc := contract.Location.(type) {
 				case map[string]string:
 					factoryAddress = types.HexAddress(loc["address"])

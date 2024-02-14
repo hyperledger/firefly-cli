@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -85,26 +85,26 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 	for _, member := range s.Members {
 
 		// Look at the VersionManifest to see if a specific version of FireFly was provided, else use latest, assuming a locally built image
-
+		const fireflyCore = "firefly_core"
 		if !member.External {
-			configFile := filepath.Join(s.RuntimeDir, "config", fmt.Sprintf("firefly_core_%s.yml", member.ID))
-			compose.Services["firefly_core_"+member.ID] = &Service{
+			configFile := filepath.Join(s.RuntimeDir, "config", fmt.Sprintf("%s_%s.yml", fireflyCore, member.ID))
+			compose.Services[fireflyCore+"_"+member.ID] = &Service{
 				Image:         s.VersionManifest.FireFly.GetDockerImageString(),
-				ContainerName: fmt.Sprintf("%s_firefly_core_%s", s.Name, member.ID),
+				ContainerName: fmt.Sprintf("%s_%s_%s", s.Name, fireflyCore, member.ID),
 				Ports: []string{
 					fmt.Sprintf("%d:%d", member.ExposedFireflyPort, member.ExposedFireflyPort),
 					fmt.Sprintf("%d:%d", member.ExposedFireflyAdminSPIPort, member.ExposedFireflyAdminSPIPort),
 				},
 				Volumes: []string{
 					fmt.Sprintf("%s:/etc/firefly/firefly.core.yml:ro", configFile),
-					fmt.Sprintf("firefly_core_db_%s:/etc/firefly/db", member.ID),
+					fmt.Sprintf("%s_db_%s:/etc/firefly/db", fireflyCore, member.ID),
 				},
 				DependsOn: map[string]map[string]string{},
 				Logging:   StandardLogOptions,
 			}
-			compose.Volumes[fmt.Sprintf("firefly_core_db_%s", member.ID)] = struct{}{}
-			compose.Services["firefly_core_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
-			compose.Services["firefly_core_"+member.ID].DependsOn["ipfs_"+member.ID] = map[string]string{"condition": "service_healthy"}
+			compose.Volumes[fmt.Sprintf("%s_db_%s", fireflyCore, member.ID)] = struct{}{}
+			compose.Services[fireflyCore+"_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
+			compose.Services[fireflyCore+"_"+member.ID].DependsOn["ipfs_"+member.ID] = map[string]string{"condition": "service_healthy"}
 		}
 		if s.Database == "postgres" {
 			compose.Services["postgres_"+member.ID] = &Service{
@@ -125,7 +125,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Logging: StandardLogOptions,
 			}
 			compose.Volumes[fmt.Sprintf("postgres_%s", member.ID)] = struct{}{}
-			if service, ok := compose.Services[fmt.Sprintf("firefly_core_%s", member.ID)]; ok {
+			if service, ok := compose.Services[fmt.Sprintf("%s_%s", fireflyCore, member.ID)]; ok {
 				service.DependsOn["postgres_"+member.ID] = map[string]string{"condition": "service_healthy"}
 			}
 		}

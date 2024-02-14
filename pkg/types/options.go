@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -11,7 +11,8 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific lan
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package types
 
@@ -109,9 +110,9 @@ var (
 const TokenProvider = "token_provider"
 
 var (
-	TokenProviderNone         = fftypes.FFEnumValue(TokenProvider, "none")
-	TokenProviderERC1155      = fftypes.FFEnumValue(TokenProvider, "erc1155")
-	TokenProviderERC20_ERC721 = fftypes.FFEnumValue(TokenProvider, "erc20_erc721")
+	TokenProviderNone        = fftypes.FFEnumValue(TokenProvider, "none")
+	TokenProviderERC1155     = fftypes.FFEnumValue(TokenProvider, "erc1155")
+	TokenProviderERC20ERC721 = fftypes.FFEnumValue(TokenProvider, "erc20_erc721")
 )
 
 const ReleaseChannelSelection = "release_channel"

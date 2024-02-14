@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -38,7 +38,7 @@ var logger log.Logger = &log.StdoutLogger{
 	LogLevel: log.Debug,
 }
 
-func GetFireflyAsciiArt() string {
+func GetFireflyASCIIArt() string {
 	s := ""
 	s += "\u001b[33m    _______           ________     \u001b[0m\n"   // yellow
 	s += "\u001b[33m   / ____(_)_______  / ____/ /_  __\u001b[0m\n"   // yellow
@@ -54,7 +54,7 @@ func GetFireflyAsciiArt() string {
 var rootCmd = &cobra.Command{
 	Use:   "ff",
 	Short: "FireFly CLI is a developer tool used to manage local development stacks",
-	Long: GetFireflyAsciiArt() + `
+	Long: GetFireflyASCIIArt() + `
 FireFly CLI is a developer tool used to manage local development stacks
 	
 This tool automates creation of stacks with many infrastructure components which
@@ -113,5 +113,8 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	viper.ReadInConfig()
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println(err.Error())
+	}
+
 }

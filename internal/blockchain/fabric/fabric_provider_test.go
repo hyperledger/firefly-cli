@@ -266,7 +266,7 @@ func TestGetDockerPlatform(t *testing.T) {
 }
 
 func TestGetContracts(t *testing.T) {
-	FilePath := "testdata"
+	FilePath := t.TempDir()
 	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
 	// Sample contract JSON content for testing
 	const testContractJSON = `{
