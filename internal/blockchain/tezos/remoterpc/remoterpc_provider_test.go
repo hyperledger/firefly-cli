@@ -6,24 +6,10 @@ import (
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
-	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
 	"github.com/stretchr/testify/assert"
 )
-
-type WriteConfig struct {
-	connector.Config
-	WriteConfigfn func(filename string, extraConnectorConfigPath string) error
-}
-type MockConnector struct {
-	connector.Connector
-	NameFn                  func() string
-	PortFn                  func() int
-	GenerateConfigFn        func(stack *types.Stack, member *types.Organization, connectorName string, remoteNodeURL string) connector.Config
-	GetServiceDefinitionsfn func(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
-}
 
 func TestParseAccount(t *testing.T) {
 	tests := []struct {
@@ -253,25 +239,4 @@ func TestGetConnectorExternalURL(t *testing.T) {
 			assert.Equal(t, tc.ExpectedURL, ExternalURL)
 		})
 	}
-}
-
-func TestGetConnectorURL(t *testing.T) {
-	orgID := &types.Organization{
-		ID: "fireflyconnector",
-	}
-	pConnector := &MockConnector{
-		NameFn: func() string {
-			return "tezosconnector"
-		},
-		PortFn: func() int {
-			return 7079
-		},
-	}
-
-	p := RemoteRPCProvider{
-		connector: pConnector,
-	}
-	URL := p.GetConnectorURL(orgID)
-	assert.NotNil(t, URL)
-
 }

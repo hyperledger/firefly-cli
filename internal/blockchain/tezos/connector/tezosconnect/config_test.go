@@ -6,9 +6,9 @@ import (
 )
 
 func TestWriteConfig(t *testing.T) {
-	dir := "testdata"
-	configFilename := dir + filepath.Join("config.yaml")
-	extraTezosConfigPath := dir + filepath.Join("/conflate/extra.yaml")
+	dir := t.TempDir()
+	configFilename := filepath.Join(dir + "/config.yaml")
+	extraTezosConfigPath := filepath.Join(dir + "/conflate/extra.yaml")
 	p := Config{}
 	t.Run("TestWriteConfig", func(t *testing.T) {
 		err := p.WriteConfig(configFilename, extraTezosConfigPath)
