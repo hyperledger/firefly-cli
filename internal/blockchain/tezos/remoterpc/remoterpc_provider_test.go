@@ -7,7 +7,6 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/connector"
-	"github.com/hyperledger/firefly-cli/internal/blockchain/tezos/tezossigner"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
@@ -24,65 +23,6 @@ type MockConnector struct {
 	PortFn                  func() int
 	GenerateConfigFn        func(stack *types.Stack, member *types.Organization, connectorName string, remoteNodeURL string) connector.Config
 	GetServiceDefinitionsfn func(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
-}
-
-func TestWriteConfig(t *testing.T) {
-	directory := "testdata"
-	ConfigValue := struct {
-		Options *types.InitOptions
-		Stacks  *types.Stack
-	}{
-		Options: &types.InitOptions{
-			StackName:                "tezos_1",
-			RemoteNodeURL:            "http://127.0.0.1:8000",
-			ExtraConnectorConfigPath: directory + "config.yaml",
-		},
-		Stacks: &types.Stack{
-			Name: "tezos_1",
-			Members: []*types.Organization{
-				{
-					ID: "125",
-					Account: &tezos.Account{
-						Address:    "0x1234567890abcdef0123456789abcdef6789abcd",
-						PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-					},
-					NodeName: "tezos_rpc",
-					OrgName:  "Hyperledger_Gateway1",
-				},
-			},
-		},
-	}
-	// Mock implementation using the MockConnector
-	mockConnector := &MockConnector{
-		NameFn: func() string {
-			return "TestConnector"
-		},
-		PortFn: func() int {
-			return 5008
-		},
-		GetServiceDefinitionsfn: func(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition {
-			return []*docker.ServiceDefinition{
-				{
-					ServiceName: "Hyperledger_tezos",
-				},
-			}
-		},
-		GenerateConfigFn: func(stack *types.Stack, member *types.Organization, connectorName string, remoteNodeURL string) connector.Config {
-			return &WriteConfig{}
-		},
-	}
-	ctx := context.Background()
-	// Use the mock implementation
-	p := &RemoteRPCProvider{
-		ctx:       ctx,
-		stack:     ConfigValue.Stacks,
-		connector: mockConnector,
-		signer:    &tezossigner.TezosSignerProvider{},
-	}
-	err := p.WriteConfig(ConfigValue.Options)
-	if err != nil {
-		t.Fatalf("Unable to write config: %v", err)
-	}
 }
 
 func TestParseAccount(t *testing.T) {

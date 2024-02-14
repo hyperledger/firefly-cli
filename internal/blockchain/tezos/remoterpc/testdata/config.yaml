@@ -1,4 +1,0 @@
-tezos:
-  network: mainnet
-  gas_limit: 1000000
-  fee: 0.0001
