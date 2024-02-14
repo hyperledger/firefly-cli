@@ -1,8 +1,0 @@
-[metadata]
-createdAt = 2019-11-05T08:15:30-05:00
-description = "File based configuration"
-
-[signing]
-type = "file-based-signer"
-key-file = "/data/keystore/wallet.toml"
-password-file = "/data/password"

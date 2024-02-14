@@ -1,6 +1,7 @@
 package ethsigner
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,8 +9,8 @@ import (
 
 func TestWriteTomlKeyFile(t *testing.T) {
 	t.Run("TestwriteTomlKeyFile", func(t *testing.T) {
-		directory := "testdata"
-		FilePath := directory + "/wallet.toml"
+		directory := t.TempDir()
+		FilePath := filepath.Join(directory + "/wallet.toml")
 
 		p := &EthSignerProvider{}
 
