@@ -6,7 +6,7 @@ import (
 )
 
 func TestWriteConfig(t *testing.T) {
-	dir := "testdata"
+	dir := t.TempDir()
 	configFilename := dir + filepath.Join("config.yaml")
 	extraEvmConfigPath := dir + filepath.Join("/conflate/extra.yaml")
 	p := Config{}

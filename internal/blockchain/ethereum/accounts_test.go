@@ -1,16 +1,17 @@
 package ethereum
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateWalletFile(t *testing.T) {
-	dir := "walletdata"
+	dir := t.TempDir()
 
 	prefix := "WalletPair"
-	outputDirectory := dir + "wallet.json"
+	outputDirectory := filepath.Join(dir + "wallet.json")
 	password := "26371628355334###"
 	t.Run("TestCreateWalletFile", func(t *testing.T) {
 		keypair, filename, err := CreateWalletFile(outputDirectory, prefix, password)
