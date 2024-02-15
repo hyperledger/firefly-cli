@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -23,17 +22,9 @@ func TestDeployFabricCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to execute command :%v", err)
 	}
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("Not able to get current working directory")
-	}
-	currDir := filepath.Dir(filename)
-	chainCodefile := filepath.Join(currDir, "testdata", "fabric_deploy.json")
-	ChaincodePackage, err := utils.ReadFileToString(chainCodefile)
-	if err != nil {
-		t.Fatalf("Failed to read expected response file: %v", err)
-	}
-	Args := []string{"fabric", "stack-1", ChaincodePackage, "firefly", "fabric-user-1", "1.0"}
+	currDir := t.TempDir()
+	chainCodefile := filepath.Join(currDir + "fabric_deploy.json")
+	Args := []string{"fabric", "stack-1", chainCodefile, "firefly", "fabric-user-1", "1.0"}
 
 	t.Run("Test Deploy Cmd", func(t *testing.T) {
 		DeployFabric := deployFabricCmd

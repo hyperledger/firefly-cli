@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -23,12 +22,8 @@ func TestDeployEthereumCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create stack : %v", err)
 	}
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("Not able to get current working directory")
-	}
-	currDir := filepath.Dir(filename)
-	contractFile := filepath.Join(currDir, "testdata", "eth_deploy.json")
+	currDir := t.TempDir()
+	contractFile := filepath.Join(currDir + "eth_deploy.json")
 
 	ethPackage, err := utils.ReadFileToString(contractFile)
 	if err != nil {

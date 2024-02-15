@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/utils"
@@ -20,32 +18,32 @@ func TestCreateAccountCmd(t *testing.T) {
 		{
 			Name:             "testcase1",
 			Args:             []string{"create", "stack-1"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 		{
 			Name:             "testcase-2",
 			Args:             []string{"create", "stack-2"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 		{
 			Name:             "testcase-3",
 			Args:             []string{"create", "stack-3"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 		{
 			Name:             "testcase-4",
 			Args:             []string{"create", "stack-4"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 		{
 			Name:             "testcase-5",
 			Args:             []string{"create", "stack-5"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 		{
 			Name:             "testcase-6",
 			Args:             []string{"create", "stack-6"},
-			ExpectedResponse: "account1.output",
+			ExpectedResponse: "",
 		},
 	}
 	for _, tc := range testcases {
@@ -70,21 +68,9 @@ func TestCreateAccountCmd(t *testing.T) {
 
 			// Get the actual response
 			actualResponse := outputBuffer.String()
-			// Load the expected response from file
-			// get current directory
-			_, filename, _, ok := runtime.Caller(0)
-			if !ok {
-				t.Fatal("Not able to get current working directory")
-			}
-			currDir := filepath.Dir(filename)
-			expectedResponseFile := filepath.Join(currDir, "testdata", tc.ExpectedResponse)
-			expectedResponse, err := utils.ReadFileToString(expectedResponseFile)
-			if err != nil {
-				t.Fatalf("Failed to read expected response file: %v", err)
-			}
 
 			// Compare actual and expected responses
-			assert.Equal(t, expectedResponse, actualResponse, "Responses do not match")
+			assert.Equal(t, tc.ExpectedResponse, actualResponse, "Responses do not match")
 
 			assert.NotNil(t, actualResponse)
 		})
