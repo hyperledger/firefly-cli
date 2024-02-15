@@ -7,7 +7,7 @@ import (
 )
 
 func TestWriteFabconnectConfig(t *testing.T) {
-	directory := "testdata"
+	directory := t.TempDir()
 
 	testCases := []struct {
 		Name     string

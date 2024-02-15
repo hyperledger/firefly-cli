@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -98,7 +98,7 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 
 	if stack.PrometheusEnabled {
 		metrics = &types.MetricsServerConfig{
-			HttpServerConfig: types.HttpServerConfig{
+			HTTPServerConfig: types.HTTPServerConfig{
 				Port:      org.ExposedConnectorMetricsPort,
 				Address:   "0.0.0.0",
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", org.ExposedConnectorMetricsPort),

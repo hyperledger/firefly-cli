@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -103,7 +103,7 @@ func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization,
 
 	if stack.PrometheusEnabled {
 		metrics = &types.MetricsServerConfig{
-			HttpServerConfig: types.HttpServerConfig{
+			HTTPServerConfig: types.HTTPServerConfig{
 				Port:      org.ExposedConnectorMetricsPort,
 				Address:   "0.0.0.0",
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", org.ExposedConnectorMetricsPort),

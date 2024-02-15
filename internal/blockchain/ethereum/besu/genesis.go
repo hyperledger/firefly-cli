@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -45,14 +45,14 @@ type Genesis struct {
 }
 
 type GenesisConfig struct {
-	ChainId                int64         `json:"chainId"`
+	ChainID                int64         `json:"chainId"`
 	ConstantinopleFixBlock int           `json:"constantinoplefixblock"`
 	Clique                 *CliqueConfig `json:"clique"`
 }
 
 type CliqueConfig struct {
 	EpochLength        int `json:"epochlength"`
-	Blockperiodseconds int `json:"blockperiodseconds"`
+	BlockPeriodSeconds int `json:"blockperiodseconds"`
 }
 
 type Alloc struct {
@@ -61,9 +61,9 @@ type Alloc struct {
 	Storage *Storage `json:"storage,omitempty"`
 }
 
-func (g *Genesis) WriteGenesisJson(filename string) error {
-	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
-	if err := os.WriteFile(filename, genesisJsonBytes, 0755); err != nil {
+func (g *Genesis) WriteGenesisJSON(filename string) error {
+	genesisJSONBytes, _ := json.MarshalIndent(g, "", " ")
+	if err := os.WriteFile(filename, genesisJSONBytes, 0755); err != nil {
 		return err
 	}
 	return nil
@@ -84,10 +84,10 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 	extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 	return &Genesis{
 		Config: &GenesisConfig{
-			ChainId:                chainID,
+			ChainID:                chainID,
 			ConstantinopleFixBlock: 0,
 			Clique: &CliqueConfig{
-				Blockperiodseconds: blockPeriod,
+				BlockPeriodSeconds: blockPeriod,
 				EpochLength:        30000,
 			},
 		},

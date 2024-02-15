@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -45,8 +45,8 @@ type EnrollIdentityResponse struct {
 	Success string
 }
 
-func CreateIdentity(fabconnectUrl string, signer string) (*CreateIdentityResponse, error) {
-	u, err := url.Parse(fabconnectUrl)
+func CreateIdentity(fabconnectURL string, signer string) (*CreateIdentityResponse, error) {
+	u, err := url.Parse(fabconnectURL)
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +54,12 @@ func CreateIdentity(fabconnectUrl string, signer string) (*CreateIdentityRespons
 	if err != nil {
 		return nil, err
 	}
-	requestUrl := u.String()
+	requestURL := u.String()
 	requestBody, err := json.Marshal(&CreateIdentityRequest{Name: signer, Type: "client"})
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}
@@ -81,12 +81,14 @@ func CreateIdentity(fabconnectUrl string, signer string) (*CreateIdentityRespons
 		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var createIdentityResponseBody *CreateIdentityResponse
-	json.Unmarshal(responseBody, &createIdentityResponseBody)
+	if err := json.Unmarshal(responseBody, &createIdentityResponseBody); err != nil {
+		return nil, err
+	}
 	return createIdentityResponseBody, nil
 }
 
-func EnrollIdentity(fabconnectUrl, signer, secret string) (*EnrollIdentityResponse, error) {
-	u, err := url.Parse(fabconnectUrl)
+func EnrollIdentity(fabconnectURL, signer, secret string) (*EnrollIdentityResponse, error) {
+	u, err := url.Parse(fabconnectURL)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +96,12 @@ func EnrollIdentity(fabconnectUrl, signer, secret string) (*EnrollIdentityRespon
 	if err != nil {
 		return nil, err
 	}
-	requestUrl := u.String()
+	requestURL := u.String()
 	requestBody, err := json.Marshal(&EnrollIdentityRequest{Secret: secret})
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", requestUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +123,8 @@ func EnrollIdentity(fabconnectUrl, signer, secret string) (*EnrollIdentityRespon
 		return nil, fmt.Errorf("%s [%d] %s", req.URL, resp.StatusCode, responseBody)
 	}
 	var enrollIdentityResponse *EnrollIdentityResponse
-	json.Unmarshal(responseBody, &enrollIdentityResponse)
+	if err := json.Unmarshal(responseBody, &enrollIdentityResponse); err != nil {
+		return nil, err
+	}
 	return enrollIdentityResponse, nil
 }

@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -50,7 +50,9 @@ var initTezosCmd = &cobra.Command{
 			return err
 		}
 		if err := stackManager.InitStack(&initOptions); err != nil {
-			stackManager.RemoveStack()
+			if err := stackManager.RemoveStack(); err != nil {
+				return err
+			}
 			return err
 		}
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)

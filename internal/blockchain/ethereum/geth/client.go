@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,18 +25,18 @@ import (
 )
 
 type GethClient struct {
-	rpcUrl string
+	rpcURL string
 }
 
 type JSONRPCRequest struct {
-	JsonRPC string        `json:"jsonrpc"`
+	JSONRPC string        `json:"jsonrpc"`
 	ID      int           `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 }
 
 type JSONRPCResponse struct {
-	JsonRPC string        `json:"jsonrpc"`
+	JSONRPC string        `json:"jsonrpc"`
 	ID      int           `json:"id"`
 	Error   *JSONRPCError `json:"error,omitempty"`
 	Result  interface{}   `json:"result,omitempty"`
@@ -47,15 +47,15 @@ type JSONRPCError struct {
 	Message string `json:"message"`
 }
 
-func NewGethClient(rpcUrl string) *GethClient {
+func NewGethClient(rpcURL string) *GethClient {
 	return &GethClient{
-		rpcUrl: rpcUrl,
+		rpcURL: rpcURL,
 	}
 }
 
 func (g *GethClient) UnlockAccount(address string, password string) error {
 	requestBody, err := json.Marshal(&JSONRPCRequest{
-		JsonRPC: "2.0",
+		JSONRPC: "2.0",
 		ID:      0,
 		Method:  "personal_unlockAccount",
 		Params:  []interface{}{address, password, 0},
@@ -63,7 +63,7 @@ func (g *GethClient) UnlockAccount(address string, password string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", g.rpcUrl, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequest("POST", g.rpcURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return err
 	}

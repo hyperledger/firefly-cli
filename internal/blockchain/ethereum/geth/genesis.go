@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -39,7 +39,7 @@ type Genesis struct {
 }
 
 type GenesisConfig struct {
-	ChainId             int64         `json:"chainId"`
+	ChainID             int64         `json:"chainId"`
 	HomesteadBlock      int           `json:"homesteadBlock"`
 	Eip150Block         int           `json:"eip150Block"`
 	Eip150Hash          string        `json:"eip150Hash"`
@@ -77,7 +77,7 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 
 	return &Genesis{
 		Config: &GenesisConfig{
-			ChainId:             chainID,
+			ChainID:             chainID,
 			HomesteadBlock:      0,
 			Eip150Block:         0,
 			Eip150Hash:          "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -105,9 +105,9 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 	}
 }
 
-func (g *Genesis) WriteGenesisJson(filename string) error {
-	genesisJsonBytes, _ := json.MarshalIndent(g, "", " ")
-	if err := os.WriteFile(filename, genesisJsonBytes, 0755); err != nil {
+func (g *Genesis) WriteGenesisJSON(filename string) error {
+	genesisJSONBytes, _ := json.MarshalIndent(g, "", " ")
+	if err := os.WriteFile(filename, genesisJSONBytes, 0755); err != nil {
 		return err
 	}
 	return nil

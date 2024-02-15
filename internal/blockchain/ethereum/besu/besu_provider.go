@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -84,7 +84,7 @@ func (p *BesuProvider) WriteConfig(options *types.InitOptions) error {
 	}
 	// Drop the 0x on the front of the address here because that's what is expected in the genesis.json
 	genesis := CreateGenesis([]string{nodeAddress[2:]}, options.BlockPeriod, p.stack.ChainID())
-	if err := genesis.WriteGenesisJson(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
+	if err := genesis.WriteGenesisJSON(filepath.Join(initDir, "blockchain", "genesis.json")); err != nil {
 		return err
 	}
 
@@ -112,7 +112,9 @@ func (p *BesuProvider) FirstTimeSetup() error {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
 		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
-		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
+		if err := docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml"); err != nil {
+			return err
+		}
 	}
 
 	// Copy the genesis block information

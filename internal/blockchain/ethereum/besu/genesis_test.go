@@ -13,7 +13,7 @@ import (
 )
 
 func TestCreateGenesis(t *testing.T) {
-	//test diferent parameter cases for the CreateGenesis()
+	//test different parameter cases for the CreateGenesis()
 	testCases := []struct {
 		Name        string
 		addresses   []string
@@ -48,15 +48,15 @@ func TestCreateGenesis(t *testing.T) {
 				alloc[address] = &Alloc{
 					Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 				}
-				extraData += address
+				extraData += extraData
 			}
 			extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 			expectedGenesis := &Genesis{
 				Config: &GenesisConfig{
-					ChainId:                tc.chainID,
+					ChainID:                tc.chainID,
 					ConstantinopleFixBlock: 0,
 					Clique: &CliqueConfig{
-						Blockperiodseconds: tc.blockPeriod,
+						BlockPeriodSeconds: tc.blockPeriod,
 						EpochLength:        30000,
 					},
 				},
@@ -80,7 +80,7 @@ func TestCreateGenesis(t *testing.T) {
 }
 
 func TestWriteGenesisJSON(t *testing.T) {
-	filepath := "testdata"
+	filepath := t.TempDir()
 
 	testCases := []struct {
 		Name          string
@@ -91,10 +91,10 @@ func TestWriteGenesisJSON(t *testing.T) {
 			Name: "TestCase1",
 			SampleGenesis: Genesis{
 				Config: &GenesisConfig{
-					ChainId:                int64(456),
+					ChainID:                int64(456),
 					ConstantinopleFixBlock: 0,
 					Clique: &CliqueConfig{
-						Blockperiodseconds: 20,
+						BlockPeriodSeconds: 20,
 						EpochLength:        2000,
 					},
 				},
@@ -105,10 +105,10 @@ func TestWriteGenesisJSON(t *testing.T) {
 			Name: "TestCase2",
 			SampleGenesis: Genesis{
 				Config: &GenesisConfig{
-					ChainId:                int64(338),
+					ChainID:                int64(338),
 					ConstantinopleFixBlock: 0,
 					Clique: &CliqueConfig{
-						Blockperiodseconds: 40,
+						BlockPeriodSeconds: 40,
 						EpochLength:        4000,
 					},
 				},
@@ -118,7 +118,7 @@ func TestWriteGenesisJSON(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			err := tc.SampleGenesis.WriteGenesisJson(tc.filename)
+			err := tc.SampleGenesis.WriteGenesisJSON(tc.filename)
 			if err != nil {
 				t.Log("unable to write Genesis JSON", err)
 			}
