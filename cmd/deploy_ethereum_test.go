@@ -24,12 +24,7 @@ func TestDeployEthereumCmd(t *testing.T) {
 	}
 	currDir := t.TempDir()
 	contractFile := filepath.Join(currDir + "eth_deploy.json")
-
-	ethPackage, err := utils.ReadFileToString(contractFile)
-	if err != nil {
-		t.Fatalf("Failed to read expected response file: %v", err)
-	}
-	Args := []string{"deploy", "ethereum", "stack-2", ethPackage, "param1", "param2"}
+	Args := []string{"deploy", "ethereum", "stack-2", contractFile, "param1", "param2"}
 	ethDeployCmd := deployEthereumCmd
 	ethDeployCmd.SetArgs(Args)
 	ethDeployCmd.ExecuteContext(ctx)

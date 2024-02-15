@@ -9,12 +9,11 @@ import (
 
 func TestReadTruffleCompiledContract(t *testing.T) {
 	dir := "testdata"
-	contracFile := filepath.Join(dir, "truffle.json")
-
+	contractFile := filepath.Join(dir, "truffle.json")
 	t.Run("TestTruffleCompilesContract", func(t *testing.T) {
 		ExpectedContractName := "FireFly_Client"
 
-		compiledContracts, err := ReadTruffleCompiledContract(contracFile)
+		compiledContracts, err := ReadTruffleCompiledContract(contractFile)
 		if err != nil {
 			t.Logf("unable to read truffle contract : %v", err)
 		}
@@ -31,17 +30,13 @@ func TestReadTruffleCompiledContract(t *testing.T) {
 func TestReadSolCompiledContract(t *testing.T) {
 	dir := "testdata"
 	contractFile := filepath.Join(dir, "sol.json")
-
 	t.Run("TestReadSolContract", func(t *testing.T) {
 		SolContract, err := ReadSolcCompiledContract(contractFile)
 		if err != nil {
 			t.Logf("Unable to read sol contract: %v", err)
 		}
-	
 		assert.NotNil(t, SolContract)
 		contractMap := SolContract.Contracts
 		assert.NotNil(t, contractMap)
-		
 	})
-
 }
