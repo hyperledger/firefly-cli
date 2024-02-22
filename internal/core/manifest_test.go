@@ -45,3 +45,14 @@ func TestGetLatestReleaseManifest(t *testing.T) {
 	assert.NotNil(t, manifest.TokensERC1155)
 	assert.NotNil(t, manifest.TokensERC20ERC721)
 }
+
+func TestIsSupportedVersionUpgrade(t *testing.T) {
+	assert.NoError(t, ValidateVersionUpgrade("v1.2.1", "v1.2.2"))
+	assert.NoError(t, ValidateVersionUpgrade("v1.2.0", "v1.2.2"))
+	assert.NoError(t, ValidateVersionUpgrade("1.2.1", "v1.2.2"))
+	assert.NoError(t, ValidateVersionUpgrade("v1.2.1", "1.2.2"))
+
+	assert.Error(t, ValidateVersionUpgrade("v1.2.2", "v1.3.0"))
+	assert.Error(t, ValidateVersionUpgrade("latest", "v1.3.0"))
+	assert.Error(t, ValidateVersionUpgrade("v1.2.2", "latest"))
+}
