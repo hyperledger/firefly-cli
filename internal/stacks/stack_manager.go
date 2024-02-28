@@ -520,6 +520,12 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 		// Copy files into docker volumes
 		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "destinations"); err != nil {
+			return err
+		}
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "peers"); err != nil {
+			return err
+		}
 		if err := docker.MkdirInVolume(s.ctx, volumeName, "peer-certs"); err != nil {
 			return err
 		}
@@ -695,7 +701,9 @@ func (s *StackManager) removeVolumes() error {
 	}
 	for _, volumeName := range volumes {
 		if err := docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName)); err != nil {
-			return err
+			if !strings.Contains(err.Error(), "no such volume") {
+				return err
+			}
 		}
 	}
 	return nil
@@ -952,9 +960,20 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				},
 			}
 		}
+
 		if err := s.patchFireFlyCoreConfigs(configDir, member, newConfig); err != nil {
 			return messages, err
 		}
+
+		// Create data directory with correct permissions inside volume
+		dataVolumeName := fmt.Sprintf("%s_firefly_core_data_%s", s.Stack.Name, member.ID)
+		if err := docker.CreateVolume(s.ctx, dataVolumeName); err != nil {
+			return messages, err
+		}
+		if err := docker.MkdirInVolume(s.ctx, dataVolumeName, "db"); err != nil {
+			return messages, err
+		}
+
 	}
 
 	// Re-write the docker-compose config again, in case new values have been added

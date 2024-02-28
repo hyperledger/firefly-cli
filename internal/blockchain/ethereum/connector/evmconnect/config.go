@@ -129,7 +129,7 @@ func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization,
 		},
 		Persistence: &PersistenceConfig{
 			LevelDB: &LevelDBConfig{
-				Path: "/evmconnect/leveldb",
+				Path: "/evmconnect/data/leveldb",
 			},
 		},
 		FFCore: &FFCoreConfig{

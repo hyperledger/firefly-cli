@@ -40,15 +40,13 @@ func (e *Ethconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 				Ports:         []string{fmt.Sprintf("%d:8080", member.ExposedConnectorPort)},
 				Volumes: []string{
 					fmt.Sprintf("ethconnect_config_%s:/ethconnect/config", member.ID),
-					fmt.Sprintf("ethconnect_abis_%s:/ethconnect/abis", member.ID),
-					fmt.Sprintf("ethconnect_events_%s:/ethconnect/events", member.ID),
+					fmt.Sprintf("ethconnect_data_%s:/ethconnect/data", member.ID),
 				},
 				Logging: docker.StandardLogOptions,
 			},
 			VolumeNames: []string{
 				fmt.Sprintf("ethconnect_config_%v", member.ID),
-				fmt.Sprintf("ethconnect_abis_%v", member.ID),
-				fmt.Sprintf("ethconnect_events_%v", member.ID),
+				fmt.Sprintf("ethconnect_data_%v", member.ID),
 			},
 		}
 	}

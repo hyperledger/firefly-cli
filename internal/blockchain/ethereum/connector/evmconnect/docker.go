@@ -35,18 +35,17 @@ func (e *Evmconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 			Service: &docker.Service{
 				Image:         s.VersionManifest.Evmconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_evmconnect_%v", s.Name, i),
-				Command:       "-f /evmconnect/config/config.yaml",
+				Command:       "-f /evmconnect/config.yaml",
 				DependsOn:     dependsOn,
 				Ports:         []string{fmt.Sprintf("%d:%v", member.ExposedConnectorPort, e.Port())},
 				Volumes: []string{
-					fmt.Sprintf("evmconnect_config_%s:/evmconnect/config", member.ID),
-					fmt.Sprintf("evmconnect_leveldb_%s:/evmconnect/leveldb", member.ID),
+					fmt.Sprintf("%s/config/evmconnect_%s.yaml:/evmconnect/config.yaml", s.RuntimeDir, member.ID),
+					fmt.Sprintf("evmconnect_data_%s:/evmconnect/data", member.ID),
 				},
 				Logging: docker.StandardLogOptions,
 			},
 			VolumeNames: []string{
-				fmt.Sprintf("evmconnect_config_%s", member.ID),
-				fmt.Sprintf("evmconnect_leveldb_%s", member.ID),
+				fmt.Sprintf("evmconnect_data_%s", member.ID),
 			},
 		}
 	}

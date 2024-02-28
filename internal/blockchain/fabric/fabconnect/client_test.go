@@ -110,11 +110,11 @@ func TestEnrollIdentity(t *testing.T) {
 			ApiResponse: `
 			{
 				"Name": "fabric_user-1",
-				"Success": "success"
+				"Success": true
 			}`,
 			ExpectedResponse: &EnrollIdentityResponse{
 				Name:    "fabric_user-1",
-				Success: "success",
+				Success: true,
 			},
 		},
 		{
@@ -126,11 +126,11 @@ func TestEnrollIdentity(t *testing.T) {
 			ApiResponse: `
 			{
 				"Name": "fabric_user-2",
-				"Success": "success"
+				"Success": true
 			}`,
 			ExpectedResponse: &EnrollIdentityResponse{
 				Name:    "fabric_user-2",
-				Success: "success",
+				Success: true,
 			},
 		},
 		{
@@ -142,11 +142,11 @@ func TestEnrollIdentity(t *testing.T) {
 			ApiResponse: `
 			{
 				"Name": "fabric_user-3",
-				"Success": "success"
+				"Success": true
 			}`,
 			ExpectedResponse: &EnrollIdentityResponse{
 				Name:    "fabric_user-3",
-				Success: "success",
+				Success: true,
 			},
 		},
 		{
@@ -157,12 +157,12 @@ func TestEnrollIdentity(t *testing.T) {
 			ApiResponse: `
 			{
 			   "Name": "fabric_user-4",
-			   "Success": "success"
+			   "Success": true
 			}   
 			`,
 			ExpectedResponse: &EnrollIdentityResponse{
 				Name:    "fabric_user-4",
-				Success: "success",
+				Success: true,
 			},
 		},
 	}

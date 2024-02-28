@@ -42,7 +42,7 @@ type EnrollIdentityRequest struct {
 
 type EnrollIdentityResponse struct {
 	Name    string
-	Success string
+	Success bool
 }
 
 func CreateIdentity(fabconnectURL string, signer string) (*CreateIdentityResponse, error) {
