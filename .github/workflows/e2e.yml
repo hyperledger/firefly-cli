@@ -7,74 +7,75 @@ permissions:
   contents: write
 
 jobs:
-  runs-on: ubuntu-latest
-  needs: docker
-  strategy:
-    fail-fast: false
-    matrix:
-      stack-type: [ethereum, fabric]
-      exclude: [stack-type: ethereum, stack-type: fabric]
-      include:
-        - stack-type: ethereum
-          blockchain-connector: evmconnect
-          test-suite: TestEthereumMultipartyE2ESuite
-          database-type: sqlite3
-          token-provider: erc20_erc721
-          multiparty-enabled: true
+  e2e-test:
+    runs-on: ubuntu-latest
+    needs: docker
+    strategy:
+      fail-fast: false
+      matrix:
+        stack-type: [ethereum, fabric]
+        exclude: [stack-type: ethereum, stack-type: fabric]
+        include:
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: true
 
-        - stack-type: ethereum
-          blockchain-connector: evmconnect
-          test-suite: TestEthereumMultipartyE2ESuite
-          database-type: postgres
-          token-provider: erc20_erc721
-          multiparty-enabled: true
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: postgres
+            token-provider: erc20_erc721
+            multiparty-enabled: true
 
-        - stack-type: ethereum
-          blockchain-connector: evmconnect
-          test-suite: TestEthereumMultipartyE2ESuite
-          database-type: sqlite3
-          token-provider: erc1155
-          multiparty-enabled: true
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc1155
+            multiparty-enabled: true
 
-        - stack-type: ethereum
-          blockchain-connector: evmconnect
-          test-suite: TestEthereumMultipartyTokensRemoteNameE2ESuite
-          database-type: postgres
-          token-provider: erc20_erc721
-          multiparty-enabled: true
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyTokensRemoteNameE2ESuite
+            database-type: postgres
+            token-provider: erc20_erc721
+            multiparty-enabled: true
 
-        - stack-type: fabric
-          test-suite: TestFabricE2ESuite
-          database-type: sqlite3
-          token-provider: none
-          multiparty-enabled: true
+          - stack-type: fabric
+            test-suite: TestFabricE2ESuite
+            database-type: sqlite3
+            token-provider: none
+            multiparty-enabled: true
 
-        - stack-type: ethereum
-          blockchain-connector: evmconnect
-          test-suite: TestEthereumGatewayE2ESuite
-          database-type: sqlite3
-          token-provider: erc20_erc721
-          multiparty-enabled: false
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumGatewayE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: false
 
-        - stack-type: fabric
-          test-suite: TestFabricGatewayE2ESuite
-          database-type: sqlite3
-          token-provider: none
-          multiparty-enabled: false
+          - stack-type: fabric
+            test-suite: TestFabricGatewayE2ESuite
+            database-type: sqlite3
+            token-provider: none
+            multiparty-enabled: false
 
-        - stack-type: ethereum
-          blockchain-connector: ethconnect
-          test-suite: TestEthereumMultipartyE2ESuite
-          database-type: sqlite3
-          token-provider: erc20_erc721
-          multiparty-enabled: true
+          - stack-type: ethereum
+            blockchain-connector: ethconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: true
 
-        - stack-type: ethereum
-          blockchain-connector: ethconnect
-          test-suite: TestEthereumGatewayLegacyEthE2ESuite
-          database-type: sqlite3
-          token-provider: erc1155
-          multiparty-enabled: false
+          - stack-type: ethereum
+            blockchain-connector: ethconnect
+            test-suite: TestEthereumGatewayLegacyEthE2ESuite
+            database-type: sqlite3
+            token-provider: erc1155
+            multiparty-enabled: false
 
   steps:
     - name: Checkout FireFly CLI
