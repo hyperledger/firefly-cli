@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -114,7 +115,10 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println(err.Error())
+		var e viper.ConfigFileNotFoundError
+		if !errors.As(err, &e) {
+			fmt.Println(err.Error())
+		}
 	}
 
 }

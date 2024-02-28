@@ -1049,6 +1049,14 @@ func (s *StackManager) UpgradeStack(version string) error {
 		return err
 	}
 	oldManifest := s.Stack.VersionManifest
+	oldVersion, err := docker.GetImageLabel(fmt.Sprintf("%s@sha256:%s", oldManifest.FireFly.Image, oldManifest.FireFly.SHA), "tag")
+	if err != nil {
+		return err
+	}
+
+	if err := core.ValidateVersionUpgrade(oldVersion, version); err != nil {
+		return err
+	}
 
 	// get the version manifest for the new version
 	newManifest, err := core.GetManifestForRelease(version)
@@ -1091,9 +1099,12 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 	new = newManifest.Evmconnect.GetDockerImageString()
 	s = strings.ReplaceAll(s, old, new)
 
-	old = oldManifest.Tezosconnect.GetDockerImageString()
-	new = newManifest.Tezosconnect.GetDockerImageString()
-	s = strings.ReplaceAll(s, old, new)
+	// v1.2.x stacks may not have had a tezosconnect entry because it's new
+	if oldManifest.Tezosconnect != nil {
+		old = oldManifest.Tezosconnect.GetDockerImageString()
+		new = newManifest.Tezosconnect.GetDockerImageString()
+		s = strings.ReplaceAll(s, old, new)
+	}
 
 	old = oldManifest.Fabconnect.GetDockerImageString()
 	new = newManifest.Fabconnect.GetDockerImageString()
