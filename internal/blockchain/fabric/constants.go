@@ -16,7 +16,7 @@
 
 package fabric
 
-var FabricToolsImageName = "hyperledger/fabric-tools:2.5"
+var FabricToolsImageName = "hyperledger/fabric-tools:2.5.6"
 var FabricCAImageName = "hyperledger/fabric-ca:1.5"
 var FabricOrdererImageName = "hyperledger/fabric-orderer:2.5"
 var FabricPeerImageName = "hyperledger/fabric-peer:2.5"
