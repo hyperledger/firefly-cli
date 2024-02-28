@@ -9,7 +9,6 @@ permissions:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
-    needs: docker
     strategy:
       fail-fast: false
       matrix:
