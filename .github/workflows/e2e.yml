@@ -77,41 +77,41 @@ jobs:
             token-provider: erc1155
             multiparty-enabled: false
 
-  steps:
-    - name: Checkout FireFly CLI
-      uses: actions/checkout@v4
-      with:
-        path: firefly-cli
-        fetch-depth: 0
-    - name: Checkout FireFly Core repo
-      uses: actions/checkout@v4
-      with:
-        repository: hyperledger/firefly
-        path: firefly
+    steps:
+      - name: Checkout FireFly CLI
+        uses: actions/checkout@v4
+        with:
+          path: firefly-cli
+          fetch-depth: 0
+      - name: Checkout FireFly Core repo
+        uses: actions/checkout@v4
+        with:
+          repository: hyperledger/firefly
+          path: firefly
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: "1.21"
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
 
-    - name: Compile FireFly CLI
-      working-directory: firefly-cli
-      run: make install
+      - name: Compile FireFly CLI
+        working-directory: firefly-cli
+        run: make install
 
-    - name: Run E2E tests
-      working-directory: firefly
-      env:
-        TEST_SUITE: ${{ matrix.test-suite }}
-        STACK_TYPE: ${{ matrix.stack-type }}
-        BLOCKCHAIN_CONNECTOR: ${{ matrix.blockchain-connector }}
-        TOKENS_PROVIDER: ${{ matrix.token-provider }}
-        DATABASE_TYPE: ${{ matrix.database-type }}
-        MULTIPARTY_ENABLED: ${{ matrix.multiparty-enabled }}
-      run: ./test/e2e/run.sh
+      - name: Run E2E tests
+        working-directory: firefly
+        env:
+          TEST_SUITE: ${{ matrix.test-suite }}
+          STACK_TYPE: ${{ matrix.stack-type }}
+          BLOCKCHAIN_CONNECTOR: ${{ matrix.blockchain-connector }}
+          TOKENS_PROVIDER: ${{ matrix.token-provider }}
+          DATABASE_TYPE: ${{ matrix.database-type }}
+          MULTIPARTY_ENABLED: ${{ matrix.multiparty-enabled }}
+        run: ./test/e2e/run.sh
 
-    - name: Archive container logs
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: container-logs-${{ matrix.test-suite }}-${{ matrix.blockchain-provider }}-${{ matrix.blockchain-connector }}-${{ matrix.database-type }}-${{ matrix.token-provider }}
-        path: containerlogs/logs.txt
+      - name: Archive container logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-logs-${{ matrix.test-suite }}-${{ matrix.blockchain-provider }}-${{ matrix.blockchain-connector }}-${{ matrix.database-type }}-${{ matrix.token-provider }}
+          path: containerlogs/logs.txt
