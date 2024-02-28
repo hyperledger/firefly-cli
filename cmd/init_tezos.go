@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -43,17 +43,29 @@ var initTezosCmd = &cobra.Command{
 		// By default we turn off multiparty mode while it's not supported yet
 		initOptions.MultipartyEnabled = false
 		initOptions.TokenProviders = []string{}
+		if err := validateTezosFlags(); err != nil {
+			return err
+		}
 		if err := initCommon(args); err != nil {
 			return err
 		}
 		if err := stackManager.InitStack(&initOptions); err != nil {
-			stackManager.RemoveStack()
+			if err := stackManager.RemoveStack(); err != nil {
+				return err
+			}
 			return err
 		}
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)
 		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stackManager.Stack.StackDir, "docker-compose.yml"))
 		return nil
 	},
+}
+
+func validateTezosFlags() error {
+	if initOptions.RemoteNodeURL == "" {
+		return fmt.Errorf("you must provide 'remote-node-url' flag as local node mode is not supported")
+	}
+	return nil
 }
 
 func init() {

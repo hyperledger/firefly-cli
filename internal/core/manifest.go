@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -63,7 +64,11 @@ func GetManifestForChannel(releaseChannel fftypes.FFEnum) (*types.VersionManifes
 }
 
 func GetManifestForRelease(version string) (*types.VersionManifest, error) {
-	sha, err := getSHA(constants.FireFlyCoreImageName, version)
+	tag := version
+	if version == "main" {
+		tag = "head"
+	}
+	sha, err := getSHA(constants.FireFlyCoreImageName, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +82,7 @@ func GetManifestForRelease(version string) (*types.VersionManifest, error) {
 		// Fill in the FireFly version number
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "ghcr.io/hyperledger/firefly",
-			Tag:   version,
+			Tag:   tag,
 			SHA:   sha,
 		}
 	}
@@ -118,4 +123,21 @@ func ReadManifestFile(p string) (*types.VersionManifest, error) {
 		}
 	}
 	return manifest, err
+}
+
+func ValidateVersionUpgrade(oldVersion, newVersion string) error {
+	oldSemVer := strings.Split(strings.Trim(oldVersion, "v"), ".")
+	newSemVer := strings.Split(strings.Trim(newVersion, "v"), ".")
+	if len(oldSemVer) < 3 || len(newSemVer) < 3 {
+		return fmt.Errorf("FireFly CLI only supports updating local development environments between patch versions")
+	}
+	// Only upgrading between patch versions is supported
+	// e.g. 1.3.0 -> 1.3.1
+	if oldSemVer[0] == newSemVer[0] && oldSemVer[1] == newSemVer[1] {
+		if oldSemVer[2] > newSemVer[2] {
+			return fmt.Errorf("FireFly CLI does not support downgrading local development environments")
+		}
+		return nil
+	}
+	return fmt.Errorf("FireFly CLI only supports updating local development environments between patch versions")
 }

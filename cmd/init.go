@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -55,7 +55,9 @@ var initCmd = &cobra.Command{
 			return err
 		}
 		if err := stackManager.InitStack(&initOptions); err != nil {
-			stackManager.RemoveStack()
+			if err := stackManager.RemoveStack(); err != nil {
+				return err
+			}
 			return err
 		}
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)
@@ -119,7 +121,10 @@ func initCommon(args []string) error {
 		}
 	} else {
 		for i := 0; i < initOptions.MemberCount; i++ {
-			randomName := randomHexString(3)
+			randomName, err := randomHexString(3)
+			if err != nil {
+				return err
+			}
 			if len(initOptions.OrgNames) <= i || initOptions.OrgNames[i] == "" {
 				orgNames[i] = fmt.Sprintf("org_%s", randomName)
 			} else {
@@ -230,10 +235,12 @@ func validateIPFSMode(input string) error {
 	return err
 }
 
-func randomHexString(length int) string {
+func randomHexString(length int) (string, error) {
 	bytes := make([]byte, length)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func init() {
@@ -263,5 +270,6 @@ func init() {
 	initCmd.PersistentFlags().StringVar(&initOptions.IPFSMode, "ipfs-mode", "private", fmt.Sprintf("Set the mode in which IFPS operates. Options are: %v", fftypes.FFEnumValues(types.IPFSMode)))
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.OrgNames, "org-name", []string{}, "Organization name")
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.NodeNames, "node-name", []string{}, "Node name")
+	initCmd.PersistentFlags().BoolVar(&initOptions.RemoteNodeDeploy, "remote-node-deploy", false, "Enable or disable deployment of FireFly contracts on remote nodes")
 	rootCmd.AddCommand(initCmd)
 }

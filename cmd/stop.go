@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,9 +28,10 @@ import (
 
 // stopCmd represents the stop command
 var stopCmd = &cobra.Command{
-	Use:   "stop <stack_name>",
-	Short: "Stop a stack",
-	Long:  `Stop a stack`,
+	Use:               "stop <stack_name>",
+	Short:             "Stop a stack",
+	Long:              `Stop a stack`,
+	ValidArgsFunction: listStacks,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)

@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,10 +28,11 @@ import (
 
 // accountsCreateCmd represents the "accounts create" command
 var accountsCreateCmd = &cobra.Command{
-	Use:   "create <stack_name>",
-	Short: "Create a new account in the FireFly stack",
-	Long:  `Create a new account in the FireFly stack`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "create <stack_name>",
+	Short:             "Create a new account in the FireFly stack",
+	Long:              `Create a new account in the FireFly stack`,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: listStacks,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)

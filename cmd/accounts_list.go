@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -29,11 +29,12 @@ import (
 
 // accountsListCmd represents the "accounts list" command
 var accountsListCmd = &cobra.Command{
-	Use:     "list <stack_name>",
-	Short:   "List the accounts in the FireFly stack",
-	Long:    `List the accounts in the FireFly stack`,
-	Args:    cobra.ExactArgs(1),
-	Aliases: []string{"ls"},
+	Use:               "list <stack_name>",
+	Short:             "List the accounts in the FireFly stack",
+	Long:              `List the accounts in the FireFly stack`,
+	ValidArgsFunction: listStacks,
+	Args:              cobra.ExactArgs(1),
+	Aliases:           []string{"ls"},
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)

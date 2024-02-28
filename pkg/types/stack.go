@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -49,6 +49,7 @@ type Stack struct {
 	ChannelName            string           `json:"channelName,omitempty"`
 	ChaincodeName          string           `json:"chaincodeName,omitempty"`
 	CustomPinSupport       bool             `json:"customPinSupport,omitempty"`
+	RemoteNodeDeploy       bool             `json:"remoteNodeDeploy,omitempty"`
 	InitDir                string           `json:"-"`
 	RuntimeDir             string           `json:"-"`
 	StackDir               string           `json:"-"`
@@ -71,21 +72,23 @@ func (s *Stack) HasRunBefore() (bool, error) {
 	if isOldFileStructure {
 		dataDir := filepath.Join(stackDir, "data")
 		_, err := os.Stat(dataDir)
-		if os.IsNotExist(err) {
+		switch {
+		case os.IsNotExist(err):
 			return false, nil
-		} else if err != nil {
+		case err != nil:
 			return false, err
-		} else {
+		default:
 			return true, nil
 		}
 	} else {
 		runtimeDir := filepath.Join(stackDir, "runtime")
 		_, err := os.Stat(runtimeDir)
-		if os.IsNotExist(err) {
+		switch {
+		case os.IsNotExist(err):
 			return false, nil
-		} else if err != nil {
+		case err != nil:
 			return false, err
-		} else {
+		default:
 			return true, nil
 		}
 	}
@@ -94,11 +97,12 @@ func (s *Stack) HasRunBefore() (bool, error) {
 func (s *Stack) IsOldFileStructure() (bool, error) {
 	stackDir := filepath.Join(constants.StacksDir, s.Name)
 	_, err := os.Stat(filepath.Join(stackDir, "init"))
-	if os.IsNotExist(err) {
+	switch {
+	case os.IsNotExist(err):
 		return true, nil
-	} else if err != nil {
+	case err != nil:
 		return false, err
-	} else {
+	default:
 		return false, nil
 	}
 }

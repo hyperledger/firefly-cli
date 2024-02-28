@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,7 +19,6 @@ package evmconnect
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -76,7 +75,7 @@ type GasOracleConfig struct {
 
 func (e *Config) WriteConfig(filename string, extraEvmconnectConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
-	if err := os.WriteFile(filepath.Join(filename), configYamlBytes, 0755); err != nil {
+	if err := os.WriteFile(filename, configYamlBytes, 0755); err != nil {
 		return err
 	}
 	if extraEvmconnectConfigPath != "" {
@@ -104,7 +103,7 @@ func (e *Evmconnect) GenerateConfig(stack *types.Stack, org *types.Organization,
 
 	if stack.PrometheusEnabled {
 		metrics = &types.MetricsServerConfig{
-			HttpServerConfig: types.HttpServerConfig{
+			HTTPServerConfig: types.HTTPServerConfig{
 				Port:      org.ExposedConnectorMetricsPort,
 				Address:   "0.0.0.0",
 				PublicURL: fmt.Sprintf("http://127.0.0.1:%d", org.ExposedConnectorMetricsPort),

@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -30,9 +30,10 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:     "remove <stack_name>",
-	Aliases: []string{"rm"},
-	Short:   "Completely remove a stack",
+	Use:               "remove <stack_name>",
+	Aliases:           []string{"rm"},
+	Short:             "Completely remove a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Completely remove a stack
 
 This command will completely delete a stack, including all of its data

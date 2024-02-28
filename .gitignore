@@ -1,4 +1,4 @@
-# Copyright © 2021 Kaleido, Inc.
+# Copyright © 2024 Kaleido, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -21,3 +21,5 @@ ff/ff
 dist/
 *.iml
 .idea/
+docs/command_docs
+coverage.txt

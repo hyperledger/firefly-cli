@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,7 +26,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
@@ -58,6 +60,7 @@ type StackManager struct {
 	blockchainProvider blockchain.IBlockchainProvider
 	tokenProviders     []tokens.ITokensProvider
 	IsOldFileStructure bool
+	once               sync.Once
 }
 
 func ListStacks() ([]string, error) {
@@ -66,13 +69,11 @@ func ListStacks() ([]string, error) {
 		return nil, err
 	}
 
-	stacks := make([]string, 0)
-	i := 0
+	stacks := make([]string, 0, len(files))
 	for _, f := range files {
 		if f.IsDir() {
 			if exists, err := CheckExists(f.Name()); err == nil && exists {
 				stacks = append(stacks, f.Name())
-				i++
 			}
 		}
 	}
@@ -112,6 +113,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		ChannelName:       options.ChannelName,
 		ChaincodeName:     options.ChaincodeName,
 		CustomPinSupport:  options.CustomPinSupport,
+		RemoteNodeDeploy:  options.RemoteNodeDeploy,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)
@@ -121,7 +123,10 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	s.Stack.TokenProviders = tokenProviders
 
 	if s.Stack.IPFSMode.Equals(types.IPFSModePrivate) {
-		s.Stack.SwarmKey = GenerateSwarmKey()
+		s.Stack.SwarmKey, err = GenerateSwarmKey()
+		if err != nil {
+			return err
+		}
 	}
 
 	if options.PrometheusEnabled {
@@ -195,7 +200,9 @@ func (s *StackManager) runDockerComposeCommand(command ...string) error {
 	if _, err := os.Stat(baseCompose); os.IsNotExist(err) {
 		if _, err := os.Stat(runtimeCompose); err == nil {
 			// Handle copying the docker-compose file out of the old "runtime" directory
-			copy.Copy(runtimeCompose, baseCompose)
+			if err := copy.Copy(runtimeCompose, baseCompose); err != nil {
+				return err
+			}
 		}
 	}
 	return docker.RunDockerComposeCommand(s.ctx, s.Stack.StackDir, command...)
@@ -232,11 +239,12 @@ func (s *StackManager) buildDockerCompose() *docker.DockerComposeConfig {
 
 func CheckExists(stackName string) (bool, error) {
 	_, err := os.Stat(filepath.Join(constants.StacksDir, stackName, "stack.json"))
-	if os.IsNotExist(err) {
+	switch {
+	case os.IsNotExist(err):
 		return false, nil
-	} else if err != nil {
+	case err != nil:
 		return false, err
-	} else {
+	default:
 		return true, nil
 	}
 }
@@ -379,7 +387,7 @@ func (s *StackManager) writeStackStateJSON(directory string) error {
 func (s *StackManager) ensureInitDirectories() error {
 	configDir := filepath.Join(s.Stack.InitDir, "config")
 
-	if err := os.MkdirAll(filepath.Join(configDir), 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
 
@@ -481,13 +489,15 @@ func (s *StackManager) writeConfig(options *types.InitOptions) error {
 
 func (s *StackManager) writeDataExchangeCerts() error {
 	configDir := filepath.Join(s.Stack.InitDir, "config")
+	const dataexchange = "dataexchange"
 	for _, member := range s.Stack.Members {
 
-		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
+		memberDXDir := path.Join(configDir, dataexchange+"_"+member.ID)
 
 		// TODO: remove dependency on openssl here
-		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=dataexchange_%s/O=member_%s", member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
-		opensslCmd.Dir = filepath.Join(configDir, "dataexchange_"+member.ID)
+		//nolint:gosec
+		opensslCmd := exec.Command("openssl", "req", "-new", "-x509", "-nodes", "-days", "365", "-subj", fmt.Sprintf("/CN=%s_%s/O=member_%s", dataexchange, member.ID, member.ID), "-keyout", "key.pem", "-out", "cert.pem")
+		opensslCmd.Dir = filepath.Join(configDir, dataexchange+"_"+member.ID)
 		if err := opensslCmd.Run(); err != nil {
 			return err
 		}
@@ -510,9 +520,15 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 		// Copy files into docker volumes
 		memberDXDir := path.Join(configDir, "dataexchange_"+member.ID)
 		volumeName := fmt.Sprintf("%s_dataexchange_%s", s.Stack.Name, member.ID)
-		docker.MkdirInVolume(s.ctx, volumeName, "destinations")
-		docker.MkdirInVolume(s.ctx, volumeName, "peers")
-		docker.MkdirInVolume(s.ctx, volumeName, "peer-certs")
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "destinations"); err != nil {
+			return err
+		}
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "peers"); err != nil {
+			return err
+		}
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "peer-certs"); err != nil {
+			return err
+		}
 		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "config.json"), "/config.json"); err != nil {
 			return err
 		}
@@ -568,7 +584,6 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 
 	if options.SandboxEnabled {
 		member.ExposedSandboxPort = nextPort
-		nextPort++
 	}
 	return member, nil
 }
@@ -671,7 +686,7 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	return nil
 }
 
-func (s *StackManager) removeVolumes() {
+func (s *StackManager) removeVolumes() error {
 	var volumes []string
 	for _, service := range s.blockchainProvider.GetDockerServiceDefinitions() {
 		volumes = append(volumes, service.VolumeNames...)
@@ -685,8 +700,13 @@ func (s *StackManager) removeVolumes() {
 		volumes = append(volumes, volumeName)
 	}
 	for _, volumeName := range volumes {
-		docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName))
+		if err := docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName)); err != nil {
+			if !strings.Contains(err.Error(), "no such volume") {
+				return err
+			}
+		}
 	}
+	return nil
 }
 
 func (s *StackManager) runStartupSequence(firstTimeSetup bool) error {
@@ -720,7 +740,9 @@ func (s *StackManager) ResetStack() error {
 	if err := s.blockchainProvider.Reset(); err != nil {
 		return err
 	}
-	s.removeVolumes()
+	if err := s.removeVolumes(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -728,7 +750,9 @@ func (s *StackManager) RemoveStack() error {
 	if err := s.runDockerComposeCommand("down"); err != nil {
 		return err
 	}
-	s.removeVolumes()
+	if err := s.removeVolumes(); err != nil {
+		return err
+	}
 	return os.RemoveAll(s.Stack.StackDir)
 }
 
@@ -782,6 +806,7 @@ func checkPortAvailable(port int) (bool, error) {
 	switch t := err.(type) {
 
 	case *net.OpError:
+		//nolint:gocritic // can't rewrite this as an if, because .(type) cannot be used outside a switch
 		switch t := t.Unwrap().(type) {
 		case *os.SyscallError:
 			if t.Syscall == "connect" {
@@ -807,6 +832,7 @@ func checkPortAvailable(port int) (bool, error) {
 	return true, nil
 }
 
+//nolint:gocyclo // TODO: Breaking this function apart would be great for code tidiness, but it's not an urgent priority
 func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages []string, err error) {
 	configDir := filepath.Join(s.Stack.RuntimeDir, "config")
 
@@ -934,12 +960,20 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 				},
 			}
 		}
-		s.patchFireFlyCoreConfigs(configDir, member, newConfig)
+
+		if err := s.patchFireFlyCoreConfigs(configDir, member, newConfig); err != nil {
+			return messages, err
+		}
 
 		// Create data directory with correct permissions inside volume
 		dataVolumeName := fmt.Sprintf("%s_firefly_core_data_%s", s.Stack.Name, member.ID)
-		docker.CreateVolume(s.ctx, dataVolumeName)
-		docker.MkdirInVolume(s.ctx, dataVolumeName, "db")
+		if err := docker.CreateVolume(s.ctx, dataVolumeName); err != nil {
+			return messages, err
+		}
+		if err := docker.MkdirInVolume(s.ctx, dataVolumeName, "db"); err != nil {
+			return messages, err
+		}
+
 	}
 
 	// Re-write the docker-compose config again, in case new values have been added
@@ -1034,6 +1068,14 @@ func (s *StackManager) UpgradeStack(version string) error {
 		return err
 	}
 	oldManifest := s.Stack.VersionManifest
+	oldVersion, err := docker.GetImageLabel(fmt.Sprintf("%s@sha256:%s", oldManifest.FireFly.Image, oldManifest.FireFly.SHA), "tag")
+	if err != nil {
+		return err
+	}
+
+	if err := core.ValidateVersionUpgrade(oldVersion, version); err != nil {
+		return err
+	}
 
 	// get the version manifest for the new version
 	newManifest, err := core.GetManifestForRelease(version)
@@ -1046,7 +1088,9 @@ func (s *StackManager) UpgradeStack(version string) error {
 	}
 
 	s.Stack.VersionManifest = newManifest
-	s.writeStackConfig()
+	if err := s.writeStackConfig(); err != nil {
+		return err
+	}
 
 	if err := s.PullStack(&types.PullOptions{}); err != nil {
 		return err
@@ -1064,39 +1108,42 @@ func replaceVersions(oldManifest, newManifest *types.VersionManifest, filename s
 
 	old := oldManifest.FireFly.GetDockerImageString()
 	new := newManifest.FireFly.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Ethconnect.GetDockerImageString()
 	new = newManifest.Ethconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Evmconnect.GetDockerImageString()
 	new = newManifest.Evmconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
-	old = oldManifest.Tezosconnect.GetDockerImageString()
-	new = newManifest.Tezosconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	// v1.2.x stacks may not have had a tezosconnect entry because it's new
+	if oldManifest.Tezosconnect != nil {
+		old = oldManifest.Tezosconnect.GetDockerImageString()
+		new = newManifest.Tezosconnect.GetDockerImageString()
+		s = strings.ReplaceAll(s, old, new)
+	}
 
 	old = oldManifest.Fabconnect.GetDockerImageString()
 	new = newManifest.Fabconnect.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.DataExchange.GetDockerImageString()
 	new = newManifest.DataExchange.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.TokensERC1155.GetDockerImageString()
 	new = newManifest.TokensERC1155.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.TokensERC20ERC721.GetDockerImageString()
 	new = newManifest.TokensERC20ERC721.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	old = oldManifest.Signer.GetDockerImageString()
 	new = newManifest.Signer.GetDockerImageString()
-	s = strings.Replace(s, old, new, -1)
+	s = strings.ReplaceAll(s, old, new)
 
 	return os.WriteFile(filename, []byte(s), 0755)
 }
@@ -1111,6 +1158,33 @@ func (s *StackManager) PrintStackInfo() error {
 		return err
 	}
 	fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(s.Stack.StackDir, "docker-compose.yml"))
+	return nil
+}
+
+// IsRunning prints to the stdout, the stack name and it status as "running" or "not_running".
+func (s *StackManager) IsRunning() error {
+	output, err := docker.RunDockerComposeCommandReturnsStdout(s.Stack.StackDir, "ps")
+	if err != nil {
+		return err
+	}
+
+	formatHeader := "\n %s\t%s\t  "
+	formatBody := "\n %s\t%s\t"
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 8, 8, 8, '\t', 0)
+
+	s.once.Do(func() {
+		fmt.Fprintf(w, formatHeader, "STACK", "STATUS")
+	})
+
+	if strings.Contains(string(output), s.Stack.Name) { // if the output contains the stack name, it means the container is running.
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "running")
+	} else {
+		fmt.Fprintf(w, formatBody, s.Stack.Name, "not_running")
+	}
+	fmt.Fprintln(w)
+	w.Flush()
 	return nil
 }
 
@@ -1253,7 +1327,7 @@ func (s *StackManager) getITokenProviders() []tokens.ITokensProvider {
 		switch tp {
 		case types.TokenProviderERC1155:
 			tps[i] = erc1155.NewERC1155Provider(s.ctx, s.Stack, s.getBlockchainProvider())
-		case types.TokenProviderERC20_ERC721:
+		case types.TokenProviderERC20ERC721:
 			tps[i] = erc20erc721.NewERC20ERC721Provider(s.ctx, s.Stack, s.getBlockchainProvider())
 		default:
 			return nil

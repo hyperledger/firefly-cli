@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -27,8 +27,9 @@ import (
 )
 
 var infoCmd = &cobra.Command{
-	Use:   "info <stack_name>",
-	Short: "Get info about a stack",
+	Use:               "info <stack_name>",
+	Short:             "Get info about a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Get info about a stack such as each container name
 	and image version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {

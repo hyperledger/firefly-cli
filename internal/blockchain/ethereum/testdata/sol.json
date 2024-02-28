@@ -1,0 +1,45 @@
+{
+    "contracts": {
+      "MyContract.sol": {
+        "MyContract": {
+          "abi": [
+            {
+              "constant": false,
+              "inputs": [
+                {
+                  "name": "_value",
+                  "type": "uint256"
+                }
+              ],
+              "name": "setValue",
+              "outputs": [],
+              "payable": false,
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "constant": true,
+              "inputs": [],
+              "name": "getValue",
+              "outputs": [
+                {
+                  "name": "transaction",
+                  "type": "uint256"
+                }
+              ],
+              "payable": false,
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          "evm": {
+            "bytecode": {
+              "object": "0x606060..."
+            }
+
+          }
+        }
+      }
+    }
+  }
+  

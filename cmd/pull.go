@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -32,8 +32,9 @@ import (
 var pullOptions types.PullOptions
 
 var pullCmd = &cobra.Command{
-	Use:   "pull <stack_name>",
-	Short: "Pull a stack",
+	Use:               "pull <stack_name>",
+	Short:             "Pull a stack",
+	ValidArgsFunction: listStacks,
 	Long: `Pull a stack
 
 Pull the images for a stack .

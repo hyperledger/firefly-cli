@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,7 +18,6 @@ package ethsigner
 
 import (
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 )
@@ -65,7 +64,7 @@ type Config struct {
 
 func (e *Config) WriteConfig(filename string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
-	return os.WriteFile(filepath.Join(filename), configYamlBytes, 0755)
+	return os.WriteFile(filename, configYamlBytes, 0755)
 }
 
 func GenerateSignerConfig(chainID int64, rpcURL string) *Config {

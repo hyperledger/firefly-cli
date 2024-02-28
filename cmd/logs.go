@@ -1,4 +1,4 @@
-// Copyright © 2021 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -6,13 +6,14 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package cmd
 
 import (
@@ -29,8 +30,9 @@ var follow bool
 
 // logsCmd represents the logs command
 var logsCmd = &cobra.Command{
-	Use:   "logs <stack_name>",
-	Short: "View log output from a stack",
+	Use:               "logs <stack_name>",
+	Short:             "View log output from a stack",
+	ValidArgsFunction: listStacks,
 	Long: `View log output from a stack.
 
 The most recent logs can be viewed, or you can follow the
@@ -71,7 +73,9 @@ output with the -f flag.`,
 			if follow {
 				commandLine = append(commandLine, "-f")
 			}
-			docker.RunDockerComposeCommand(ctx, stackManager.Stack.RuntimeDir, commandLine...)
+			if err := docker.RunDockerComposeCommand(ctx, stackManager.Stack.RuntimeDir, commandLine...); err != nil {
+				return err
+			}
 		} else {
 			fmt.Println("no logs found - stack has not been started")
 		}

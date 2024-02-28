@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -79,7 +79,9 @@ func (p *RemoteRPCProvider) FirstTimeSetup() error {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
 		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
-		docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml")
+		if err := docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -94,6 +96,13 @@ func (p *RemoteRPCProvider) PostStart(fistTimeSetup bool) error {
 }
 
 func (p *RemoteRPCProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
+	if p.stack.RemoteNodeDeploy {
+		contract, err := ethereum.ReadFireFlyContract(p.ctx, p.stack)
+		if err != nil {
+			return nil, err
+		}
+		return p.connector.DeployContract(contract, "FireFly", p.stack.Members[0], nil)
+	}
 	return nil, fmt.Errorf("you must pre-deploy your FireFly contract when using a remote RPC endpoint")
 }
 

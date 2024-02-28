@@ -1,4 +1,4 @@
-// Copyright © 2022 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,6 +22,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/hyperledger/firefly-cli/internal/stacks"
+	"github.com/spf13/cobra"
 )
 
 func prompt(promptText string, validate func(string) error) (string, error) {
@@ -90,4 +93,13 @@ func printError(err error) {
 	} else {
 		fmt.Printf("Error: %s\n", err.Error())
 	}
+}
+
+// listStacks aids in completion, to provide completion to command for stack name.
+func listStacks(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	allStacks, err := stacks.ListStacks()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	return allStacks, cobra.ShellCompDirectiveNoSpace
 }

@@ -1,4 +1,4 @@
-// Copyright © 2023 Kaleido, Inc.
+// Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,25 +20,25 @@ type LogConfig struct {
 	Level string `yaml:"level,omitempty"`
 }
 
-type HttpServerConfig struct {
+type HTTPServerConfig struct {
 	Port      int    `yaml:"port,omitempty"`
 	Address   string `yaml:"address,omitempty"`
 	PublicURL string `yaml:"publicURL,omitempty"`
 }
 
 type AdminServerConfig struct {
-	HttpServerConfig `yaml:",inline"`
+	HTTPServerConfig `yaml:",inline"`
 	Enabled          bool `yaml:"enabled,omitempty"`
 	PreInit          bool `yaml:"preinit,omitempty"`
 }
 
 type SPIServerConfig struct {
-	HttpServerConfig `yaml:",inline"`
+	HTTPServerConfig `yaml:",inline"`
 	Enabled          bool `yaml:"enabled,omitempty"`
 }
 
 type MetricsServerConfig struct {
-	HttpServerConfig `yaml:",inline"`
+	HTTPServerConfig `yaml:",inline"`
 	Enabled          bool   `yaml:"enabled,omitempty"`
 	Path             string `yaml:"path,omitempty"`
 }
@@ -48,7 +48,7 @@ type BasicAuth struct {
 	Password string `yaml:"password,omitempty"`
 }
 
-type HttpEndpointConfig struct {
+type HTTPEndpointConfig struct {
 	URL  string    `yaml:"url,omitempty"`
 	Auth BasicAuth `yaml:"auth,omitempty"`
 }
@@ -109,7 +109,7 @@ type BlockchainConfig struct {
 type DataExchangeConfig struct {
 	Name string              `yaml:"name,omitempty"`
 	Type string              `yaml:"type,omitempty"`
-	FFDX *HttpEndpointConfig `yaml:"ffdx,omitempty"`
+	FFDX *HTTPEndpointConfig `yaml:"ffdx,omitempty"`
 }
 
 type CommonDBConfig struct {
@@ -136,8 +136,8 @@ type SharedStorageConfig struct {
 }
 
 type FireflyIPFSConfig struct {
-	API     *HttpEndpointConfig `yaml:"api,omitempty"`
-	Gateway *HttpEndpointConfig `yaml:"gateway,omitempty"`
+	API     *HTTPEndpointConfig `yaml:"api,omitempty"`
+	Gateway *HTTPEndpointConfig `yaml:"gateway,omitempty"`
 }
 
 type TokensConfig struct {
@@ -165,8 +165,8 @@ type NamespacesConfig struct {
 
 type FireflyConfig struct {
 	Log        *LogConfig           `yaml:"log,omitempty"`
-	Debug      *HttpServerConfig    `yaml:"debug,omitempty"`
-	HTTP       *HttpServerConfig    `yaml:"http,omitempty"`
+	Debug      *HTTPServerConfig    `yaml:"debug,omitempty"`
+	HTTP       *HTTPServerConfig    `yaml:"http,omitempty"`
 	Admin      *AdminServerConfig   `yaml:"admin,omitempty"` // V1.0 admin API
 	SPI        *SPIServerConfig     `yaml:"spi,omitempty"`   // V1.1 and later SPI
 	Metrics    *MetricsServerConfig `yaml:"metrics,omitempty"`
