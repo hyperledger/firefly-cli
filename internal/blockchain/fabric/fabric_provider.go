@@ -126,7 +126,7 @@ func (p *FabricProvider) FirstTimeSetup() error {
 			"--platform", getDockerPlatform(),
 			"--rm",
 			"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
-			"-v", fmt.Sprintf("%s:/var/hyperledger/fabric/config/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
+			"-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
 			FabricToolsImageName,
 			"configtxgen",
 			"-outputBlock", "/etc/firefly/firefly.block",
