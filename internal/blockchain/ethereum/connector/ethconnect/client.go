@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
 	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
@@ -164,5 +165,13 @@ func getReply(ctx context.Context, ethconnectURL, id string) (*EthconnectReply, 
 }
 
 func (e *Ethconnect) FirstTimeSetup(stack *types.Stack) error {
+	for _, member := range stack.Members {
+		if err := docker.MkdirInVolume(e.ctx, fmt.Sprintf("%s_ethconnect_data_%s", stack.Name, member.ID), "/abis"); err != nil {
+			return err
+		}
+		if err := docker.MkdirInVolume(e.ctx, fmt.Sprintf("%s_ethconnect_data_%s", stack.Name, member.ID), "/events"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
