@@ -529,6 +529,9 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 		if err := docker.MkdirInVolume(s.ctx, volumeName, "peer-certs"); err != nil {
 			return err
 		}
+		if err := docker.MkdirInVolume(s.ctx, volumeName, "blobs"); err != nil {
+			return err
+		}
 		if err := docker.CopyFileToVolume(s.ctx, volumeName, path.Join(memberDXDir, "config.json"), "/config.json"); err != nil {
 			return err
 		}

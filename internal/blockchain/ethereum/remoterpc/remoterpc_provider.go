@@ -75,6 +75,10 @@ func (p *RemoteRPCProvider) FirstTimeSetup() error {
 		return err
 	}
 
+	if err := p.connector.FirstTimeSetup(p.stack); err != nil {
+		return err
+	}
+
 	for i := range p.stack.Members {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))

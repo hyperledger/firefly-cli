@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/ethtypes"
 	"github.com/hyperledger/firefly-cli/internal/core"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
@@ -145,4 +146,13 @@ func (e *Evmconnect) getTransactionStatus(evmconnectURL, id string) (*Evmconnect
 	reply := &EvmconnectTransactionResponse{}
 	err = core.RequestWithRetry(e.ctx, "GET", requestURL, nil, reply)
 	return reply, err
+}
+
+func (e *Evmconnect) FirstTimeSetup(stack *types.Stack) error {
+	for _, member := range stack.Members {
+		if err := docker.MkdirInVolume(e.ctx, fmt.Sprintf("%s_evmconnect_data_%s", stack.Name, member.ID), "/leveldb"); err != nil {
+			return err
+		}
+	}
+	return nil
 }

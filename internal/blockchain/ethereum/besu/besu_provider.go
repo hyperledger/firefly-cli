@@ -100,6 +100,10 @@ func (p *BesuProvider) FirstTimeSetup() error {
 		return err
 	}
 
+	if err := p.connector.FirstTimeSetup(p.stack); err != nil {
+		return err
+	}
+
 	if err := docker.CreateVolume(p.ctx, besuVolumeName); err != nil {
 		return err
 	}

@@ -23,6 +23,7 @@ import (
 )
 
 type Connector interface {
+	FirstTimeSetup(stack *types.Stack) error
 	GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
 	DeployContract(contract *ethtypes.CompiledContract, contractName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error)
 	GenerateConfig(stack *types.Stack, member *types.Organization, blockchainServiceName string) Config

@@ -30,6 +30,7 @@ func (e *Evmconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
 	for i, member := range s.Members {
+		dataVolumeName := fmt.Sprintf("evmconnect_data_%s", member.ID)
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "evmconnect_" + member.ID,
 			Service: &docker.Service{
@@ -40,12 +41,12 @@ func (e *Evmconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 				Ports:         []string{fmt.Sprintf("%d:%v", member.ExposedConnectorPort, e.Port())},
 				Volumes: []string{
 					fmt.Sprintf("%s/config/evmconnect_%s.yaml:/evmconnect/config.yaml", s.RuntimeDir, member.ID),
-					fmt.Sprintf("evmconnect_data_%s:/evmconnect/data", member.ID),
+					fmt.Sprintf("%s:/evmconnect/data", dataVolumeName),
 				},
 				Logging: docker.StandardLogOptions,
 			},
 			VolumeNames: []string{
-				fmt.Sprintf("evmconnect_data_%s", member.ID),
+				dataVolumeName,
 			},
 		}
 	}

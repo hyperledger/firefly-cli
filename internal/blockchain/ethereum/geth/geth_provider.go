@@ -93,6 +93,10 @@ func (p *GethProvider) FirstTimeSetup() error {
 	blockchainDir := path.Join(p.stack.RuntimeDir, "blockchain")
 	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
 
+	if err := p.connector.FirstTimeSetup(p.stack); err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(contractsDir, 0755); err != nil {
 		return err
 	}
