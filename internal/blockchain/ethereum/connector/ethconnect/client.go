@@ -162,3 +162,7 @@ func getReply(ctx context.Context, ethconnectURL, id string) (*EthconnectReply, 
 	err = core.RequestWithRetry(ctx, "GET", requestURL, nil, reply)
 	return reply, err
 }
+
+func (e *Ethconnect) FirstTimeSetup(stack *types.Stack) error {
+	return nil
+}
