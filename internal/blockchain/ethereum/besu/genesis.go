@@ -79,7 +79,7 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 		alloc[address] = &Alloc{
 			Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 		}
-		extraData += extraData
+		extraData += address
 	}
 	extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 	return &Genesis{
