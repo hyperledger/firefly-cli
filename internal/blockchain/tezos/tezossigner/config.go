@@ -95,6 +95,7 @@ func GenerateSignerConfig(accountsAddresses []string) *Config {
 					"transaction",
 					"endorsement",
 					"reveal",
+					"origination",
 				},
 			},
 		}
