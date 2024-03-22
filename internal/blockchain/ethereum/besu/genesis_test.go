@@ -48,7 +48,7 @@ func TestCreateGenesis(t *testing.T) {
 				alloc[address] = &Alloc{
 					Balance: "0x200000000000000000000000000000000000000000000000000000000000000",
 				}
-				extraData += extraData
+				extraData += address
 			}
 			extraData = strings.ReplaceAll(fmt.Sprintf("%-236s", extraData), " ", "0")
 			expectedGenesis := &Genesis{
