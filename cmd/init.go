@@ -271,5 +271,6 @@ func init() {
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.OrgNames, "org-name", []string{}, "Organization name")
 	initCmd.PersistentFlags().StringArrayVar(&initOptions.NodeNames, "node-name", []string{}, "Node name")
 	initCmd.PersistentFlags().BoolVar(&initOptions.RemoteNodeDeploy, "remote-node-deploy", false, "Enable or disable deployment of FireFly contracts on remote nodes")
+	initCmd.PersistentFlags().StringVarP(&initOptions.CustomPath, "override", "o", "", "copy data from custom path to docker-compose.override.yml")
 	rootCmd.AddCommand(initCmd)
 }
