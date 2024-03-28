@@ -1065,7 +1065,7 @@ func (s *StackManager) waitForFireflyStart(port int) error {
 	return fmt.Errorf("waited for %v seconds for firefly to start on port %v but it was never available", retries*retryPeriod/1000, port)
 }
 
-func (s *StackManager) UpgradeStack(version string) error {
+func (s *StackManager) UpgradeStack(version string, forceUpgrade bool) error {
 	// stop the currently running stack
 	if err := s.StopStack(); err != nil {
 		return err
@@ -1076,8 +1076,10 @@ func (s *StackManager) UpgradeStack(version string) error {
 		return err
 	}
 
-	if err := core.ValidateVersionUpgrade(oldVersion, version); err != nil {
-		return err
+	if !forceUpgrade {
+		if err := core.ValidateVersionUpgrade(oldVersion, version); err != nil {
+			return err
+		}
 	}
 
 	// get the version manifest for the new version
