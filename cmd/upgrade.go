@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var forceUpgrade bool
+
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade <stack_name> <version>",
 	Short: "Upgrade a stack to different version",
@@ -66,7 +68,7 @@ var upgradeCmd = &cobra.Command{
 			return err
 		}
 		fmt.Printf("upgrading stack '%s'... ", stackName)
-		if err := stackManager.UpgradeStack(version); err != nil {
+		if err := stackManager.UpgradeStack(version, forceUpgrade); err != nil {
 			return err
 		}
 		fmt.Printf("\n\nYour stack has been upgraded to %s\n\nTo start your upgraded stack run:\n\n%s start %s\n\n", version, rootCmd.Use, stackName)
@@ -75,5 +77,6 @@ var upgradeCmd = &cobra.Command{
 }
 
 func init() {
+	upgradeCmd.Flags().BoolVarP(&forceUpgrade, "force", "f", false, "Force upgrade even between unsupported versions. May result in a broken environment. Use with caution.")
 	rootCmd.AddCommand(upgradeCmd)
 }
