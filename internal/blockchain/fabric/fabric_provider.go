@@ -397,7 +397,9 @@ func (p *FabricProvider) installChaincode(packageFilename string) error {
 	p.log.Info("installing chaincode")
 	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
 	if _, err := os.Stat(contractsDir); os.IsNotExist(err) {
-		os.Mkdir(contractsDir, 0755)
+		if err := os.Mkdir(contractsDir, 0755); err != nil {
+			return err
+		}
 	}
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, contractsDir,
