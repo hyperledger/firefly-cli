@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric/fabconnect"
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -395,6 +396,11 @@ func (p *FabricProvider) extractChaincode() error {
 func (p *FabricProvider) installChaincode(packageFilename string) error {
 	p.log.Info("installing chaincode")
 	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
+	if _, err := os.Stat(contractsDir); os.IsNotExist(err) {
+		if err := os.Mkdir(contractsDir, 0755); err != nil {
+			return err
+		}
+	}
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, contractsDir,
 		"run",
@@ -534,7 +540,9 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	version := extraArgs[2]
 
 	if err := p.installChaincode(filename); err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "chaincode already successfully installed") {
+			return nil, err
+		}
 	}
 
 	res, err := p.queryInstalled()
@@ -547,10 +555,12 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	for _, installedChaincode := range res.InstalledChaincodes {
 		validLabel := regexp.MustCompile(`^([^_]+)_.+$`)
 		matches := validLabel.FindStringSubmatch(installedChaincode.Label)
-		if len(matches) > 0 && matches[1] == chaincode {
-			chaincodeInstalled = true
-			packageID = installedChaincode.PackageID
-			break
+		for _, match := range matches {
+			if match == chaincode {
+				chaincodeInstalled = true
+				packageID = installedChaincode.PackageID
+				break
+			}
 		}
 	}
 
