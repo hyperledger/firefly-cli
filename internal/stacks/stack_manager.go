@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	cardanoremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/cardano/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/quorum"
@@ -1351,6 +1352,9 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		default:
 			return nil
 		}
+	case types.BlockchainProviderCardano:
+		s.Stack.DisableTokenFactories = true
+		return cardanoremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 	case types.BlockchainProviderTezos:
 		s.Stack.DisableTokenFactories = true
 		return tezosremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)

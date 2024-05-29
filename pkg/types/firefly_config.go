@@ -66,6 +66,10 @@ type OrgConfig struct {
 	Key  string `yaml:"key,omitempty"`
 }
 
+type CardanoconnectConfig struct {
+	URL string `yaml:"url,omitempty"`
+}
+
 type EthconnectConfig struct {
 	URL   string     `yaml:"url,omitempty"`
 	Topic string     `yaml:"topic,omitempty"`
@@ -86,6 +90,10 @@ type FabconnectConfig struct {
 	Signer    string `yaml:"signer,omitempty"`
 }
 
+type CardanoConfig struct {
+	Cardanoconnect *CardanoconnectConfig `yaml:"cardanoconnect,omitempty"`
+}
+
 type EthereumConfig struct {
 	Ethconnect *EthconnectConfig `yaml:"ethconnect,omitempty"`
 }
@@ -101,6 +109,7 @@ type FabricConfig struct {
 type BlockchainConfig struct {
 	Name     string          `yaml:"name,omitempty"`
 	Type     string          `yaml:"type,omitempty"`
+	Cardano  *CardanoConfig  `yaml:"cardano,omitempty"`
 	Ethereum *EthereumConfig `yaml:"ethereum,omitempty"`
 	Tezos    *TezosConfig    `yaml:"tezos,omitempty"`
 	Fabric   *FabricConfig   `yaml:"fabric,omitempty"`
