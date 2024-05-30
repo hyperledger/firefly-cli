@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano/cardanosigner"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano/connector"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano/connector/cardanoconnect"
+	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
@@ -46,10 +48,26 @@ func NewRemoteRPCProvider(ctx context.Context, stack *types.Stack) *RemoteRPCPro
 }
 
 func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
+	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
+	for i, member := range p.stack.Members {
+		// Generate the connector config for each member
+		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		if err := p.connector.GenerateConfig(p.stack, member, "mainnet").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
+	for i := range p.stack.Members {
+		// Copy connector config to each member's volume
+		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
+		connectorConfigVolumeName := fmt.Sprintf("%s_%s_config_%v", p.stack.Name, p.connector.Name(), i)
+		if err := docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -66,7 +84,7 @@ func (p *RemoteRPCProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	return []*docker.ServiceDefinition{}
+	return p.connector.GetServiceDefinitions(p.stack, map[string]string{})
 }
 
 func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
@@ -80,7 +98,8 @@ func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *typ
 		Type: "cardano",
 		Cardano: &types.CardanoConfig{
 			Cardanoconnect: &types.CardanoconnectConfig{
-				URL: connectorURL,
+				URL:   connectorURL,
+				Topic: m.ID,
 			},
 		},
 	}
@@ -125,7 +144,7 @@ func (p *RemoteRPCProvider) GetConnectorName() string {
 }
 
 func (p *RemoteRPCProvider) GetConnectorURL(org *types.Organization) string {
-	return fmt.Sprintf("http://fabconnect_%s:%v", org.ID, 3000)
+	return fmt.Sprintf("http://cardanoconnect_%s:%v", org.ID, 3000)
 }
 
 func (p *RemoteRPCProvider) GetConnectorExternalURL(org *types.Organization) string {

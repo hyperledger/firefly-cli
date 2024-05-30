@@ -67,7 +67,8 @@ type OrgConfig struct {
 }
 
 type CardanoconnectConfig struct {
-	URL string `yaml:"url,omitempty"`
+	URL   string `yaml:"url,omitempty"`
+	Topic string `yaml:"topic,omitempty"`
 }
 
 type EthconnectConfig struct {

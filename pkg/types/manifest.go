@@ -24,6 +24,7 @@ type GitHubRelease struct {
 
 type VersionManifest struct {
 	FireFly           *ManifestEntry `json:"firefly,omitempty"`
+	Cardanoconnect    *ManifestEntry `json:"cardanoconnect"`
 	Ethconnect        *ManifestEntry `json:"ethconnect"`
 	Evmconnect        *ManifestEntry `json:"evmconnect"`
 	Tezosconnect      *ManifestEntry `json:"tezosconnect"`
@@ -40,6 +41,7 @@ func (m *VersionManifest) Entries() []*ManifestEntry {
 	}
 	return []*ManifestEntry{
 		m.FireFly,
+		m.Cardanoconnect,
 		m.Ethconnect,
 		m.Evmconnect,
 		m.Tezosconnect,

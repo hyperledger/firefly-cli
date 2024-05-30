@@ -16,7 +16,18 @@
 
 package connector
 
+import (
+	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/pkg/types"
+)
+
 type Connector interface {
+	GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
+	GenerateConfig(stack *types.Stack, member *types.Organization, network string) Config
 	Name() string
 	Port() int
+}
+
+type Config interface {
+	WriteConfig(filename string, extraConnectorConfigPath string) error
 }

@@ -37,6 +37,7 @@ var initCardanoCmd = &cobra.Command{
 		initOptions.BlockchainProvider = types.BlockchainProviderCardano.String()
 		initOptions.BlockchainConnector = types.BlockchainConnectorCardanoConnect.String()
 		initOptions.BlockchainNodeProvider = types.BlockchainNodeProviderRemoteRPC.String()
+		initOptions.MultipartyEnabled = false
 		if err := initCommon(args); err != nil {
 			return err
 		}
