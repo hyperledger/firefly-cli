@@ -96,12 +96,12 @@ func (p *ERC1155Provider) GetDockerServiceDefinitions(tokenIdx int) []*docker.Se
 			}
 		}
 
-		env := map[string]interface{}{
+		env := p.stack.ConcatenateEnvironmentVars(map[string]interface{}{
 			"ETHCONNECT_URL":   p.blockchainProvider.GetConnectorURL(member),
 			"ETHCONNECT_TOPIC": connectorName,
 			"AUTO_INIT":        "false",
 			"CONTRACT_ADDRESS": contractAddress,
-		}
+		})
 		serviceDefinitions = append(serviceDefinitions, &docker.ServiceDefinition{
 			ServiceName: connectorName,
 			Service: &docker.Service{

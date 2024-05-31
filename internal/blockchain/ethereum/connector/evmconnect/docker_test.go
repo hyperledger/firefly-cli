@@ -75,6 +75,19 @@ func TestGetServiceDefinition(t *testing.T) {
 			},
 			ServiceName: "evmconnect_firefly_4",
 		},
+		{
+			Name: "test_env_vars_5",
+			Members: &types.Stack{
+				Members:         []*types.Organization{{ID: "firefly_5", ExposedConnectorPort: 7892}},
+				VersionManifest: &types.VersionManifest{Evmconnect: &getManifest.ManifestEntry},
+				EnvironmentVars: map[string]interface{}{"HTTP_PROXY": ""},
+			},
+			DependentServices: map[string]string{
+				"service1": "running",
+				"service2": "stopped",
+			},
+			ServiceName: "evmconnect_firefly_5",
+		},
 	}
 	for _, tc := range testServices {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -90,7 +103,12 @@ func TestGetServiceDefinition(t *testing.T) {
 			if serviceDefinitions[0].ServiceName != tc.ServiceName {
 				t.Errorf("Expected ServiceName %q, got %q", tc.ServiceName, serviceDefinitions[0].ServiceName)
 			}
-
+			if len(tc.Members.EnvironmentVars) != len(serviceDefinitions[0].Service.Environment) {
+				t.Errorf("Expected EnvironmentVars %q, got %q", tc.Members.EnvironmentVars, serviceDefinitions[0].Service.Environment)
+			}
+			for k := range tc.Members.EnvironmentVars {
+				assert.Equal(t, tc.Members.EnvironmentVars[k], serviceDefinitions[0].Service.Environment[k])
+			}
 		})
 	}
 

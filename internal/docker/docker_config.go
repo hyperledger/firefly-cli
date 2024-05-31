@@ -99,8 +99,9 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 					fmt.Sprintf("%s:/etc/firefly/firefly.core.yml:ro", configFile),
 					fmt.Sprintf("%s_data_%s:/etc/firefly/data", fireflyCore, member.ID),
 				},
-				DependsOn: map[string]map[string]string{},
-				Logging:   StandardLogOptions,
+				DependsOn:   map[string]map[string]string{},
+				Logging:     StandardLogOptions,
+				Environment: s.EnvironmentVars,
 			}
 			compose.Volumes[fmt.Sprintf("%s_data_%s", fireflyCore, member.ID)] = struct{}{}
 			compose.Services[fireflyCore+"_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}
@@ -111,10 +112,9 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.PostgresImageName,
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedDatabasePort)},
-				Environment: map[string]interface{}{
+				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
 					"POSTGRES_PASSWORD": "f1refly",
-					"PGDATA":            "/var/lib/postgresql/data/pgdata",
-				},
+					"PGDATA":            "/var/lib/postgresql/data/pgdata"}),
 				Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
 				HealthCheck: &HealthCheck{
 					Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
@@ -149,10 +149,13 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			},
 		}
 		if s.IPFSMode.Equals(types.IPFSModePrivate) {
-			sharedStorage.Environment = map[string]interface{}{
+			sharedStorage.Environment = s.ConcatenateEnvironmentVars(map[string]interface{}{
 				"IPFS_SWARM_KEY":    s.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
-			}
+			},
+			)
+		} else {
+			sharedStorage.Environment = s.EnvironmentVars
 		}
 		compose.Services["ipfs_"+member.ID] = sharedStorage
 		compose.Volumes[fmt.Sprintf("ipfs_staging_%s", member.ID)] = struct{}{}
@@ -163,6 +166,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			Ports:         []string{fmt.Sprintf("%d:3000", member.ExposedDataexchangePort)},
 			Volumes:       []string{fmt.Sprintf("dataexchange_%s:/data", member.ID)},
 			Logging:       StandardLogOptions,
+			Environment:   s.EnvironmentVars,
 		}
 		compose.Volumes[fmt.Sprintf("dataexchange_%s", member.ID)] = struct{}{}
 		if s.SandboxEnabled {
@@ -170,9 +174,9 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.SandboxImageName,
 				ContainerName: fmt.Sprintf("%s_sandbox_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:3001", member.ExposedSandboxPort)},
-				Environment: map[string]interface{}{
+				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
 					"FF_ENDPOINT": fmt.Sprintf("http://firefly_core_%d:%d", *member.Index, member.ExposedFireflyPort),
-				},
+				}),
 			}
 		}
 	}
@@ -184,6 +188,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			Ports:         []string{fmt.Sprintf("%d:9090", s.ExposedPrometheusPort)},
 			Volumes:       []string{"prometheus_data:/prometheus", "prometheus_config:/etc/prometheus"},
 			Logging:       StandardLogOptions,
+			Environment:   s.EnvironmentVars,
 		}
 		compose.Volumes["prometheus_data"] = struct{}{}
 		compose.Volumes["prometheus_config"] = struct{}{}

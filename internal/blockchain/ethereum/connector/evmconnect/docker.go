@@ -43,7 +43,8 @@ func (e *Evmconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 					fmt.Sprintf("%s/config/evmconnect_%s.yaml:/evmconnect/config.yaml", s.RuntimeDir, member.ID),
 					fmt.Sprintf("%s:/evmconnect/data", dataVolumeName),
 				},
-				Logging: docker.StandardLogOptions,
+				Logging:     docker.StandardLogOptions,
+				Environment: s.EnvironmentVars,
 			},
 			VolumeNames: []string{
 				dataVolumeName,

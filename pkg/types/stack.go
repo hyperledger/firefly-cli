@@ -25,35 +25,36 @@ import (
 )
 
 type Stack struct {
-	Name                   string           `json:"name,omitempty"`
-	Members                []*Organization  `json:"members,omitempty"`
-	SwarmKey               string           `json:"swarmKey,omitempty"`
-	ExposedBlockchainPort  int              `json:"exposedBlockchainPort,omitempty"`
-	Database               fftypes.FFEnum   `json:"database"`
-	BlockchainProvider     fftypes.FFEnum   `json:"blockchainProvider"`
-	BlockchainConnector    fftypes.FFEnum   `json:"blockchainConnector"`
-	BlockchainNodeProvider fftypes.FFEnum   `json:"blockchainNodeProvider"`
-	TokenProviders         []fftypes.FFEnum `json:"tokenProviders"`
-	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
-	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
-	SandboxEnabled         bool             `json:"sandboxEnabled,omitempty"`
-	MultipartyEnabled      bool             `json:"multiparty"`
-	ExposedPrometheusPort  int              `json:"exposedPrometheusPort,omitempty"`
-	ContractAddress        string           `json:"contractAddress,omitempty"`
-	ChainIDPtr             *int64           `json:"chainID,omitempty"`
-	RemoteNodeURL          string           `json:"remoteNodeURL,omitempty"`
-	DisableTokenFactories  bool             `json:"disableTokenFactories,omitempty"`
-	RequestTimeout         int              `json:"requestTimeout,omitempty"`
-	IPFSMode               fftypes.FFEnum   `json:"ipfsMode"`
-	RemoteFabricNetwork    bool             `json:"remoteFabricNetwork,omitempty"`
-	ChannelName            string           `json:"channelName,omitempty"`
-	ChaincodeName          string           `json:"chaincodeName,omitempty"`
-	CustomPinSupport       bool             `json:"customPinSupport,omitempty"`
-	RemoteNodeDeploy       bool             `json:"remoteNodeDeploy,omitempty"`
-	InitDir                string           `json:"-"`
-	RuntimeDir             string           `json:"-"`
-	StackDir               string           `json:"-"`
-	State                  *StackState      `json:"-"`
+	Name                   string                 `json:"name,omitempty"`
+	Members                []*Organization        `json:"members,omitempty"`
+	SwarmKey               string                 `json:"swarmKey,omitempty"`
+	ExposedBlockchainPort  int                    `json:"exposedBlockchainPort,omitempty"`
+	Database               fftypes.FFEnum         `json:"database"`
+	BlockchainProvider     fftypes.FFEnum         `json:"blockchainProvider"`
+	BlockchainConnector    fftypes.FFEnum         `json:"blockchainConnector"`
+	BlockchainNodeProvider fftypes.FFEnum         `json:"blockchainNodeProvider"`
+	TokenProviders         []fftypes.FFEnum       `json:"tokenProviders"`
+	VersionManifest        *VersionManifest       `json:"versionManifest,omitempty"`
+	PrometheusEnabled      bool                   `json:"prometheusEnabled,omitempty"`
+	SandboxEnabled         bool                   `json:"sandboxEnabled,omitempty"`
+	MultipartyEnabled      bool                   `json:"multiparty"`
+	ExposedPrometheusPort  int                    `json:"exposedPrometheusPort,omitempty"`
+	ContractAddress        string                 `json:"contractAddress,omitempty"`
+	ChainIDPtr             *int64                 `json:"chainID,omitempty"`
+	RemoteNodeURL          string                 `json:"remoteNodeURL,omitempty"`
+	DisableTokenFactories  bool                   `json:"disableTokenFactories,omitempty"`
+	RequestTimeout         int                    `json:"requestTimeout,omitempty"`
+	IPFSMode               fftypes.FFEnum         `json:"ipfsMode"`
+	RemoteFabricNetwork    bool                   `json:"remoteFabricNetwork,omitempty"`
+	ChannelName            string                 `json:"channelName,omitempty"`
+	ChaincodeName          string                 `json:"chaincodeName,omitempty"`
+	CustomPinSupport       bool                   `json:"customPinSupport,omitempty"`
+	RemoteNodeDeploy       bool                   `json:"remoteNodeDeploy,omitempty"`
+	EnvironmentVars        map[string]interface{} `json:"environmentVars"`
+	InitDir                string                 `json:"-"`
+	RuntimeDir             string                 `json:"-"`
+	StackDir               string                 `json:"-"`
+	State                  *StackState            `json:"-"`
 }
 
 func (s *Stack) ChainID() int64 {
@@ -105,4 +106,15 @@ func (s *Stack) IsOldFileStructure() (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+func (s *Stack) ConcatenateEnvironmentVars(input map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range input {
+		result[k] = v
+	}
+	for k, v := range s.EnvironmentVars {
+		result[k] = v // Overwrites existing keys from previous map
+	}
+	return result
 }

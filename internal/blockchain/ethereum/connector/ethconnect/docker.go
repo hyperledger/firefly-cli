@@ -42,7 +42,8 @@ func (e *Ethconnect) GetServiceDefinitions(s *types.Stack, dependentServices map
 					fmt.Sprintf("ethconnect_config_%s:/ethconnect/config", member.ID),
 					fmt.Sprintf("ethconnect_data_%s:/ethconnect/data", member.ID),
 				},
-				Logging: docker.StandardLogOptions,
+				Logging:     docker.StandardLogOptions,
+				Environment: s.EnvironmentVars,
 			},
 			VolumeNames: []string{
 				fmt.Sprintf("ethconnect_config_%v", member.ID),
