@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
@@ -47,10 +49,15 @@ var initCardanoCmd = &cobra.Command{
 			}
 			return err
 		}
+		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)
+		fmt.Printf("\nYour docker compose file for this stack can be found at: %s\n\n", filepath.Join(stackManager.Stack.StackDir, "docker-compose.yml"))
 		return nil
 	},
 }
 
 func init() {
+	initCardanoCmd.Flags().StringVar(&initOptions.Network, "network", "mainnet", "The name of the network to connect to")
+	initCardanoCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
+
 	initCmd.AddCommand(initCardanoCmd)
 }

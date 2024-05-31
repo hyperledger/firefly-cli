@@ -122,6 +122,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		SandboxEnabled:    options.SandboxEnabled,
 		MultipartyEnabled: options.MultipartyEnabled,
 		ChainIDPtr:        &options.ChainID,
+		Network:           options.Network,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),

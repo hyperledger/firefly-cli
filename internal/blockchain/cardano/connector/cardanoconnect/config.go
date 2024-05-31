@@ -89,7 +89,7 @@ func (c *Config) WriteConfig(filename string, extraCardanoconnectConfigPath stri
 	return nil
 }
 
-func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organization, network string) connector.Config {
+func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organization) connector.Config {
 	confirmations := new(int)
 	*confirmations = 0
 	var metrics *types.MetricsServerConfig
@@ -119,7 +119,8 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 		},
 		Connector: &ConnectorConfig{
 			Blockchain: &BlockchainConfig{
-				Network: network,
+				Address: stack.RemoteNodeURL,
+				Network: stack.Network,
 			},
 		},
 		Persistence: &PersistenceConfig{

@@ -18,6 +18,7 @@ package cardanoconnect
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -27,6 +28,10 @@ func (c *Cardanoconnect) GetServiceDefinitions(s *types.Stack, dependentServices
 	dependsOn := make(map[string]map[string]string)
 	for dep, state := range dependentServices {
 		dependsOn[dep] = map[string]string{"condition": state}
+	}
+	extraHosts := make([]string, 0)
+	if strings.Contains(s.RemoteNodeURL, "host.docker.internal") {
+		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
 	for i, member := range s.Members {
@@ -39,6 +44,7 @@ func (c *Cardanoconnect) GetServiceDefinitions(s *types.Stack, dependentServices
 				DependsOn:     dependsOn,
 				Ports:         []string{fmt.Sprintf("%d:%d", member.ExposedConnectorPort, c.Port())},
 				User:          "1001",
+				ExtraHosts:    extraHosts,
 				Volumes: []string{
 					fmt.Sprintf("cardanoconnect_config_%s:/cardanoconnect/config", member.ID),
 					fmt.Sprintf("cardanoconnect_leveldb_%s:/cardanoconnect/leveldb", member.ID),

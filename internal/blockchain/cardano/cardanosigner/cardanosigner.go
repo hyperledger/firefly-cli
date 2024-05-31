@@ -37,12 +37,7 @@ func NewCardanoSignerProvider(ctx context.Context, stack *types.Stack) *CardanoS
 }
 
 func (p *CardanoSignerProvider) CreateAccount(args []string) (interface{}, error) {
-	var network string
-	if len(args) >= 1 {
-		network = args[0]
-	} else {
-		network = "mainnet"
-	}
+	network := p.stack.Network
 
 	mnemonic, err := bursa.NewMnemonic()
 	if err != nil {

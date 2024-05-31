@@ -62,6 +62,7 @@ type Service struct {
 	Expose        []int                        `yaml:"expose,omitempty"`
 	Deploy        map[string]interface{}       `yaml:"deploy,omitempty"`
 	Platform      string                       `yaml:"platform,omitempty"`
+	ExtraHosts    []string                     `yaml:"extra_hosts,omitempty"`
 }
 
 type DockerComposeConfig struct {

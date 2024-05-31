@@ -57,6 +57,7 @@ type InitOptions struct {
 	ContractAddress           string
 	RemoteNodeURL             string
 	ChainID                   int64
+	Network                   string
 	DisableTokenFactories     bool
 	RequestTimeout            int
 	ReleaseChannel            string

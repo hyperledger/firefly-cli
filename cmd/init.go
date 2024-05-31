@@ -327,6 +327,7 @@ func init() {
 	initCmd.Flags().StringVar(&initOptions.ContractAddress, "contract-address", "", "Do not automatically deploy a contract, instead use a pre-configured address")
 	initCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
 	initCmd.Flags().Int64Var(&initOptions.ChainID, "chain-id", 2021, "The chain ID (Ethereum only) - also used as the network ID")
+	initCmd.Flags().StringVar(&initOptions.Network, "network", "mainnet", "The network to connect to (Cardano only)")
 	initCmd.PersistentFlags().IntVar(&initOptions.RequestTimeout, "request-timeout", 0, "Custom request timeout (in seconds) - useful for registration to public chains")
 	initCmd.PersistentFlags().StringVar(&initOptions.ReleaseChannel, "channel", "stable", fmt.Sprintf("Select the FireFly release channel to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
 	initCmd.PersistentFlags().BoolVar(&initOptions.MultipartyEnabled, "multiparty", true, "Enable or disable multiparty mode")

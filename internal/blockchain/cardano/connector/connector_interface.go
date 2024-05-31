@@ -23,7 +23,7 @@ import (
 
 type Connector interface {
 	GetServiceDefinitions(s *types.Stack, dependentServices map[string]string) []*docker.ServiceDefinition
-	GenerateConfig(stack *types.Stack, member *types.Organization, network string) Config
+	GenerateConfig(stack *types.Stack, member *types.Organization) Config
 	Name() string
 	Port() int
 }

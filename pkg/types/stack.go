@@ -44,6 +44,7 @@ type Stack struct {
 	ExposedPrometheusPort     int                    `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress           string                 `json:"contractAddress,omitempty"`
 	ChainIDPtr                *int64                 `json:"chainID,omitempty"`
+	Network                   string                 `json:"network,omitempty"`
 	RemoteNodeURL             string                 `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories     bool                   `json:"disableTokenFactories,omitempty"`
 	RequestTimeout            int                    `json:"requestTimeout,omitempty"`
