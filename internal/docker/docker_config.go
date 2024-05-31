@@ -60,6 +60,7 @@ type Service struct {
 	EntryPoint    []string                     `yaml:"entrypoint,omitempty"`
 	EnvFile       string                       `yaml:"env_file,omitempty"`
 	Expose        []int                        `yaml:"expose,omitempty"`
+	Deploy        map[string]interface{}       `yaml:"deploy,omitempty"`
 }
 
 type DockerComposeConfig struct {

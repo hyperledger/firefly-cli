@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -34,6 +35,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/quorum"
 	ethremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	tezosremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/tezos/remoterpc"
@@ -584,7 +586,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		nextPort++
 	}
 
-	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName})
+	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName, strconv.Itoa(index), strconv.Itoa(options.MemberCount)})
 	if err != nil {
 		return nil, err
 	}
@@ -1289,6 +1291,11 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderGeth
 	}
 
+	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderQuorum) {
+		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
+		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderQuorum
+	}
+
 	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderBesu) {
 		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
 		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderBesu
@@ -1297,7 +1304,7 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 	// Fallbacks for old stacks that don't have a specific blockchain connector set
 	if s.Stack.BlockchainConnector == "" {
 		switch s.Stack.BlockchainProvider {
-		case types.BlockchainProviderEthereum, types.BlockchainNodeProviderGeth, types.BlockchainNodeProviderBesu:
+		case types.BlockchainProviderEthereum, types.BlockchainNodeProviderGeth, types.BlockchainNodeProviderQuorum, types.BlockchainNodeProviderBesu:
 			// Ethconnect used to be the only option for ethereum before it was configurable so set it as the fallback
 			s.Stack.BlockchainConnector = types.BlockchainConnectorEthconnect
 		case types.BlockchainProviderFabric:
@@ -1315,6 +1322,8 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 			return geth.NewGethProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderBesu:
 			return besu.NewBesuProvider(s.ctx, s.Stack)
+		case types.BlockchainNodeProviderQuorum:
+			return quorum.NewGethProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
 			return ethremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
