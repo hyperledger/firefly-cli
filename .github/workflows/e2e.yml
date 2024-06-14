@@ -100,6 +100,7 @@ jobs:
       - name: Run E2E tests
         working-directory: firefly
         env:
+          DOWNLOAD_CLI: false
           TEST_SUITE: ${{ matrix.test-suite }}
           STACK_TYPE: ${{ matrix.stack-type }}
           BLOCKCHAIN_CONNECTOR: ${{ matrix.blockchain-connector }}
