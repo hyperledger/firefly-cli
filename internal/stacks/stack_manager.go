@@ -704,7 +704,7 @@ func (s *StackManager) removeVolumes() error {
 	}
 	for _, volumeName := range volumes {
 		if err := docker.RunDockerCommand(s.ctx, "", "volume", "remove", fmt.Sprintf("%s_%s", s.Stack.Name, volumeName)); err != nil {
-			if !strings.Contains(err.Error(), "No such volume") {
+			if !strings.Contains(strings.ToLower(err.Error()), "no such volume") {
 				return err
 			}
 		}
