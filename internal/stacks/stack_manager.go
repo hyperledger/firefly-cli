@@ -191,6 +191,11 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 	if err := s.writeDockerComposeOverride(compose); err != nil {
 		return fmt.Errorf("failed to write docker-compose.override.yml: %s", err)
 	}
+	if options.CustomPath != "" {
+		if err := s.copyToDockerComposeOverride(options.CustomPath); err != nil {
+			return fmt.Errorf("failed to copy file data to docker-compose.override.yml: %s", err)
+		}
+	}
 	return s.writeConfig(options)
 }
 
@@ -420,6 +425,20 @@ func (s *StackManager) writeDockerComposeOverride(compose *docker.DockerComposeC
 	}
 	bytes = append(bytes, yamlBytes...)
 	return os.WriteFile(filepath.Join(s.Stack.StackDir, "docker-compose.override.yml"), bytes, 0755)
+}
+
+func (s *StackManager) copyToDockerComposeOverride(dockerComposePath string) error {
+	comments := "# Copy custom file to docker-compose.override.yml file\n"
+	bytes := []byte(comments)
+
+	dockerPath := filepath.Join(s.Stack.StackDir, dockerComposePath)
+	overrideComposeContent, err := os.ReadFile(dockerPath)
+	if err != nil && os.IsNotExist(err) {
+		return err
+	}
+	bytes = append(bytes, overrideComposeContent...)
+	override := filepath.Join(s.Stack.StackDir, "docker-compose.override.yml")
+	return os.WriteFile(override, bytes, 0775)
 }
 
 func (s *StackManager) writeStackConfig() error {
