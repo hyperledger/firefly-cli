@@ -69,7 +69,8 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	for i, member := range p.stack.Members {
 		// Generate the connector config for each member
 		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
-		if err := p.connector.GenerateConfig(p.stack, member, "geth_0").WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
+		// TODO: remove hardcoding to geth_0 once we connect the quorum network together
+		if err := p.connector.GenerateConfig(p.stack, member, fmt.Sprintf("geth_%d", 0)).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
 		}
 	}
@@ -90,8 +91,8 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 }
 
 func (p *GethProvider) FirstTimeSetup() error {
-	gethVolumeName := fmt.Sprintf("%s_geth_0", p.stack.Name)
-	tesseraVolumeName := fmt.Sprintf("%s_tessera_0", p.stack.Name)
+	gethVolumeName := fmt.Sprintf("%s_geth", p.stack.Name)
+	tesseraVolumeName := fmt.Sprintf("%s_tessera", p.stack.Name)
 	blockchainDir := path.Join(p.stack.RuntimeDir, "blockchain")
 	tesseraDir := path.Join(p.stack.RuntimeDir, "tessera")
 	tesseraDirWithinContainer := "/qdata/dd"
@@ -114,35 +115,39 @@ func (p *GethProvider) FirstTimeSetup() error {
 		}
 	}
 
-	// Copy the wallet files of all members to the blockchain volume
-	keystoreDirectory := filepath.Join(blockchainDir, "keystore")
-	if err := docker.CopyFileToVolume(p.ctx, gethVolumeName, keystoreDirectory, "/"); err != nil {
-		return err
-	}
-
-	// Copy member specific tessera key files and docker entrypoint files to each of the tessera volume
 	for i := range p.stack.Members {
-		if err := docker.MkdirInVolume(p.ctx, tesseraVolumeName, tesseraDirWithinContainer); err != nil {
+		gethVolumeNameMember := fmt.Sprintf("%s_%d", gethVolumeName, i)
+		tesseraVolumeNameMember := fmt.Sprintf("%s_%d", tesseraVolumeName, i)
+
+		// Copy the wallet files of all members to the blockchain volume (TODO) change to only relevant keys
+		keystoreDirectory := filepath.Join(blockchainDir, "keystore")
+		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, keystoreDirectory, "/"); err != nil {
+			return err
+		}
+
+		// Copy member specific tessera key files and docker entrypoint files to each of the tessera volume
+		if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, tesseraDirWithinContainer); err != nil {
 			return err
 		}
 		tmDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
-		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeName, tmDirectory, tesseraDirWithinContainer); err != nil {
+		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmDirectory, tesseraDirWithinContainer); err != nil {
 			return err
 		}
 		entrypointFile := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "docker-entrypoint.sh")
-		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeName, entrypointFile, tesseraDirWithinContainer); err != nil {
+		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, entrypointFile, tesseraDirWithinContainer); err != nil {
 			return err
 		}
-	}
 
-	// Copy the genesis block information
-	if err := docker.CopyFileToVolume(p.ctx, gethVolumeName, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
-		return err
-	}
+		// Copy the genesis block information
+		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
+			return err
+		}
 
-	// Initialize the genesis block
-	if err := docker.RunDockerCommand(p.ctx, p.stack.StackDir, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeName), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
-		return err
+		// Initialize the genesis block
+		if err := docker.RunDockerCommand(p.ctx, p.stack.StackDir, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeNameMember), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -198,36 +203,40 @@ func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult,
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique,debug' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 --miner.gaslimit 16777215`, p.stack.ChainID())
-
-	serviceDefinitions := make([]*docker.ServiceDefinition, 2)
-	serviceDefinitions[0] = &docker.ServiceDefinition{
-		ServiceName: "geth_0",
-		Service: &docker.Service{
-			Image:         gethImage,
-			ContainerName: fmt.Sprintf("%s_geth_0", p.stack.Name),
-			Command:       gethCommand,
-			Volumes:       []string{"geth_0:/data"},
-			Logging:       docker.StandardLogOptions,
-			Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort)},
-			Environment:   p.stack.EnvironmentVars,
-			DependsOn:     map[string]map[string]string{"tessera_0": {"condition": "service_started"}},
-		},
-		VolumeNames: []string{"geth_0"},
+	memberCount := len(p.stack.Members)
+	serviceDefinitions := make([]*docker.ServiceDefinition, 2*memberCount)
+	connectorDependents := map[string]string{}
+	for i := 0; i < memberCount; i++ {
+		serviceDefinitions[i] = &docker.ServiceDefinition{
+			ServiceName: fmt.Sprintf("geth_%d", i),
+			Service: &docker.Service{
+				Image:         gethImage,
+				ContainerName: fmt.Sprintf("%s_geth_%d", p.stack.Name, i),
+				Command:       gethCommand,
+				Volumes:       []string{fmt.Sprintf("geth_%d:/data", i)},
+				Logging:       docker.StandardLogOptions,
+				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*10))}, // defaults 5100, 5110, 5120, 5130
+				Environment:   p.stack.EnvironmentVars,
+				DependsOn:     map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}},
+			},
+			VolumeNames: []string{fmt.Sprintf("geth_%d", i)},
+		}
+		serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
+			ServiceName: fmt.Sprintf("tessera_%d", i),
+			Service: &docker.Service{
+				Image:         tesseraImage,
+				ContainerName: fmt.Sprintf("member%dtessera", i),
+				Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
+				Logging:       docker.StandardLogOptions,
+				Environment:   p.stack.EnvironmentVars,
+				EntryPoint:    []string{"/bin/sh", "-c", "/data/qdata/dd/docker-entrypoint.sh"},
+				Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
+			},
+			VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
+		}
+		connectorDependents[fmt.Sprintf("geth_%d", i)] = "service_started"
 	}
-	serviceDefinitions[1] = &docker.ServiceDefinition{
-		ServiceName: "tessera_0",
-		Service: &docker.Service{
-			Image:         tesseraImage,
-			ContainerName: fmt.Sprintf("member%stessera", "0"),
-			Volumes:       []string{"tessera_0:/data"},
-			Logging:       docker.StandardLogOptions,
-			Environment:   p.stack.EnvironmentVars,
-			EntryPoint:    []string{"/bin/sh", "-c", "/data/qdata/dd/docker-entrypoint.sh"},
-			Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
-		},
-		VolumeNames: []string{"tessera_0"},
-	}
-	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, map[string]string{"geth_0": "service_started"})...)
+	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, connectorDependents)...)
 	return serviceDefinitions
 }
 
