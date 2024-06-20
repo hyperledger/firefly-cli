@@ -687,10 +687,15 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	}
 
 	// Use docker to pull every image - retry on failure
+	hasPulled := map[string]bool{}
 	for _, image := range images {
-		s.Log.Info(fmt.Sprintf("pulling '%s'", image))
-		if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
-			return err
+		if _, ok := hasPulled[image]; !ok {
+			s.Log.Info(fmt.Sprintf("pulling '%s'", image))
+			if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
+				return err
+			} else {
+				hasPulled[image] = true
+			}
 		}
 	}
 	return nil

@@ -119,22 +119,19 @@ func (p *GethProvider) FirstTimeSetup() error {
 		gethVolumeNameMember := fmt.Sprintf("%s_%d", gethVolumeName, i)
 		tesseraVolumeNameMember := fmt.Sprintf("%s_%d", tesseraVolumeName, i)
 
-		// Copy the wallet files of all members to the blockchain volume (TODO) change to only relevant keys
+		// Copy the wallet files of all members to the blockchain volume
+		// TODO: change to only relevant keys
 		keystoreDirectory := filepath.Join(blockchainDir, "keystore")
 		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, keystoreDirectory, "/"); err != nil {
 			return err
 		}
 
-		// Copy member specific tessera key files and docker entrypoint files to each of the tessera volume
+		// Copy member specific tessera key files to each of the tessera volume
 		if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, tesseraDirWithinContainer); err != nil {
 			return err
 		}
 		tmDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
 		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmDirectory, tesseraDirWithinContainer); err != nil {
-			return err
-		}
-		entrypointFile := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "docker-entrypoint.sh")
-		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, entrypointFile, tesseraDirWithinContainer); err != nil {
 			return err
 		}
 
@@ -202,7 +199,6 @@ func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult,
 }
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	gethCommand := fmt.Sprintf(`--datadir /data --syncmode 'full' --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*"  -http.port 8545 --http.vhosts "*" --http.api 'admin,personal,eth,net,web3,txpool,miner,clique,debug' --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 --miner.gaslimit 16777215`, p.stack.ChainID())
 	memberCount := len(p.stack.Members)
 	serviceDefinitions := make([]*docker.ServiceDefinition, 2*memberCount)
 	connectorDependents := map[string]string{}
@@ -212,11 +208,11 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			Service: &docker.Service{
 				Image:         gethImage,
 				ContainerName: fmt.Sprintf("%s_geth_%d", p.stack.Name, i),
-				Command:       gethCommand,
 				Volumes:       []string{fmt.Sprintf("geth_%d:/data", i)},
 				Logging:       docker.StandardLogOptions,
 				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*10))}, // defaults 5100, 5110, 5120, 5130
 				Environment:   p.stack.EnvironmentVars,
+				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 				DependsOn:     map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}},
 			},
 			VolumeNames: []string{fmt.Sprintf("geth_%d", i)},
@@ -229,7 +225,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
 				Logging:       docker.StandardLogOptions,
 				Environment:   p.stack.EnvironmentVars,
-				EntryPoint:    []string{"/bin/sh", "-c", "/data/qdata/dd/docker-entrypoint.sh"},
+				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 				Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
 			},
 			VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
@@ -297,8 +293,8 @@ func (p *GethProvider) DeployContract(filename, contractName, instanceName strin
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	l := log.LoggerFromContext(p.ctx)
-	gethVolumeName := fmt.Sprintf("%s_geth_0", p.stack.Name)
-	tesseraVolumeName := fmt.Sprintf("%s_tessera_0", p.stack.Name)
+	gethVolumeName := fmt.Sprintf("%s_geth_%s", p.stack.Name, args[2])
+	tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, args[2])
 	var directory string
 	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
@@ -322,8 +318,14 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		return nil, err
 	}
 	l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
+	l.Info("generating tessera entrypoint file")
 	tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", args[2]))
 	if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, args[3]); err != nil {
+		return nil, err
+	}
+	l.Info("generating quorum entrypoint file")
+	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", args[2]))
+	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, args[2], int(p.stack.ChainID())); err != nil {
 		return nil, err
 	}
 
@@ -338,6 +340,9 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 			return nil, err
 		}
 		if err := ethereum.CopyTesseraEntrypointToVolume(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName); err != nil {
+			return nil, err
+		}
+		if err := ethereum.CopyQuorumEntrypointToVolume(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName); err != nil {
 			return nil, err
 		}
 	}

@@ -146,10 +146,85 @@ EOF
 }
 
 func CopyTesseraEntrypointToVolume(ctx context.Context, tesseraEntrypointDirectory, volumeName string) error {
-	if err := docker.MkdirInVolume(ctx, volumeName, tmpath); err != nil {
+	if err := docker.MkdirInVolume(ctx, volumeName, ""); err != nil {
 		return err
 	}
-	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraEntrypointDirectory, entrypoint), tmpath); err != nil {
+	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraEntrypointDirectory, entrypoint), ""); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex string, chainId int) error {
+	discoveryCmd := "BOOTNODE_CMD=\"\""
+	if memberIndex != "0" {
+		discoveryCmd = `bootnode=$(curl http://geth_0:8545 -s --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
+BOOTNODE_CMD="--bootnodes $bootnode"
+BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/geth_0}`
+	}
+
+	content := fmt.Sprintf(`#!/bin/sh
+
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o xtrace
+
+GOQUORUM_CONS_ALGO=$(echo "${GOQUORUM_CONS_ALGO:-clique}" | tr '[:lower:]')
+if [ "istanbul" == "$GOQUORUM_CONS_ALGO" ];
+then
+    echo "Using istanbul for consensus algorithm..."
+    export CONSENSUS_ARGS="--istanbul.blockperiod 5 --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints"
+    export QUORUM_API="istanbul"
+elif [ "qbft" == "$GOQUORUM_CONS_ALGO" ];
+then
+    echo "Using qbft for consensus algorithm..."
+    export CONSENSUS_ARGS="--mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints"
+    export QUORUM_API="istanbul"
+elif [ "raft" == "$GOQUORUM_CONS_ALGO" ];
+then
+    echo "Using raft for consensus algorithm..."
+    export CONSENSUS_ARGS="--raft --raftblocktime 300 --raftport 53000"
+    export QUORUM_API="raft"
+elif [ "clique" == "$GOQUORUM_CONS_ALGO" ];
+then
+	echo "Using clique for consensus algorithm..."
+	export CONSENSUS_ARGS=""
+	export QUORUM_API="clique"
+fi
+
+TESSERA_URL=http://member%stessera:9000/upcheck
+ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --ptm.timeout 5 --ptm.url ${TESSERA_URL} --ptm.http.writebuffersize 4096 --ptm.http.readbuffersize 4096 --ptm.tls.mode off"
+
+echo -n "Checking tessera is up ... "
+curl --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "$TESSERA_URL"
+echo ""
+
+# discovery
+%s
+echo "bootnode discovery command :: $BOOTNODE_CMD"
+IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
+
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port 8545 --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD`, memberIndex, discoveryCmd, chainId)
+	filename := filepath.Join(outputDirectory, entrypoint)
+	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString(content)
+	if err != nil {
+		return err
+	}
+	CopyQuorumEntrypointToVolume(ctx, outputDirectory, volumeName)
+	return nil
+}
+
+func CopyQuorumEntrypointToVolume(ctx context.Context, quorumEntrypointDirectory, volumeName string) error {
+	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(quorumEntrypointDirectory, entrypoint), ""); err != nil {
 		return err
 	}
 	return nil
