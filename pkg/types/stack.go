@@ -29,6 +29,7 @@ type Stack struct {
 	Members                []*Organization        `json:"members,omitempty"`
 	SwarmKey               string                 `json:"swarmKey,omitempty"`
 	ExposedBlockchainPort  int                    `json:"exposedBlockchainPort,omitempty"`
+	ExposedPtmPort         int                    `json:"exposedPtmPort,omitempty"`
 	Database               fftypes.FFEnum         `json:"database"`
 	BlockchainProvider     fftypes.FFEnum         `json:"blockchainProvider"`
 	BlockchainConnector    fftypes.FFEnum         `json:"blockchainConnector"`

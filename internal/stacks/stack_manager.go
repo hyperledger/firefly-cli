@@ -98,6 +98,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		Name:                   options.StackName,
 		Members:                make([]*types.Organization, options.MemberCount),
 		ExposedBlockchainPort:  options.ServicesBasePort,
+		ExposedPtmPort:         options.PtmBasePort,
 		Database:               fftypes.FFEnum(options.DatabaseProvider),
 		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
 		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),

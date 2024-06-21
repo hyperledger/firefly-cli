@@ -231,6 +231,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				ContainerName: fmt.Sprintf("member%dtessera", i),
 				Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
 				Logging:       docker.StandardLogOptions,
+				Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), ethereum.TmTpPort)}, // defaults 4100, 4110, 4120, 4130
 				Environment:   p.stack.EnvironmentVars,
 				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 				Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},

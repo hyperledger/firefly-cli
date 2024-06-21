@@ -30,6 +30,10 @@ import (
 
 var entrypoint = "docker-entrypoint.sh"
 var tmpath = "/qdata/tm"
+var TmQ2tPort = "9101"
+var TmTpPort = "9080"
+var TmP2pPort = "9000"
+var GethPort = "8545"
 
 type PrivateKeyData struct {
 	Bytes string `json:"bytes"`
@@ -111,13 +115,13 @@ cat <<EOF > ${DDIR}/tessera-config-09.json
 			{
 				"app":"ThirdParty",
 				"enabled": true,
-				"serverAddress": "http://$(hostname -i):9080",
+				"serverAddress": "http://$(hostname -i):%s",
 				"communicationType" : "REST"
 			},
 			{
 				"app":"Q2T",
 				"enabled": true,
-				"serverAddress": "unix:${DDIR}/tm.ipc",
+				"serverAddress": "http://$(hostname -i):%s",
 				"sslConfig": {
 					"tls": "OFF"
 				},
@@ -126,7 +130,7 @@ cat <<EOF > ${DDIR}/tessera-config-09.json
 			{
 				"app":"P2P",
 				"enabled": true,
-				"serverAddress": "http://$(hostname -i):9000",
+				"serverAddress": "http://$(hostname -i):%s",
 				"sslConfig": {
 					"tls": "OFF"
 			},
@@ -154,7 +158,7 @@ cat <<EOF > ${DDIR}/tessera-config-09.json
 	}
 EOF
 /tessera/bin/tessera -configfile ${DDIR}/tessera-config-09.json
-`, peerList)
+`, TmTpPort, TmQ2tPort, TmP2pPort, peerList)
 	filename := filepath.Join(outputDirectory, entrypoint)
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -182,9 +186,9 @@ func CopyTesseraEntrypointToVolume(ctx context.Context, tesseraEntrypointDirecto
 func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex string, chainId int) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	if memberIndex != "0" {
-		discoveryCmd = `bootnode=$(curl http://geth_0:8545 -s --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
+		discoveryCmd = fmt.Sprintf(`bootnode=$(curl http://geth_0:%s -s --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
 BOOTNODE_CMD="--bootnodes $bootnode"
-BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/geth_0}`
+BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/geth_0}`, GethPort)
 	}
 
 	content := fmt.Sprintf(`#!/bin/sh
@@ -217,11 +221,14 @@ then
 	export QUORUM_API="clique"
 fi
 
-TESSERA_URL=http://member%stessera:9000/upcheck
-ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --ptm.timeout 5 --ptm.url ${TESSERA_URL} --ptm.http.writebuffersize 4096 --ptm.http.readbuffersize 4096 --ptm.tls.mode off"
+TESSERA_URL=http://member%stessera
+TESSERA_TP_PORT=%s
+TESSERA_Q2T_PORT=%s
+TESSERA_UPCHECK_URL=$TESSERA_URL:$TESSERA_TP_PORT/upcheck
+ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --ptm.timeout 5 --ptm.url ${TESSERA_URL}:${TESSERA_Q2T_PORT} --ptm.http.writebuffersize 4096 --ptm.http.readbuffersize 4096 --ptm.tls.mode off"
 
 echo -n "Checking tessera is up ... "
-curl --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "$TESSERA_URL"
+curl --connect-timeout 5 --max-time 10 --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "$TESSERA_UPCHECK_URL"
 echo ""
 
 # discovery
@@ -229,7 +236,7 @@ echo ""
 echo "bootnode discovery command :: $BOOTNODE_CMD"
 IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
 
-exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port 8545 --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD`, memberIndex, discoveryCmd, chainId)
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD $ADDITIONAL_ARGS`, memberIndex, TmTpPort, TmQ2tPort, discoveryCmd, GethPort, chainId)
 	filename := filepath.Join(outputDirectory, entrypoint)
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err

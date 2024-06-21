@@ -35,6 +35,7 @@ type InitOptions struct {
 	MemberCount              int
 	FireFlyBasePort          int
 	ServicesBasePort         int
+	PtmBasePort              int
 	DatabaseProvider         string
 	ExternalProcesses        int
 	OrgNames                 []string

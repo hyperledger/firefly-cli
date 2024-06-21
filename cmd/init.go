@@ -246,6 +246,7 @@ func randomHexString(length int) (string, error) {
 func init() {
 	initCmd.PersistentFlags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.PersistentFlags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+	initCmd.PersistentFlags().IntVar(&initOptions.PtmBasePort, "ptm-base-port", 4100, "Mapped port base of private transaction manager (10 added for each member)")
 	initCmd.PersistentFlags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "evmconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
