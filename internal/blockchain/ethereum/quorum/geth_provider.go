@@ -38,6 +38,7 @@ import (
 
 var gethImage = "quorumengineering/quorum:24.4"
 var tesseraImage = "quorumengineering/tessera:24.4"
+var exposedBlockchainPortMultiplier = 10
 
 // TODO: Probably randomize this and make it different per member?
 var keyPassword = "correcthorsebatterystaple"
@@ -69,8 +70,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	for i, member := range p.stack.Members {
 		// Generate the connector config for each member
 		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
-		// TODO: remove hardcoding to geth_0 once we connect the quorum network together
-		if err := p.connector.GenerateConfig(p.stack, member, fmt.Sprintf("geth_%d", 0)).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
+		if err := p.connector.GenerateConfig(p.stack, member, fmt.Sprintf("geth_%d", i)).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
 		}
 	}
@@ -119,9 +119,8 @@ func (p *GethProvider) FirstTimeSetup() error {
 		gethVolumeNameMember := fmt.Sprintf("%s_%d", gethVolumeName, i)
 		tesseraVolumeNameMember := fmt.Sprintf("%s_%d", tesseraVolumeName, i)
 
-		// Copy the wallet files of all members to the blockchain volume
-		// TODO: change to only relevant keys
-		keystoreDirectory := filepath.Join(blockchainDir, "keystore")
+		// Copy the wallet files of each member to their respective blockchain volume
+		keystoreDirectory := filepath.Join(blockchainDir, fmt.Sprintf("geth_%d", i), "keystore")
 		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, keystoreDirectory, "/"); err != nil {
 			return err
 		}
@@ -160,7 +159,14 @@ func (p *GethProvider) PostStart(firstTimeSetup bool) error {
 	for _, account := range p.stack.State.Accounts {
 		address := account.(*ethereum.Account).Address
 		l.Info(fmt.Sprintf("unlocking account %s", address))
-		if err := p.unlockAccount(address, keyPassword); err != nil {
+		// Check which member the account belongs to
+		var memberIndex int
+		for _, member := range p.stack.Members {
+			if member.Account.(*ethereum.Account).Address == address {
+				memberIndex = *member.Index
+			}
+		}
+		if err := p.unlockAccount(address, keyPassword, memberIndex); err != nil {
 			return err
 		}
 	}
@@ -168,10 +174,11 @@ func (p *GethProvider) PostStart(firstTimeSetup bool) error {
 	return nil
 }
 
-func (p *GethProvider) unlockAccount(address, password string) error {
+func (p *GethProvider) unlockAccount(address, password string, memberIndex int) error {
 	l := log.LoggerFromContext(p.ctx)
 	verbose := log.VerbosityFromContext(p.ctx)
-	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort))
+	// exposed blockchain port is the default for node 0, we need to add the port multiplier to get the right rpc for the correct node
+	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort+(memberIndex*exposedBlockchainPortMultiplier)))
 	retries := 10
 	for {
 		if err := gethClient.UnlockAccount(address, password); err != nil {
@@ -210,7 +217,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				ContainerName: fmt.Sprintf("%s_geth_%d", p.stack.Name, i),
 				Volumes:       []string{fmt.Sprintf("geth_%d:/data", i)},
 				Logging:       docker.StandardLogOptions,
-				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*10))}, // defaults 5100, 5110, 5120, 5130
+				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*exposedBlockchainPortMultiplier))}, // defaults 5100, 5110, 5120, 5130
 				Environment:   p.stack.EnvironmentVars,
 				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 				DependsOn:     map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}},
@@ -293,8 +300,10 @@ func (p *GethProvider) DeployContract(filename, contractName, instanceName strin
 
 func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	l := log.LoggerFromContext(p.ctx)
-	gethVolumeName := fmt.Sprintf("%s_geth_%s", p.stack.Name, args[2])
-	tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, args[2])
+	memberIndex := args[2]
+	memberCount := args[3]
+	gethVolumeName := fmt.Sprintf("%s_geth_%s", p.stack.Name, memberIndex)
+	tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
 	var directory string
 	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
@@ -307,25 +316,25 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	prefix := strconv.FormatInt(time.Now().UnixNano(), 10)
-	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
+	outputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex), "keystore")
 	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, prefix, keyPassword)
 	if err != nil {
 		return nil, err
 	}
-	tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", args[2]), "keystore")
+	tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
 	tesseraKeysPath, err := ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
 	if err != nil {
 		return nil, err
 	}
 	l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
 	l.Info("generating tessera entrypoint file")
-	tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", args[2]))
-	if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, args[3]); err != nil {
+	tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
+	if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
 		return nil, err
 	}
 	l.Info("generating quorum entrypoint file")
-	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", args[2]))
-	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, args[2], int(p.stack.ChainID())); err != nil {
+	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
+	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, int(p.stack.ChainID())); err != nil {
 		return nil, err
 	}
 
@@ -333,8 +342,12 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		if err := ethereum.CopyWalletFileToVolume(p.ctx, walletFilePath, gethVolumeName); err != nil {
 			return nil, err
 		}
-		if err := p.unlockAccount(keyPair.Address.String(), keyPassword); err != nil {
+		if memberIndexInt, err := strconv.Atoi(memberIndex); err != nil {
 			return nil, err
+		} else {
+			if err := p.unlockAccount(keyPair.Address.String(), keyPassword, memberIndexInt); err != nil {
+				return nil, err
+			}
 		}
 		if err := ethereum.CopyTesseraKeysToVolume(p.ctx, tesseraKeysOutputDirectory, tesseraVolumeName); err != nil {
 			return nil, err
