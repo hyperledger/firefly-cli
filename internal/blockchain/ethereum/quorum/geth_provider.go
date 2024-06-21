@@ -322,7 +322,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		return nil, err
 	}
 	tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-	tesseraKeysPath, err := ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
+	tesseraPrivateKey, tesseraPubKey, tesseraKeysPath, err := ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -361,8 +361,10 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	return &ethereum.Account{
-		Address:    keyPair.Address.String(),
-		PrivateKey: hex.EncodeToString(keyPair.PrivateKeyBytes()),
+		Address:       keyPair.Address.String(),
+		PrivateKey:    hex.EncodeToString(keyPair.PrivateKeyBytes()),
+		PtmPublicKey:  tesseraPubKey,
+		PtmPrivateKey: tesseraPrivateKey,
 	}, nil
 }
 

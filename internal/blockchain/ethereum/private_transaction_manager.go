@@ -18,6 +18,7 @@ package ethereum
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,7 +31,16 @@ import (
 var entrypoint = "docker-entrypoint.sh"
 var tmpath = "/qdata/tm"
 
-func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name, password string) (string, error) {
+type PrivateKeyData struct {
+	Bytes string `json:"bytes"`
+}
+
+type PrivateKey struct {
+	Type string         `json:"type"`
+	Data PrivateKeyData `json:"data"`
+}
+
+func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name, password string) (privateKey, pubKey, path string, err error) {
 	// generates both .pub and .key files used by Tessera
 	var filename string
 	if prefix != "" {
@@ -39,14 +49,28 @@ func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name
 		filename = name
 	}
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
-		return "", err
+		return "", "", "", err
 	}
 	fmt.Println("generating tessera keys")
-	err := docker.RunDockerCommand(ctx, outputDirectory, "run", "--rm", "-v", fmt.Sprintf("%s:/keystore", outputDirectory), image, "-keygen", "-filename", fmt.Sprintf("/keystore/%s", filename))
+	err = docker.RunDockerCommand(ctx, outputDirectory, "run", "--rm", "-v", fmt.Sprintf("%s:/keystore", outputDirectory), image, "-keygen", "-filename", fmt.Sprintf("/keystore/%s", filename))
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
-	return fmt.Sprintf("%s/%s", outputDirectory, filename), nil
+	path = fmt.Sprintf("%s/%s", outputDirectory, filename)
+	pubKeyBytes, err := os.ReadFile(fmt.Sprintf("%v.%s", path, "pub"))
+	if err != nil {
+		return "", "", "", err
+	}
+	privateKeyBytes, err := os.ReadFile(fmt.Sprintf("%v.%s", path, "key"))
+	if err != nil {
+		return "", "", "", err
+	}
+	var privateKeyData PrivateKey
+	err = json.Unmarshal(privateKeyBytes, &privateKeyData)
+	if err != nil {
+		return "", "", "", err
+	}
+	return privateKeyData.Data.Bytes, string(pubKeyBytes[:]), path, nil
 }
 
 func CopyTesseraKeysToVolume(ctx context.Context, tesseraKeyPath, volumeName string) error {

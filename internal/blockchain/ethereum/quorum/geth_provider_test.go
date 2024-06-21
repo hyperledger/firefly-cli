@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestNewGethProvider(t *testing.T) {
 				},
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "Evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 			},
 		},
 		{
@@ -67,7 +68,7 @@ func TestNewGethProvider(t *testing.T) {
 				},
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "Ethconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 			},
 		},
 	}
@@ -268,41 +269,43 @@ func TestGetConnectorExternal(t *testing.T) {
 }
 
 func TestCreateAccount(t *testing.T) {
+	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
 	testcases := []struct {
 		Name  string
+		Ctx   context.Context
 		Stack *types.Stack
 		Args  []string
 	}{
 		{
 			Name: "testcase1",
+			Ctx:  ctx,
 			Stack: &types.Stack{
 				Name:                   "Org-1_geth",
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
 			},
-			Args: []string{},
+			Args: []string{"Org-1_geth", "Org-1_geth", "0", "1"},
 		},
 		{
 			Name: "testcase1",
+			Ctx:  ctx,
 			Stack: &types.Stack{
 				Name:                   "Org-2_geth",
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "geth"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
 			},
-			Args: []string{},
+			Args: []string{"Org-2_geth", "Org-2_geth", "1", "2"},
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			p := &GethProvider{
-				stack: tc.Stack,
-			}
+			p := NewGethProvider(tc.Ctx, tc.Stack)
 			Account, err := p.CreateAccount(tc.Args)
 			if err != nil {
 				t.Log("unable to create account", err)
@@ -318,6 +321,10 @@ func TestCreateAccount(t *testing.T) {
 			assert.NotEmpty(t, account.PrivateKey)
 			_, err = hex.DecodeString(account.PrivateKey)
 			assert.NoError(t, err, "invalid private key format")
+			// Check if the tessera private key is a non-empty string
+			assert.NotEmpty(t, account.PtmPrivateKey)
+			// Check if the tessera public key is a non-empty string
+			assert.NotEmpty(t, account.PtmPublicKey)
 		})
 	}
 }
