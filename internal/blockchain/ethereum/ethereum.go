@@ -32,10 +32,9 @@ import (
 )
 
 type Account struct {
-	Address       string `json:"address"`
-	PrivateKey    string `json:"privateKey"`
-	PtmPublicKey  string `json:"ptmPublicKey"`
-	PtmPrivateKey string `json:"ptmPrivateKey"`
+	Address      string `json:"address"`
+	PrivateKey   string `json:"privateKey"`
+	PtmPublicKey string `json:"ptmPublicKey"`
 }
 
 func GenerateAddressAndPrivateKey() (address string, privateKey string) {

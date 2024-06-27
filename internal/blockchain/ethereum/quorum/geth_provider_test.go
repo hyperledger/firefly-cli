@@ -89,16 +89,31 @@ func TestParseAccount(t *testing.T) {
 		{
 			Name: "Account 1",
 			Address: map[string]interface{}{
-				"address":    "0x1234567890abcdef0123456789abcdef6789abcd",
-				"privateKey": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+				"address":      "0x1234567890abcdef0123456789abcdef6789abcd",
+				"privateKey":   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+				"ptmPublicKey": "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
 			},
 			ExpectedAccount: &ethereum.Account{
-				Address:    "0x1234567890abcdef0123456789abcdef6789abcd",
-				PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+				Address:      "0x1234567890abcdef0123456789abcdef6789abcd",
+				PrivateKey:   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+				PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
 			},
 		},
 		{
 			Name: "Account 2",
+			Address: map[string]interface{}{
+				"address":      "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
+				"privateKey":   "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				"ptmPublicKey": "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+			},
+			ExpectedAccount: &ethereum.Account{
+				Address:      "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
+				PrivateKey:   "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+			},
+		},
+		{
+			Name: "Account 3",
 			Address: map[string]interface{}{
 				"address":    "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
 				"privateKey": "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
@@ -321,10 +336,12 @@ func TestCreateAccount(t *testing.T) {
 			assert.NotEmpty(t, account.PrivateKey)
 			_, err = hex.DecodeString(account.PrivateKey)
 			assert.NoError(t, err, "invalid private key format")
-			// Check if the tessera private key is a non-empty string
-			assert.NotEmpty(t, account.PtmPrivateKey)
 			// Check if the tessera public key is a non-empty string
-			assert.NotEmpty(t, account.PtmPublicKey)
+			if tc.Stack.TesseraEnabled {
+				assert.NotEmpty(t, account.PtmPublicKey)
+			} else {
+				assert.Empty(t, account.PtmPublicKey)
+			}
 		})
 	}
 }

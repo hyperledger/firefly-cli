@@ -336,11 +336,11 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	// Tessera is an optional add-on to the quorum blockchain node provider
-	var tesseraPrivateKey, tesseraPubKey, tesseraKeysPath string
+	var tesseraPubKey, tesseraKeysPath string
 	if p.stack.TesseraEnabled {
 		tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
 		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-		tesseraPrivateKey, tesseraPubKey, tesseraKeysPath, err = ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
+		_, tesseraPubKey, tesseraKeysPath, err = ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
 		if err != nil {
 			return nil, err
 		}
@@ -384,18 +384,24 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	return &ethereum.Account{
-		Address:       keyPair.Address.String(),
-		PrivateKey:    hex.EncodeToString(keyPair.PrivateKeyBytes()),
-		PtmPublicKey:  tesseraPubKey,
-		PtmPrivateKey: tesseraPrivateKey,
+		Address:      keyPair.Address.String(),
+		PrivateKey:   hex.EncodeToString(keyPair.PrivateKeyBytes()),
+		PtmPublicKey: tesseraPubKey,
 	}, nil
 }
 
 func (p *GethProvider) ParseAccount(account interface{}) interface{} {
 	accountMap := account.(map[string]interface{})
+	ptmPublicKey := "" // if we start quorum without tessera, no public key will be generated
+	v, ok := accountMap["ptmPublicKey"]
+	if ok {
+		ptmPublicKey = v.(string)
+	}
+
 	return &ethereum.Account{
-		Address:    accountMap["address"].(string),
-		PrivateKey: accountMap["privateKey"].(string),
+		Address:      accountMap["address"].(string),
+		PrivateKey:   accountMap["privateKey"].(string),
+		PtmPublicKey: ptmPublicKey,
 	}
 }
 
