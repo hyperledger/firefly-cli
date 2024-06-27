@@ -125,13 +125,15 @@ func (p *GethProvider) FirstTimeSetup() error {
 			return err
 		}
 
-		// Copy member specific tessera key files to each of the tessera volume
-		if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, tesseraDirWithinContainer); err != nil {
-			return err
-		}
-		tmDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
-		if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmDirectory, tesseraDirWithinContainer); err != nil {
-			return err
+		if p.stack.TesseraEnabled {
+			// Copy member specific tessera key files to each of the tessera volume
+			if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, tesseraDirWithinContainer); err != nil {
+				return err
+			}
+			tmDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
+			if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmDirectory, tesseraDirWithinContainer); err != nil {
+				return err
+			}
 		}
 
 		// Copy the genesis block information
@@ -207,9 +209,17 @@ func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult,
 
 func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	memberCount := len(p.stack.Members)
-	serviceDefinitions := make([]*docker.ServiceDefinition, 2*memberCount)
+	serviceDefinitionsCount := memberCount
+	if p.stack.TesseraEnabled {
+		serviceDefinitionsCount *= 2
+	}
+	serviceDefinitions := make([]*docker.ServiceDefinition, serviceDefinitionsCount)
 	connectorDependents := map[string]string{}
 	for i := 0; i < memberCount; i++ {
+		var dependsOn map[string]map[string]string
+		if p.stack.TesseraEnabled {
+			dependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}}
+		}
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: fmt.Sprintf("geth_%d", i),
 			Service: &docker.Service{
@@ -220,25 +230,28 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*exposedBlockchainPortMultiplier))}, // defaults 5100, 5110, 5120, 5130
 				Environment:   p.stack.EnvironmentVars,
 				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
-				DependsOn:     map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}},
+				DependsOn:     dependsOn,
 			},
 			VolumeNames: []string{fmt.Sprintf("geth_%d", i)},
 		}
-		serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
-			ServiceName: fmt.Sprintf("tessera_%d", i),
-			Service: &docker.Service{
-				Image:         tesseraImage,
-				ContainerName: fmt.Sprintf("member%dtessera", i),
-				Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
-				Logging:       docker.StandardLogOptions,
-				Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), ethereum.TmTpPort)}, // defaults 4100, 4110, 4120, 4130
-				Environment:   p.stack.EnvironmentVars,
-				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
-				Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
-			},
-			VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
-		}
 		connectorDependents[fmt.Sprintf("geth_%d", i)] = "service_started"
+
+		if p.stack.TesseraEnabled {
+			serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
+				ServiceName: fmt.Sprintf("tessera_%d", i),
+				Service: &docker.Service{
+					Image:         tesseraImage,
+					ContainerName: fmt.Sprintf("member%dtessera", i),
+					Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
+					Logging:       docker.StandardLogOptions,
+					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), ethereum.TmTpPort)}, // defaults 4100, 4110, 4120, 4130
+					Environment:   p.stack.EnvironmentVars,
+					EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
+					Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
+				},
+				VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
+			}
+		}
 	}
 	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, connectorDependents)...)
 	return serviceDefinitions
@@ -304,7 +317,6 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	memberIndex := args[2]
 	memberCount := args[3]
 	gethVolumeName := fmt.Sprintf("%s_geth_%s", p.stack.Name, memberIndex)
-	tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
 	var directory string
 	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
@@ -322,20 +334,36 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-	tesseraPrivateKey, tesseraPubKey, tesseraKeysPath, err := ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
-	if err != nil {
-		return nil, err
+
+	// Tessera is an optional add-on to the quorum blockchain node provider
+	var tesseraPrivateKey, tesseraPubKey, tesseraKeysPath string
+	if p.stack.TesseraEnabled {
+		tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
+		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
+		tesseraPrivateKey, tesseraPubKey, tesseraKeysPath, err = ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
+		if err != nil {
+			return nil, err
+		}
+		l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
+		l.Info(fmt.Sprintln("generating tessera entrypoint file for member", memberIndex))
+		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
+		if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
+			return nil, err
+		}
+
+		if stackHasRunBefore {
+			if err := ethereum.CopyTesseraKeysToVolume(p.ctx, tesseraKeysOutputDirectory, tesseraVolumeName); err != nil {
+				return nil, err
+			}
+			if err := ethereum.CopyTesseraEntrypointToVolume(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName); err != nil {
+				return nil, err
+			}
+		}
 	}
-	l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
-	l.Info("generating tessera entrypoint file")
-	tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
-	if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
-		return nil, err
-	}
-	l.Info("generating quorum entrypoint file")
+
+	l.Info(fmt.Sprintf("generating quorum entrypoint file for member %s", memberIndex))
 	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
-	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, int(p.stack.ChainID())); err != nil {
+	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
 		return nil, err
 	}
 
@@ -349,12 +377,6 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 			if err := p.unlockAccount(keyPair.Address.String(), keyPassword, memberIndexInt); err != nil {
 				return nil, err
 			}
-		}
-		if err := ethereum.CopyTesseraKeysToVolume(p.ctx, tesseraKeysOutputDirectory, tesseraVolumeName); err != nil {
-			return nil, err
-		}
-		if err := ethereum.CopyTesseraEntrypointToVolume(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName); err != nil {
-			return nil, err
 		}
 		if err := ethereum.CopyQuorumEntrypointToVolume(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName); err != nil {
 			return nil, err

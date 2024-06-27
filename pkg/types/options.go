@@ -43,6 +43,7 @@ type InitOptions struct {
 	BlockchainConnector      string
 	BlockchainProvider       string
 	BlockchainNodeProvider   string
+	TesseraEnabled           bool
 	TokenProviders           []string
 	FireFlyVersion           string
 	ManifestPath             string
