@@ -182,7 +182,7 @@ func CopyTesseraEntrypointToVolume(ctx context.Context, tesseraEntrypointDirecto
 	return nil
 }
 
-func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex string, chainId int, tesseraEnabled bool) error {
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex, consensus string, chainId int, tesseraEnabled bool) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	connectTimeout := 15
 	if memberIndex != "0" {
@@ -212,7 +212,7 @@ set -o nounset
 set -o pipefail
 set -o xtrace
 
-GOQUORUM_CONS_ALGO=$(echo "${GOQUORUM_CONS_ALGO:-clique}" | tr '[:lower:]')
+GOQUORUM_CONS_ALGO=%s
 if [ "istanbul" == "$GOQUORUM_CONS_ALGO" ];
 then
     echo "Using istanbul for consensus algorithm..."
@@ -243,7 +243,7 @@ ADDITIONAL_ARGS=${ADDITIONAL_ARGS:-}
 echo "bootnode discovery command :: $BOOTNODE_CMD"
 IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
 
-exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD $ADDITIONAL_ARGS`, tesseraCmd, discoveryCmd, GethPort, chainId)
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, GethPort, chainId)
 	filename := filepath.Join(outputDirectory, entrypoint)
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err

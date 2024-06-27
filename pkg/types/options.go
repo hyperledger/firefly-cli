@@ -44,6 +44,7 @@ type InitOptions struct {
 	BlockchainProvider       string
 	BlockchainNodeProvider   string
 	TesseraEnabled           bool
+	QuorumConsensus          string
 	TokenProviders           []string
 	FireFlyVersion           string
 	ManifestPath             string
@@ -102,6 +103,15 @@ var (
 	BlockchainNodeProviderQuorum    = fftypes.FFEnumValue(BlockchainNodeProvider, "quorum")
 	BlockchainNodeProviderBesu      = fftypes.FFEnumValue(BlockchainNodeProvider, "besu")
 	BlockchainNodeProviderRemoteRPC = fftypes.FFEnumValue(BlockchainNodeProvider, "remote-rpc")
+)
+
+const QuorumConsensus = "quorum_consensus"
+
+var (
+	QuorumConsensusClique = fftypes.FFEnumValue(QuorumConsensus, "clique")
+	QuorumConsensusRaft   = fftypes.FFEnumValue(QuorumConsensus, "raft")
+	QuorumConsensusIbft   = fftypes.FFEnumValue(QuorumConsensus, "ibft")
+	QuorumConsensusQbft   = fftypes.FFEnumValue(QuorumConsensus, "qbft")
 )
 
 const DatabaseSelection = "database_selection"

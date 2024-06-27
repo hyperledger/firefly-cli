@@ -35,6 +35,7 @@ type Stack struct {
 	BlockchainConnector    fftypes.FFEnum         `json:"blockchainConnector"`
 	BlockchainNodeProvider fftypes.FFEnum         `json:"blockchainNodeProvider"`
 	TesseraEnabled         bool                   `json:"tesseraEnabled"`
+	QuorumConsensus        fftypes.FFEnum         `json:"quorumConsensus"`
 	TokenProviders         []fftypes.FFEnum       `json:"tokenProviders"`
 	VersionManifest        *VersionManifest       `json:"versionManifest,omitempty"`
 	PrometheusEnabled      bool                   `json:"prometheusEnabled,omitempty"`

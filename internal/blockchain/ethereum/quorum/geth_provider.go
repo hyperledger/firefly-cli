@@ -345,7 +345,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 			return nil, err
 		}
 		l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
-		l.Info(fmt.Sprintln("generating tessera entrypoint file for member", memberIndex))
+		l.Info(fmt.Sprintf("generating tessera entrypoint file for member %s", memberIndex))
 		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
 		if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
 			return nil, err
@@ -363,7 +363,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 
 	l.Info(fmt.Sprintf("generating quorum entrypoint file for member %s", memberIndex))
 	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
-	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
+	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
 		return nil, err
 	}
 

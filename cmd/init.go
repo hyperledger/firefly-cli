@@ -82,6 +82,9 @@ func initCommon(args []string) error {
 	if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
 		return err
 	}
+	if err := validateQuorumConsensus(initOptions.QuorumConsensus); err != nil {
+		return err
+	}
 	if err := validateTesseraSelection(initOptions.TesseraEnabled, initOptions.BlockchainNodeProvider); err != nil {
 		return err
 	}
@@ -203,6 +206,19 @@ func validateBlockchainProvider(providerString, nodeString string) error {
 	return nil
 }
 
+func validateQuorumConsensus(consensusString string) error {
+	v, err := fftypes.FFEnumParseString(context.Background(), types.QuorumConsensus, consensusString)
+	if err != nil {
+		return nil
+	}
+
+	if v != types.QuorumConsensusClique {
+		return errors.New("support for raft/ibft/qbft will come in future")
+	}
+
+	return nil
+}
+
 func validateTesseraSelection(tesseraEnabled bool, nodeString string) error {
 	if tesseraEnabled {
 		v, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainNodeProvider, nodeString)
@@ -269,6 +285,7 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
 	initCmd.PersistentFlags().BoolVar(&initOptions.TesseraEnabled, "tessera-enabled", false, "Enables private transaction manager Tessera to start alongside with Quorum")
+	initCmd.PersistentFlags().StringVar(&initOptions.QuorumConsensus, "quorum-consensus", "clique", fmt.Sprintf("Consensus algorithm used when Blockchain node type is Quorum. Options are %v", fftypes.FFEnumValues(types.QuorumConsensus)))
 	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", fmt.Sprintf("Select the FireFly release version to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))
