@@ -29,7 +29,6 @@ import (
 )
 
 var entrypoint = "docker-entrypoint.sh"
-var tmpath = "/qdata/tm"
 var TmQ2tPort = "9101"
 var TmTpPort = "9080"
 var TmP2pPort = "9000"
@@ -77,19 +76,6 @@ func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name
 	return privateKeyData.Data.Bytes, string(pubKeyBytes[:]), path, nil
 }
 
-func CopyTesseraKeysToVolume(ctx context.Context, tesseraKeyPath, volumeName string) error {
-	if err := docker.MkdirInVolume(ctx, volumeName, tmpath); err != nil {
-		return err
-	}
-	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraKeyPath, "tm.pub"), tmpath); err != nil {
-		return err
-	}
-	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraKeyPath, "tm.key"), tmpath); err != nil {
-		return err
-	}
-	return nil
-}
-
 func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, volumeName, memberCount string) error {
 	// only tessera v09 onwards is supported
 	var sb strings.Builder
@@ -99,7 +85,7 @@ func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, volumeName, m
 	}
 	peerList := strings.TrimSuffix(sb.String(), ",")
 	content := fmt.Sprintf(`export JAVA_OPTS="-Xms128M -Xmx128M"
-DDIR=/data/qdata/dd
+DDIR=/data
 mkdir -p ${DDIR}
 cat <<EOF > ${DDIR}/tessera-config-09.json
 	{

@@ -95,7 +95,7 @@ func (p *GethProvider) FirstTimeSetup() error {
 	tesseraVolumeName := fmt.Sprintf("%s_tessera", p.stack.Name)
 	blockchainDir := path.Join(p.stack.RuntimeDir, "blockchain")
 	tesseraDir := path.Join(p.stack.RuntimeDir, "tessera")
-	tesseraDirWithinContainer := "/qdata/dd"
+	tesseraDirWithinContainer := "/"
 	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
 
 	if err := p.connector.FirstTimeSetup(p.stack); err != nil {
@@ -349,15 +349,6 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
 		if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
 			return nil, err
-		}
-
-		if stackHasRunBefore {
-			if err := ethereum.CopyTesseraKeysToVolume(p.ctx, tesseraKeysOutputDirectory, tesseraVolumeName); err != nil {
-				return nil, err
-			}
-			if err := ethereum.CopyTesseraEntrypointToVolume(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName); err != nil {
-				return nil, err
-			}
 		}
 	}
 
