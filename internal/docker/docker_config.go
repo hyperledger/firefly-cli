@@ -112,7 +112,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.PostgresImageName,
 				ContainerName: fmt.Sprintf("%s_postgres_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:5432", member.ExposedDatabasePort)},
-				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"POSTGRES_PASSWORD": "f1refly",
 					"PGDATA":            "/var/lib/postgresql/data/pgdata"}),
 				Volumes: []string{fmt.Sprintf("postgres_%s:/var/lib/postgresql/data", member.ID)},
@@ -149,7 +149,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 			},
 		}
 		if s.IPFSMode.Equals(types.IPFSModePrivate) {
-			sharedStorage.Environment = s.ConcatenateEnvironmentVars(map[string]interface{}{
+			sharedStorage.Environment = s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 				"IPFS_SWARM_KEY":    s.SwarmKey,
 				"LIBP2P_FORCE_PNET": "1",
 			},
@@ -174,7 +174,7 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				Image:         constants.SandboxImageName,
 				ContainerName: fmt.Sprintf("%s_sandbox_%s", s.Name, member.ID),
 				Ports:         []string{fmt.Sprintf("%d:3001", member.ExposedSandboxPort)},
-				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"FF_ENDPOINT": fmt.Sprintf("http://firefly_core_%d:%d", *member.Index, member.ExposedFireflyPort),
 				}),
 			}

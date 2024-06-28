@@ -31,7 +31,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricCAImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_ca", s.Name),
-				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
 					"FABRIC_CA_SERVER_CA_NAME":                  "fabric_ca",
 					"FABRIC_CA_SERVER_PORT":                     "7054",
@@ -57,7 +57,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricOrdererImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_orderer", s.Name),
-				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"FABRIC_LOGGING_SPEC":                       "INFO",
 					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
 					"ORDERER_GENERAL_LISTENPORT":                "7050",
@@ -103,7 +103,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricPeerImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_peer", s.Name),
-				Environment: s.ConcatenateEnvironmentVars(map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
 					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": fmt.Sprintf("%s_default", s.Name),
 					"FABRIC_LOGGING_SPEC":                   "INFO",

@@ -96,7 +96,7 @@ func (p *ERC20ERC721Provider) GetDockerServiceDefinitions(tokenIdx int) []*docke
 			}
 		}
 
-		env := p.stack.ConcatenateEnvironmentVars(map[string]interface{}{
+		env := p.stack.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 			"ETHCONNECT_URL":   p.blockchainProvider.GetConnectorURL(member),
 			"ETHCONNECT_TOPIC": connectorName,
 			"AUTO_INIT":        "false",

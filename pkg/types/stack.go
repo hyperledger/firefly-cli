@@ -108,7 +108,7 @@ func (s *Stack) IsOldFileStructure() (bool, error) {
 	}
 }
 
-func (s *Stack) ConcatenateEnvironmentVars(input map[string]interface{}) map[string]interface{} {
+func (s *Stack) ConcatenateWithProvidedEnvironmentVars(input map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range input {
 		result[k] = v
