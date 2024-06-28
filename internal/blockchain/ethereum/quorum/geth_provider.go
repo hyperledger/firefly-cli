@@ -244,7 +244,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 					ContainerName: fmt.Sprintf("member%dtessera", i),
 					Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
 					Logging:       docker.StandardLogOptions,
-					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), ethereum.TmTpPort)}, // defaults 4100, 4110, 4120, 4130
+					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), TmTpPort)}, // defaults 4100, 4110, 4120, 4130
 					Environment:   p.stack.EnvironmentVars,
 					EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 					Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
@@ -340,21 +340,21 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	if p.stack.TesseraEnabled {
 		tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
 		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-		_, tesseraPubKey, tesseraKeysPath, err = ethereum.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
+		_, tesseraPubKey, tesseraKeysPath, err = CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
 		if err != nil {
 			return nil, err
 		}
 		l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
-		l.Info(fmt.Sprintf("generating tessera entrypoint file for member %s", memberIndex))
+		l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %s", memberIndex))
 		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
-		if err := ethereum.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
+		if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
 			return nil, err
 		}
 	}
 
-	l.Info(fmt.Sprintf("generating quorum entrypoint file for member %s", memberIndex))
+	l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %s", memberIndex))
 	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
-	if err := ethereum.CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
+	if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
 		return nil, err
 	}
 
@@ -369,7 +369,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 				return nil, err
 			}
 		}
-		if err := ethereum.CopyQuorumEntrypointToVolume(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName); err != nil {
+		if err := CopyQuorumEntrypointToVolume(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName); err != nil {
 			return nil, err
 		}
 	}
