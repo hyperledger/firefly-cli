@@ -557,6 +557,7 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 
 func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Organization, error) {
 	serviceBase := options.ServicesBasePort + (index * 100)
+	ptmBase := options.PtmBasePort + (index * 10)
 	member := &types.Organization{
 		ID:                         id,
 		Index:                      &index,
@@ -565,6 +566,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		ExposedConnectorPort:       serviceBase + 2,
 		ExposedUIPort:              serviceBase + 3,
 		ExposedDatabasePort:        serviceBase + 4,
+		ExposePtmTpPort:            ptmBase,
 		External:                   external,
 		OrgName:                    options.OrgNames[index],
 		NodeName:                   options.NodeNames[index],
@@ -783,6 +785,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedDatabasePort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
+		ports = append(ports, member.ExposePtmTpPort)
 
 		if !member.External {
 			ports = append(ports, member.ExposedFireflyAdminSPIPort)
