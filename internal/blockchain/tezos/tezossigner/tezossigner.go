@@ -113,6 +113,7 @@ func (p *TezosSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.
 				fmt.Sprintf("%d:6732", p.stack.ExposedBlockchainPort),
 				"9583:9583",
 			},
+			Environment: p.stack.EnvironmentVars,
 		},
 		VolumeNames: []string{
 			"tezossigner",

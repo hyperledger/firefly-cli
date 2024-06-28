@@ -190,6 +190,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			Volumes:       []string{"geth:/data"},
 			Logging:       docker.StandardLogOptions,
 			Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort)},
+			Environment:   p.stack.EnvironmentVars,
 		},
 		VolumeNames: []string{"geth"},
 	}

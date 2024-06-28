@@ -88,6 +88,10 @@ func NewStackManager(ctx context.Context) *StackManager {
 }
 
 func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
+	environmentVarsMap := make(map[string]interface{})
+	for key, value := range options.EnvironmentVars {
+		environmentVarsMap[key] = value
+	}
 	s.Stack = &types.Stack{
 		Name:                   options.StackName,
 		Members:                make([]*types.Organization, options.MemberCount),
@@ -114,6 +118,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		ChaincodeName:     options.ChaincodeName,
 		CustomPinSupport:  options.CustomPinSupport,
 		RemoteNodeDeploy:  options.RemoteNodeDeploy,
+		EnvironmentVars:   environmentVarsMap,
 	}
 
 	tokenProviders, err := types.FFEnumArray(s.ctx, options.TokenProviders)

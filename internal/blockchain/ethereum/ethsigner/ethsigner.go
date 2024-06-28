@@ -160,7 +160,8 @@ func (p *EthSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.Se
 				Interval: "15s", // 6000 requests in a day
 				Retries:  60,
 			},
-			Ports: []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort)},
+			Ports:       []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort)},
+			Environment: p.stack.EnvironmentVars,
 		},
 		VolumeNames: []string{
 			"ethsigner",

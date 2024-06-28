@@ -290,7 +290,8 @@ func (p *FabricProvider) getFabconnectServiceDefinitions(members []*types.Organi
 				HealthCheck: &docker.HealthCheck{
 					Test: []string{"CMD", "wget", "-O", "-", "http://localhost:3000/status"},
 				},
-				Logging: docker.StandardLogOptions,
+				Logging:     docker.StandardLogOptions,
+				Environment: p.stack.EnvironmentVars,
 			},
 			VolumeNames: []string{
 				"fabconnect_receipts_" + member.ID,

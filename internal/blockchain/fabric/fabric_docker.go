@@ -31,14 +31,14 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricCAImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_ca", s.Name),
-				Environment: map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"FABRIC_CA_HOME":                            "/etc/hyperledger/fabric-ca-server",
 					"FABRIC_CA_SERVER_CA_NAME":                  "fabric_ca",
 					"FABRIC_CA_SERVER_PORT":                     "7054",
 					"FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS": "0.0.0.0:17054",
 					"FABRIC_CA_SERVER_CA_CERTFILE":              "/etc/firefly/organizations/peerOrganizations/org1.example.com/ca/fabric_ca.org1.example.com-cert.pem",
 					"FABRIC_CA_SERVER_CA_KEYFILE":               "/etc/firefly/organizations/peerOrganizations/org1.example.com/ca/priv_sk",
-				},
+				}),
 				Ports: []string{
 					"7054:7054",
 					"17054:17054",
@@ -57,7 +57,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricOrdererImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_orderer", s.Name),
-				Environment: map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"FABRIC_LOGGING_SPEC":                       "INFO",
 					"ORDERER_GENERAL_LISTENADDRESS":             "0.0.0.0",
 					"ORDERER_GENERAL_LISTENPORT":                "7050",
@@ -81,7 +81,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 					"ORDERER_ADMIN_TLS_CLIENTROOTCAS":           "[/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/ca.crt]",
 					"ORDERER_ADMIN_LISTENADDRESS":               "0.0.0.0:7053",
 					"ORDERER_OPERATIONS_LISTENADDRESS":          "0.0.0.0:17050",
-				},
+				}),
 				WorkingDir: "/opt/gopath/src/github.com/hyperledger/fabric",
 				Command:    "orderer",
 				Volumes: []string{
@@ -103,7 +103,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 			Service: &docker.Service{
 				Image:         FabricPeerImageName,
 				ContainerName: fmt.Sprintf("%s_fabric_peer", s.Name),
-				Environment: map[string]interface{}{
+				Environment: s.ConcatenateWithProvidedEnvironmentVars(map[string]interface{}{
 					"CORE_VM_ENDPOINT":                      "unix:///host/var/run/docker.sock",
 					"CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE": fmt.Sprintf("%s_default", s.Name),
 					"FABRIC_LOGGING_SPEC":                   "INFO",
@@ -122,7 +122,7 @@ func GenerateDockerServiceDefinitions(s *types.Stack) []*docker.ServiceDefinitio
 					"CORE_PEER_GOSSIP_EXTERNALENDPOINT":     "fabric_peer:7051",
 					"CORE_PEER_LOCALMSPID":                  "Org1MSP",
 					"CORE_OPERATIONS_LISTENADDRESS":         "0.0.0.0:17051",
-				},
+				}),
 				Volumes: []string{
 					"firefly_fabric:/etc/firefly",
 					"fabric_peer:/var/hyperledger/production",
