@@ -241,7 +241,7 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				ServiceName: fmt.Sprintf("tessera_%d", i),
 				Service: &docker.Service{
 					Image:         tesseraImage,
-					ContainerName: fmt.Sprintf("member%dtessera", i),
+					ContainerName: fmt.Sprintf("%s_member%dtessera", p.stack.Name, i),
 					Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
 					Logging:       docker.StandardLogOptions,
 					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*exposedBlockchainPortMultiplier), TmTpPort)}, // defaults 4100, 4110, 4120, 4130
@@ -347,14 +347,14 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 		l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
 		l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %s", memberIndex))
 		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
-		if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount); err != nil {
+		if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount, p.stack.Name); err != nil {
 			return nil, err
 		}
 	}
 
 	l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %s", memberIndex))
 	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
-	if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
+	if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), p.stack.Name, int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
 		return nil, err
 	}
 

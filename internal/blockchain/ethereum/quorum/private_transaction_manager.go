@@ -76,12 +76,12 @@ func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name
 	return privateKeyData.Data.Bytes, string(pubKeyBytes[:]), path, nil
 }
 
-func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, volumeName, memberCount string) error {
+func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, volumeName, memberCount, stackName string) error {
 	// only tessera v09 onwards is supported
 	var sb strings.Builder
 	memberCountInt, _ := strconv.Atoi(memberCount)
 	for i := 0; i < memberCountInt; i++ {
-		sb.WriteString(fmt.Sprintf("{\"url\":\"http://member%dtessera:%s\"},", i, TmP2pPort)) // construct peer list
+		sb.WriteString(fmt.Sprintf("{\"url\":\"http://%s_member%dtessera:%s\"},", stackName, i, TmP2pPort)) // construct peer list
 	}
 	peerList := strings.TrimSuffix(sb.String(), ",")
 	content := fmt.Sprintf(`export JAVA_OPTS="-Xms128M -Xmx128M"

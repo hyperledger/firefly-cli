@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex, consensus string, chainId int, tesseraEnabled bool) error {
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex, consensus, stackName string, chainId int, tesseraEnabled bool) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	connectTimeout := 15
 	if memberIndex != "0" {
@@ -36,16 +36,16 @@ BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/geth_0}`, GethPort, connectTimeout)
 
 	tesseraCmd := ""
 	if tesseraEnabled {
-		tesseraCmd = fmt.Sprintf(`TESSERA_URL=http://member%stessera
-TESSERA_TP_PORT=%s
-TESSERA_Q2T_PORT=%s
+		tesseraCmd = fmt.Sprintf(`TESSERA_URL=http://%[5]s_member%[1]stessera
+TESSERA_TP_PORT=%[2]s
+TESSERA_Q2T_PORT=%[3]s
 TESSERA_UPCHECK_URL=$TESSERA_URL:$TESSERA_TP_PORT/upcheck
 ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --ptm.timeout 5 --ptm.url ${TESSERA_URL}:${TESSERA_Q2T_PORT} --ptm.http.writebuffersize 4096 --ptm.http.readbuffersize 4096 --ptm.tls.mode off"
 
 echo -n "Checking tessera is up ... "
-curl --connect-timeout %[4]d --max-time %[4]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "$TESSERA_UPCHECK_URL"
+curl --connect-timeout %[4]d --max-time %[4]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "${TESSERA_UPCHECK_URL}"
 echo ""
-`, memberIndex, TmTpPort, TmQ2tPort, connectTimeout)
+`, memberIndex, TmTpPort, TmQ2tPort, connectTimeout, stackName)
 	}
 
 	content := fmt.Sprintf(`#!/bin/sh
