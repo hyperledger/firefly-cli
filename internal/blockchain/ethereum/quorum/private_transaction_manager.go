@@ -22,17 +22,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-var entrypoint = "docker-entrypoint.sh"
+var DockerEntrypoint = "docker-entrypoint.sh"
 var TmQ2tPort = "9101"
 var TmTpPort = "9080"
 var TmP2pPort = "9000"
-var GethPort = "8545"
+var QuorumPort = "8545"
 
 type PrivateKeyData struct {
 	Bytes string `json:"bytes"`
@@ -43,7 +42,7 @@ type PrivateKey struct {
 	Data PrivateKeyData `json:"data"`
 }
 
-func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name, password string) (privateKey, pubKey, path string, err error) {
+func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name string) (privateKey, pubKey, path string, err error) {
 	// generates both .pub and .key files used by Tessera
 	var filename string
 	if prefix != "" {
@@ -73,14 +72,13 @@ func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name
 	if err != nil {
 		return "", "", "", err
 	}
-	return privateKeyData.Data.Bytes, string(pubKeyBytes[:]), path, nil
+	return privateKeyData.Data.Bytes, string(pubKeyBytes), path, nil
 }
 
-func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, volumeName, memberCount, stackName string) error {
+func CreateTesseraEntrypoint(ctx context.Context, outputDirectory, stackName string, memberCount int) error {
 	// only tessera v09 onwards is supported
 	var sb strings.Builder
-	memberCountInt, _ := strconv.Atoi(memberCount)
-	for i := 0; i < memberCountInt; i++ {
+	for i := 0; i < memberCount; i++ {
 		sb.WriteString(fmt.Sprintf("{\"url\":\"http://%s_member%dtessera:%s\"},", stackName, i, TmP2pPort)) // construct peer list
 	}
 	peerList := strings.TrimSuffix(sb.String(), ",")
@@ -144,7 +142,7 @@ cat <<EOF > ${DDIR}/tessera-config-09.json
 EOF
 /tessera/bin/tessera -configfile ${DDIR}/tessera-config-09.json
 `, TmTpPort, TmQ2tPort, TmP2pPort, peerList)
-	filename := filepath.Join(outputDirectory, entrypoint)
+	filename := filepath.Join(outputDirectory, DockerEntrypoint)
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
@@ -154,7 +152,6 @@ EOF
 	if err != nil {
 		return err
 	}
-	CopyTesseraEntrypointToVolume(ctx, outputDirectory, volumeName)
 	return nil
 }
 
@@ -162,7 +159,7 @@ func CopyTesseraEntrypointToVolume(ctx context.Context, tesseraEntrypointDirecto
 	if err := docker.MkdirInVolume(ctx, volumeName, ""); err != nil {
 		return err
 	}
-	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraEntrypointDirectory, entrypoint), ""); err != nil {
+	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(tesseraEntrypointDirectory, DockerEntrypoint), ""); err != nil {
 		return err
 	}
 	return nil

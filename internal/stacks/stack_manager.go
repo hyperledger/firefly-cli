@@ -591,7 +591,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		nextPort++
 	}
 
-	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName, strconv.Itoa(index), strconv.Itoa(options.MemberCount)})
+	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName, strconv.Itoa(index)})
 	if err != nil {
 		return nil, err
 	}
@@ -1334,7 +1334,7 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		case types.BlockchainNodeProviderBesu:
 			return besu.NewBesuProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderQuorum:
-			return quorum.NewGethProvider(s.ctx, s.Stack)
+			return quorum.NewQuorumProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
 			return ethremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)

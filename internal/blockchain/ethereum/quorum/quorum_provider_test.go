@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewGethProvider(t *testing.T) {
+func TestNewQuorumProvider(t *testing.T) {
 	var ctx context.Context
 
 	testcases := []struct {
@@ -27,11 +27,11 @@ func TestNewGethProvider(t *testing.T) {
 			Name: "testcase1",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name: "TestGethWithEvmConnect",
+				Name: "TestQuorumWithEvmConnect",
 				Members: []*types.Organization{
 					{
 						OrgName:  "Org1",
-						NodeName: "geth",
+						NodeName: "quorum",
 						Account: &ethereum.Account{
 							Address:    "0x1234567890abcdef0123456789abcdef6789abcd",
 							PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
@@ -39,7 +39,7 @@ func TestNewGethProvider(t *testing.T) {
 					},
 					{
 						OrgName:  "Org2",
-						NodeName: "geth",
+						NodeName: "quorum",
 						Account: &ethereum.Account{
 							Address:    "0x1234567890abcdef012345670000000000000000",
 							PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
@@ -55,11 +55,11 @@ func TestNewGethProvider(t *testing.T) {
 			Name: "testcase2",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name: "TestGethWithEthConnect",
+				Name: "TestQuorumWithEthConnect",
 				Members: []*types.Organization{
 					{
 						OrgName:  "Org55",
-						NodeName: "geth",
+						NodeName: "quorum",
 						Account: &ethereum.Account{
 							Address:    "0x1f2a000000000000000000000000000000000000",
 							PrivateKey: "aabbccddeeff0011223344556677889900112233445566778899aabbccddeeff",
@@ -74,8 +74,8 @@ func TestNewGethProvider(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			gethProvider := NewGethProvider(tc.Ctx, tc.Stack)
-			assert.NotNil(t, gethProvider)
+			quorumProvider := NewQuorumProvider(tc.Ctx, tc.Stack)
+			assert.NotNil(t, quorumProvider)
 		})
 	}
 }
@@ -126,8 +126,8 @@ func TestParseAccount(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			gethProvider := &GethProvider{}
-			result := gethProvider.ParseAccount(tc.Address)
+			quorumProvider := &QuorumProvider{}
+			result := quorumProvider.ParseAccount(tc.Address)
 
 			_, ok := result.(*ethereum.Account)
 			if !ok {
@@ -152,7 +152,7 @@ func TestGetOrgConfig(t *testing.T) {
 			},
 			Org: &types.Organization{
 				OrgName:  "Org-1",
-				NodeName: "geth",
+				NodeName: "quorum",
 				Account: &ethereum.Account{
 					Address:    "0x1234567890abcdef0123456789abcdef6789abcd",
 					PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
@@ -170,7 +170,7 @@ func TestGetOrgConfig(t *testing.T) {
 			},
 			Org: &types.Organization{
 				OrgName:  "Org-2",
-				NodeName: "geth",
+				NodeName: "quorum",
 				Account: &ethereum.Account{
 					Address:    "0x1f2a000000000000000000000000000000000000",
 					PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
@@ -188,7 +188,7 @@ func TestGetOrgConfig(t *testing.T) {
 			},
 			Org: &types.Organization{
 				OrgName:  "Org-3",
-				NodeName: "geth",
+				NodeName: "quorum",
 				Account: &ethereum.Account{
 					Address:    "0xabcdeffedcba9876543210abcdeffedc00000000",
 					PrivateKey: "aabbccddeeff0011223344556677889900112233445566778899aabbccddeeff",
@@ -202,7 +202,7 @@ func TestGetOrgConfig(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			p := &GethProvider{}
+			p := &QuorumProvider{}
 
 			Orgconfig := p.GetOrgConfig(tc.Stack, tc.Org)
 			assert.NotNil(t, Orgconfig)
@@ -229,7 +229,7 @@ func TestGetContracts(t *testing.T) {
 				}
 			}
 		}`
-	p := &GethProvider{}
+	p := &QuorumProvider{}
 
 	err := os.WriteFile(testContractFile, []byte(testContractJSON), 0755)
 	if err != nil {
@@ -253,7 +253,7 @@ func TestGetConnectorExternal(t *testing.T) {
 			Name: "testcase1",
 			Org: &types.Organization{
 				OrgName:  "Org-1",
-				NodeName: "geth",
+				NodeName: "quorum",
 				Account: &ethereum.Account{
 					Address:    "0x1f2a000000000000000000000000000000000000",
 					PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
@@ -266,7 +266,7 @@ func TestGetConnectorExternal(t *testing.T) {
 			Name: "testcase2",
 			Org: &types.Organization{
 				OrgName:  "Org-2",
-				NodeName: "geth",
+				NodeName: "quorum",
 				Account: &ethereum.Account{
 					Address:    "0xabcdeffedcba9876543210abcdeffedc00000000",
 					PrivateKey: "aabbccddeeff0011223344556677889900112233445566778899aabbccddeeff",
@@ -277,7 +277,7 @@ func TestGetConnectorExternal(t *testing.T) {
 		},
 	}
 	for _, tc := range testcase {
-		p := &GethProvider{}
+		p := &QuorumProvider{}
 		result := p.GetConnectorExternalURL(tc.Org)
 		assert.Equal(t, tc.ExpectedPort, result)
 	}
@@ -295,32 +295,32 @@ func TestCreateAccount(t *testing.T) {
 			Name: "testcase1",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_geth",
+				Name:                   "Org-1_quorum",
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
 			},
-			Args: []string{"Org-1_geth", "Org-1_geth", "0", "1"},
+			Args: []string{"Org-1_quorum", "Org-1_quorum", "0", "1"},
 		},
 		{
 			Name: "testcase1",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-2_geth",
+				Name:                   "Org-2_quorum",
 				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
 				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
 			},
-			Args: []string{"Org-2_geth", "Org-2_geth", "1", "2"},
+			Args: []string{"Org-2_quorum", "Org-2_quorum", "1", "2"},
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			p := NewGethProvider(tc.Ctx, tc.Stack)
+			p := NewQuorumProvider(tc.Ctx, tc.Stack)
 			Account, err := p.CreateAccount(tc.Args)
 			if err != nil {
 				t.Log("unable to create account", err)

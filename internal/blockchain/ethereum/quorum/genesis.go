@@ -63,7 +63,7 @@ type Alloc struct {
 
 func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis {
 	if blockPeriod == -1 {
-		blockPeriod = 0
+		blockPeriod = 5
 	}
 	extraData := "0x0000000000000000000000000000000000000000000000000000000000000000"
 	alloc := make(map[string]*Alloc)
@@ -92,7 +92,7 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 			},
 		},
 		Nonce:      "0x0",
-		Timestamp:  "0x60edb1c7",
+		Timestamp:  "0x0",
 		ExtraData:  extraData,
 		GasLimit:   "0xffffff",
 		Difficulty: "0x1",

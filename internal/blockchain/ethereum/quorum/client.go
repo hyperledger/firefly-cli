@@ -24,7 +24,7 @@ import (
 	"net/http"
 )
 
-type GethClient struct {
+type QuorumClient struct {
 	rpcURL string
 }
 
@@ -47,13 +47,13 @@ type JSONRPCError struct {
 	Message string `json:"message"`
 }
 
-func NewGethClient(rpcURL string) *GethClient {
-	return &GethClient{
+func NewQuorumClient(rpcURL string) *QuorumClient {
+	return &QuorumClient{
 		rpcURL: rpcURL,
 	}
 }
 
-func (g *GethClient) UnlockAccount(address string, password string) error {
+func (g *QuorumClient) UnlockAccount(address string, password string) error {
 	requestBody, err := json.Marshal(&JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      0,

@@ -213,7 +213,7 @@ func validateQuorumConsensus(consensusString string) error {
 	}
 
 	if v != types.QuorumConsensusClique {
-		return errors.New("support for raft/ibft/qbft will come in future")
+		return errors.New("consensus algorithms such as raft/ibft/qbft for quorum not supported")
 	}
 
 	return nil

@@ -75,7 +75,7 @@ func TestCreateGenesis(t *testing.T) {
 					},
 				},
 				Nonce:      "0x0",
-				Timestamp:  "0x60edb1c7",
+				Timestamp:  "0x0",
 				ExtraData:  extraData,
 				GasLimit:   "0xffffff",
 				Difficulty: "0x1",

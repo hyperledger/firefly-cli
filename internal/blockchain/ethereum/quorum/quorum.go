@@ -25,18 +25,18 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, memberIndex, consensus, stackName string, chainId int, tesseraEnabled bool) error {
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, tesseraEnabled bool) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	connectTimeout := 15
-	if memberIndex != "0" {
-		discoveryCmd = fmt.Sprintf(`bootnode=$(curl http://geth_0:%s -s --connect-timeout %[2]d --max-time %[2]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
+	if memberIndex != 0 {
+		discoveryCmd = fmt.Sprintf(`bootnode=$(curl http://quorum_0:%s -s --connect-timeout %[2]d --max-time %[2]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
 BOOTNODE_CMD="--bootnodes $bootnode"
-BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/geth_0}`, GethPort, connectTimeout)
+BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/quorum_0}`, QuorumPort, connectTimeout)
 	}
 
 	tesseraCmd := ""
 	if tesseraEnabled {
-		tesseraCmd = fmt.Sprintf(`TESSERA_URL=http://%[5]s_member%[1]stessera
+		tesseraCmd = fmt.Sprintf(`TESSERA_URL=http://%[5]s_member%[1]dtessera
 TESSERA_TP_PORT=%[2]s
 TESSERA_Q2T_PORT=%[3]s
 TESSERA_UPCHECK_URL=$TESSERA_URL:$TESSERA_TP_PORT/upcheck
@@ -48,6 +48,12 @@ echo ""
 `, memberIndex, TmTpPort, TmQ2tPort, connectTimeout, stackName)
 	}
 
+	blockPeriod := blockPeriodInSeconds
+	if blockPeriodInSeconds == -1 {
+		blockPeriod = 5
+	}
+	blockPeriodInMs := blockPeriod * 60
+
 	content := fmt.Sprintf(`#!/bin/sh
 
 set -o errexit
@@ -55,11 +61,11 @@ set -o nounset
 set -o pipefail
 set -o xtrace
 
-GOQUORUM_CONS_ALGO=%s
+GOQUORUM_CONS_ALGO=%[1]s
 if [ "istanbul" == "$GOQUORUM_CONS_ALGO" ];
 then
     echo "Using istanbul for consensus algorithm..."
-    export CONSENSUS_ARGS="--istanbul.blockperiod 5 --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints"
+    export CONSENSUS_ARGS="--istanbul.blockperiod %[6]d --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints"
     export QUORUM_API="istanbul"
 elif [ "qbft" == "$GOQUORUM_CONS_ALGO" ];
 then
@@ -69,7 +75,7 @@ then
 elif [ "raft" == "$GOQUORUM_CONS_ALGO" ];
 then
     echo "Using raft for consensus algorithm..."
-    export CONSENSUS_ARGS="--raft --raftblocktime 300 --raftport 53000"
+    export CONSENSUS_ARGS="--raft --raftblocktime %[7]d --raftport 53000"
     export QUORUM_API="raft"
 elif [ "clique" == "$GOQUORUM_CONS_ALGO" ];
 then
@@ -79,15 +85,15 @@ then
 fi
 
 ADDITIONAL_ARGS=${ADDITIONAL_ARGS:-}
-%s
+%[2]s
 
 # discovery
-%s
+%[3]s
 echo "bootnode discovery command :: $BOOTNODE_CMD"
 IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
 
-exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, GethPort, chainId)
-	filename := filepath.Join(outputDirectory, entrypoint)
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %[4]s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %[5]d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS --miner.gaslimit 16777215 $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, QuorumPort, chainID, blockPeriod, blockPeriodInMs)
+	filename := filepath.Join(outputDirectory, DockerEntrypoint)
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err
 	}
@@ -100,12 +106,11 @@ exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason 
 	if err != nil {
 		return err
 	}
-	CopyQuorumEntrypointToVolume(ctx, outputDirectory, volumeName)
 	return nil
 }
 
 func CopyQuorumEntrypointToVolume(ctx context.Context, quorumEntrypointDirectory, volumeName string) error {
-	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(quorumEntrypointDirectory, entrypoint), ""); err != nil {
+	if err := docker.CopyFileToVolume(ctx, volumeName, filepath.Join(quorumEntrypointDirectory, DockerEntrypoint), ""); err != nil {
 		return err
 	}
 	return nil

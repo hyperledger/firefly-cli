@@ -36,20 +36,20 @@ import (
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
-var gethImage = "quorumengineering/quorum:24.4"
+var quorumImage = "quorumengineering/quorum:24.4"
 var tesseraImage = "quorumengineering/tessera:24.4"
 var exposedBlockchainPortMultiplier = 10
 
 // TODO: Probably randomize this and make it different per member?
 var keyPassword = "correcthorsebatterystaple"
 
-type GethProvider struct {
+type QuorumProvider struct {
 	ctx       context.Context
 	stack     *types.Stack
 	connector connector.Connector
 }
 
-func NewGethProvider(ctx context.Context, stack *types.Stack) *GethProvider {
+func NewQuorumProvider(ctx context.Context, stack *types.Stack) *QuorumProvider {
 	var connector connector.Connector
 	switch stack.BlockchainConnector {
 	case types.BlockchainConnectorEthconnect:
@@ -58,20 +58,36 @@ func NewGethProvider(ctx context.Context, stack *types.Stack) *GethProvider {
 		connector = evmconnect.NewEvmconnect(ctx)
 	}
 
-	return &GethProvider{
+	return &QuorumProvider{
 		ctx:       ctx,
 		stack:     stack,
 		connector: connector,
 	}
 }
 
-func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
+func (p *QuorumProvider) WriteConfig(options *types.InitOptions) error {
+	l := log.LoggerFromContext(p.ctx)
 	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
 	for i, member := range p.stack.Members {
 		// Generate the connector config for each member
 		connectorConfigPath := filepath.Join(initDir, "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
-		if err := p.connector.GenerateConfig(p.stack, member, fmt.Sprintf("geth_%d", i)).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
+		if err := p.connector.GenerateConfig(p.stack, member, fmt.Sprintf("quorum_%d", i)).WriteConfig(connectorConfigPath, options.ExtraConnectorConfigPath); err != nil {
 			return nil
+		}
+
+		// Generate tessera docker-entrypoint for each member
+		l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %d", i))
+		tesseraEntrypointOutputDirectory := filepath.Join(initDir, "tessera", fmt.Sprintf("tessera_%d", i))
+		if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, p.stack.Name, len(p.stack.Members)); err != nil {
+			return err
+		}
+
+		// Generate quorum docker-entrypoint for each member
+		l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %d", i))
+		quorumEntrypointOutputDirectory := filepath.Join(initDir, "blockchain", fmt.Sprintf("quorum_%d", i))
+		quorumVolumeName := fmt.Sprintf("%s_quorum_%d", p.stack.Name, i)
+		if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, quorumVolumeName, p.stack.QuorumConsensus.String(), p.stack.Name, i, int(p.stack.ChainID()), options.BlockPeriod, p.stack.TesseraEnabled); err != nil {
+			return err
 		}
 	}
 
@@ -79,7 +95,7 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	addresses := make([]string, len(p.stack.Members))
 	for i, member := range p.stack.Members {
 		address := member.Account.(*ethereum.Account).Address
-		// Drop the 0x on the front of the address here because that's what geth is expecting in the genesis.json
+		// Drop the 0x on the front of the address here because that's what quorum is expecting in the genesis.json
 		addresses[i] = address[2:]
 	}
 	genesis := CreateGenesis(addresses, options.BlockPeriod, p.stack.ChainID())
@@ -90,13 +106,13 @@ func (p *GethProvider) WriteConfig(options *types.InitOptions) error {
 	return nil
 }
 
-func (p *GethProvider) FirstTimeSetup() error {
-	gethVolumeName := fmt.Sprintf("%s_geth", p.stack.Name)
+func (p *QuorumProvider) FirstTimeSetup() error {
+	quorumVolumeName := fmt.Sprintf("%s_quorum", p.stack.Name)
 	tesseraVolumeName := fmt.Sprintf("%s_tessera", p.stack.Name)
 	blockchainDir := path.Join(p.stack.RuntimeDir, "blockchain")
 	tesseraDir := path.Join(p.stack.RuntimeDir, "tessera")
-	tesseraDirWithinContainer := "/"
 	contractsDir := path.Join(p.stack.RuntimeDir, "contracts")
+	rootDir := "/"
 
 	if err := p.connector.FirstTimeSetup(p.stack); err != nil {
 		return err
@@ -113,49 +129,58 @@ func (p *GethProvider) FirstTimeSetup() error {
 		if err := docker.CopyFileToVolume(p.ctx, connectorConfigVolumeName, connectorConfigPath, "config.yaml"); err != nil {
 			return err
 		}
-	}
 
-	for i := range p.stack.Members {
-		gethVolumeNameMember := fmt.Sprintf("%s_%d", gethVolumeName, i)
+		// Volume name instantiation
+		quorumVolumeNameMember := fmt.Sprintf("%s_%d", quorumVolumeName, i)
 		tesseraVolumeNameMember := fmt.Sprintf("%s_%d", tesseraVolumeName, i)
 
 		// Copy the wallet files of each member to their respective blockchain volume
-		keystoreDirectory := filepath.Join(blockchainDir, fmt.Sprintf("geth_%d", i), "keystore")
-		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, keystoreDirectory, "/"); err != nil {
+		keystoreDirectory := filepath.Join(blockchainDir, fmt.Sprintf("quorum_%d", i), "keystore")
+		if err := docker.CopyFileToVolume(p.ctx, quorumVolumeNameMember, keystoreDirectory, "/"); err != nil {
 			return err
 		}
 
 		if p.stack.TesseraEnabled {
-			// Copy member specific tessera key files to each of the tessera volume
-			if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, tesseraDirWithinContainer); err != nil {
+			// Copy member specific tessera key files
+			if err := docker.MkdirInVolume(p.ctx, tesseraVolumeNameMember, rootDir); err != nil {
 				return err
 			}
-			tmDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
-			if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmDirectory, tesseraDirWithinContainer); err != nil {
+			tmKeystoreDirectory := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), "keystore")
+			if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmKeystoreDirectory, rootDir); err != nil {
+				return err
+			}
+			// Copy tessera docker-entrypoint file
+			tmEntrypointPath := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), DockerEntrypoint)
+			if err := docker.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmEntrypointPath, rootDir); err != nil {
 				return err
 			}
 		}
 
+		// Copy quorum docker-entrypoint file
+		quorumEntrypointPath := filepath.Join(blockchainDir, fmt.Sprintf("quorum_%d", i), DockerEntrypoint)
+		if err := docker.CopyFileToVolume(p.ctx, quorumVolumeNameMember, quorumEntrypointPath, rootDir); err != nil {
+			return err
+		}
+
 		// Copy the genesis block information
-		if err := docker.CopyFileToVolume(p.ctx, gethVolumeNameMember, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
+		if err := docker.CopyFileToVolume(p.ctx, quorumVolumeNameMember, path.Join(blockchainDir, "genesis.json"), "genesis.json"); err != nil {
 			return err
 		}
 
 		// Initialize the genesis block
-		if err := docker.RunDockerCommand(p.ctx, p.stack.StackDir, "run", "--rm", "-v", fmt.Sprintf("%s:/data", gethVolumeNameMember), gethImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
+		if err := docker.RunDockerCommand(p.ctx, p.stack.StackDir, "run", "--rm", "-v", fmt.Sprintf("%s:/data", quorumVolumeNameMember), quorumImage, "--datadir", "/data", "init", "/data/genesis.json"); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
 }
 
-func (p *GethProvider) PreStart() error {
+func (p *QuorumProvider) PreStart() error {
 	return nil
 }
 
-func (p *GethProvider) PostStart(firstTimeSetup bool) error {
+func (p *QuorumProvider) PostStart(firstTimeSetup bool) error {
 	l := log.LoggerFromContext(p.ctx)
 	// Unlock accounts
 	for _, account := range p.stack.State.Accounts {
@@ -176,14 +201,14 @@ func (p *GethProvider) PostStart(firstTimeSetup bool) error {
 	return nil
 }
 
-func (p *GethProvider) unlockAccount(address, password string, memberIndex int) error {
+func (p *QuorumProvider) unlockAccount(address, password string, memberIndex int) error {
 	l := log.LoggerFromContext(p.ctx)
 	verbose := log.VerbosityFromContext(p.ctx)
 	// exposed blockchain port is the default for node 0, we need to add the port multiplier to get the right rpc for the correct node
-	gethClient := NewGethClient(fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort+(memberIndex*exposedBlockchainPortMultiplier)))
+	quorumClient := NewQuorumClient(fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort+(memberIndex*exposedBlockchainPortMultiplier)))
 	retries := 10
 	for {
-		if err := gethClient.UnlockAccount(address, password); err != nil {
+		if err := quorumClient.UnlockAccount(address, password); err != nil {
 			if verbose {
 				l.Debug(err.Error())
 			}
@@ -199,7 +224,7 @@ func (p *GethProvider) unlockAccount(address, password string, memberIndex int) 
 	return nil
 }
 
-func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
+func (p *QuorumProvider) DeployFireFlyContract() (*types.ContractDeploymentResult, error) {
 	contract, err := ethereum.ReadFireFlyContract(p.ctx, p.stack)
 	if err != nil {
 		return nil, err
@@ -207,7 +232,7 @@ func (p *GethProvider) DeployFireFlyContract() (*types.ContractDeploymentResult,
 	return p.connector.DeployContract(contract, "FireFly", p.stack.Members[0], nil)
 }
 
-func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
+func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	memberCount := len(p.stack.Members)
 	serviceDefinitionsCount := memberCount
 	if p.stack.TesseraEnabled {
@@ -216,27 +241,9 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 	serviceDefinitions := make([]*docker.ServiceDefinition, serviceDefinitionsCount)
 	connectorDependents := map[string]string{}
 	for i := 0; i < memberCount; i++ {
-		var dependsOn map[string]map[string]string
+		var quorumDependsOn map[string]map[string]string
 		if p.stack.TesseraEnabled {
-			dependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}}
-		}
-		serviceDefinitions[i] = &docker.ServiceDefinition{
-			ServiceName: fmt.Sprintf("geth_%d", i),
-			Service: &docker.Service{
-				Image:         gethImage,
-				ContainerName: fmt.Sprintf("%s_geth_%d", p.stack.Name, i),
-				Volumes:       []string{fmt.Sprintf("geth_%d:/data", i)},
-				Logging:       docker.StandardLogOptions,
-				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*exposedBlockchainPortMultiplier))}, // defaults 5100, 5110, 5120, 5130
-				Environment:   p.stack.EnvironmentVars,
-				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
-				DependsOn:     dependsOn,
-			},
-			VolumeNames: []string{fmt.Sprintf("geth_%d", i)},
-		}
-		connectorDependents[fmt.Sprintf("geth_%d", i)] = "service_started"
-
-		if p.stack.TesseraEnabled {
+			quorumDependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}}
 			serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
 				ServiceName: fmt.Sprintf("tessera_%d", i),
 				Service: &docker.Service{
@@ -252,12 +259,27 @@ func (p *GethProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 				VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
 			}
 		}
+		serviceDefinitions[i] = &docker.ServiceDefinition{
+			ServiceName: fmt.Sprintf("quorum_%d", i),
+			Service: &docker.Service{
+				Image:         quorumImage,
+				ContainerName: fmt.Sprintf("%s_quorum_%d", p.stack.Name, i),
+				Volumes:       []string{fmt.Sprintf("quorum_%d:/data", i)},
+				Logging:       docker.StandardLogOptions,
+				Ports:         []string{fmt.Sprintf("%d:8545", p.stack.ExposedBlockchainPort+(i*exposedBlockchainPortMultiplier))}, // defaults 5100, 5110, 5120, 5130
+				Environment:   p.stack.EnvironmentVars,
+				EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
+				DependsOn:     quorumDependsOn,
+			},
+			VolumeNames: []string{fmt.Sprintf("quorum_%d", i)},
+		}
+		connectorDependents[fmt.Sprintf("quorum_%d", i)] = "service_started"
 	}
 	serviceDefinitions = append(serviceDefinitions, p.connector.GetServiceDefinitions(p.stack, connectorDependents)...)
 	return serviceDefinitions
 }
 
-func (p *GethProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
+func (p *QuorumProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
 	var connectorURL string
 	if m.External {
 		connectorURL = p.GetConnectorExternalURL(m)
@@ -277,7 +299,7 @@ func (p *GethProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Or
 	return
 }
 
-func (p *GethProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
+func (p *QuorumProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (orgConfig *types.OrgConfig) {
 	account := m.Account.(*ethereum.Account)
 	orgConfig = &types.OrgConfig{
 		Name: m.OrgName,
@@ -286,11 +308,11 @@ func (p *GethProvider) GetOrgConfig(stack *types.Stack, m *types.Organization) (
 	return
 }
 
-func (p *GethProvider) Reset() error {
+func (p *QuorumProvider) Reset() error {
 	return nil
 }
 
-func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
+func (p *QuorumProvider) GetContracts(filename string, extraArgs []string) ([]string, error) {
 	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return []string{}, err
@@ -304,7 +326,7 @@ func (p *GethProvider) GetContracts(filename string, extraArgs []string) ([]stri
 	return contractNames, err
 }
 
-func (p *GethProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
+func (p *QuorumProvider) DeployContract(filename, contractName, instanceName string, member *types.Organization, extraArgs []string) (*types.ContractDeploymentResult, error) {
 	contracts, err := ethereum.ReadContractJSON(filename)
 	if err != nil {
 		return nil, err
@@ -312,11 +334,10 @@ func (p *GethProvider) DeployContract(filename, contractName, instanceName strin
 	return p.connector.DeployContract(contracts.Contracts[contractName], instanceName, member, extraArgs)
 }
 
-func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
+func (p *QuorumProvider) CreateAccount(args []string) (interface{}, error) {
 	l := log.LoggerFromContext(p.ctx)
 	memberIndex := args[2]
-	memberCount := args[3]
-	gethVolumeName := fmt.Sprintf("%s_geth_%s", p.stack.Name, memberIndex)
+	quorumVolumeName := fmt.Sprintf("%s_quorum_%s", p.stack.Name, memberIndex)
 	var directory string
 	stackHasRunBefore, err := p.stack.HasRunBefore()
 	if err != nil {
@@ -329,7 +350,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	prefix := strconv.FormatInt(time.Now().UnixNano(), 10)
-	outputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex), "keystore")
+	outputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("quorum_%s", memberIndex), "keystore")
 	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, prefix, keyPassword)
 	if err != nil {
 		return nil, err
@@ -338,28 +359,16 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	// Tessera is an optional add-on to the quorum blockchain node provider
 	var tesseraPubKey, tesseraKeysPath string
 	if p.stack.TesseraEnabled {
-		tesseraVolumeName := fmt.Sprintf("%s_tessera_%s", p.stack.Name, memberIndex)
 		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-		_, tesseraPubKey, tesseraKeysPath, err = CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm", keyPassword)
+		_, tesseraPubKey, tesseraKeysPath, err = CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm")
 		if err != nil {
 			return nil, err
 		}
 		l.Info(fmt.Sprintf("keys generated in %s", tesseraKeysPath))
-		l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %s", memberIndex))
-		tesseraEntrypointOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex))
-		if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, tesseraVolumeName, memberCount, p.stack.Name); err != nil {
-			return nil, err
-		}
-	}
-
-	l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %s", memberIndex))
-	quorumEntrypointOutputDirectory := filepath.Join(directory, "blockchain", fmt.Sprintf("geth_%s", memberIndex))
-	if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName, memberIndex, p.stack.QuorumConsensus.String(), p.stack.Name, int(p.stack.ChainID()), p.stack.TesseraEnabled); err != nil {
-		return nil, err
 	}
 
 	if stackHasRunBefore {
-		if err := ethereum.CopyWalletFileToVolume(p.ctx, walletFilePath, gethVolumeName); err != nil {
+		if err := ethereum.CopyWalletFileToVolume(p.ctx, walletFilePath, quorumVolumeName); err != nil {
 			return nil, err
 		}
 		if memberIndexInt, err := strconv.Atoi(memberIndex); err != nil {
@@ -368,9 +377,6 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 			if err := p.unlockAccount(keyPair.Address.String(), keyPassword, memberIndexInt); err != nil {
 				return nil, err
 			}
-		}
-		if err := CopyQuorumEntrypointToVolume(p.ctx, quorumEntrypointOutputDirectory, gethVolumeName); err != nil {
-			return nil, err
 		}
 	}
 
@@ -381,7 +387,7 @@ func (p *GethProvider) CreateAccount(args []string) (interface{}, error) {
 	}, nil
 }
 
-func (p *GethProvider) ParseAccount(account interface{}) interface{} {
+func (p *QuorumProvider) ParseAccount(account interface{}) interface{} {
 	accountMap := account.(map[string]interface{})
 	ptmPublicKey := "" // if we start quorum without tessera, no public key will be generated
 	v, ok := accountMap["ptmPublicKey"]
@@ -396,14 +402,14 @@ func (p *GethProvider) ParseAccount(account interface{}) interface{} {
 	}
 }
 
-func (p *GethProvider) GetConnectorName() string {
+func (p *QuorumProvider) GetConnectorName() string {
 	return p.connector.Name()
 }
 
-func (p *GethProvider) GetConnectorURL(org *types.Organization) string {
+func (p *QuorumProvider) GetConnectorURL(org *types.Organization) string {
 	return fmt.Sprintf("http://%s_%s:%v", p.connector.Name(), org.ID, p.connector.Port())
 }
 
-func (p *GethProvider) GetConnectorExternalURL(org *types.Organization) string {
+func (p *QuorumProvider) GetConnectorExternalURL(org *types.Organization) string {
 	return fmt.Sprintf("http://127.0.0.1:%v", org.ExposedConnectorPort)
 }
