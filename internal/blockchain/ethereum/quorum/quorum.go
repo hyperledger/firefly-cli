@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/docker"
 )
 
-func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, volumeName, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, tesseraEnabled bool) error {
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, tesseraEnabled bool) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	connectTimeout := 15
 	if memberIndex != 0 {

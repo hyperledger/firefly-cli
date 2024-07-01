@@ -85,8 +85,7 @@ func (p *QuorumProvider) WriteConfig(options *types.InitOptions) error {
 		// Generate quorum docker-entrypoint for each member
 		l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %d", i))
 		quorumEntrypointOutputDirectory := filepath.Join(initDir, "blockchain", fmt.Sprintf("quorum_%d", i))
-		quorumVolumeName := fmt.Sprintf("%s_quorum_%d", p.stack.Name, i)
-		if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, quorumVolumeName, p.stack.QuorumConsensus.String(), p.stack.Name, i, int(p.stack.ChainID()), options.BlockPeriod, p.stack.TesseraEnabled); err != nil {
+		if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, p.stack.QuorumConsensus.String(), p.stack.Name, i, int(p.stack.ChainID()), options.BlockPeriod, p.stack.TesseraEnabled); err != nil {
 			return err
 		}
 	}
