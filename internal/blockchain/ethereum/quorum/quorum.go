@@ -62,7 +62,7 @@ set -o pipefail
 set -o xtrace
 
 GOQUORUM_CONS_ALGO=%[1]s
-if [ "istanbul" == "$GOQUORUM_CONS_ALGO" ];
+if [ "ibft" == "$GOQUORUM_CONS_ALGO" ];
 then
     echo "Using istanbul for consensus algorithm..."
     export CONSENSUS_ARGS="--istanbul.blockperiod %[6]d --mine --miner.threads 1 --miner.gasprice 0 --emitcheckpoints"
