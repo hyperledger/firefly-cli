@@ -143,6 +143,9 @@ EOF
 /tessera/bin/tessera -configfile ${DDIR}/tessera-config-09.json
 `, TmTpPort, TmQ2tPort, TmP2pPort, peerList)
 	filename := filepath.Join(outputDirectory, DockerEntrypoint)
+	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
+		return err
+	}
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err

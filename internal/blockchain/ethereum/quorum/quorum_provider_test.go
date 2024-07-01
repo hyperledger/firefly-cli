@@ -3,15 +3,19 @@ package quorum
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"testing"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum"
+	"github.com/hyperledger/firefly-cli/internal/docker/mocks"
 	"github.com/hyperledger/firefly-cli/internal/log"
+	"github.com/hyperledger/firefly-cli/internal/utils"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,12 +46,12 @@ func TestNewQuorumProvider(t *testing.T) {
 						NodeName: "quorum",
 						Account: &ethereum.Account{
 							Address:    "0x1234567890abcdef012345670000000000000000",
-							PrivateKey: "9876543210987654321098765432109876543210987654321098765432109876",
+							PrivateKey: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
 						},
 					},
 				},
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "Evmconnect"),
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "evmconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 			},
 		},
@@ -66,8 +70,8 @@ func TestNewQuorumProvider(t *testing.T) {
 						},
 					},
 				},
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "Ethconnect"),
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockchainConnector", "ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 			},
 		},
@@ -102,25 +106,25 @@ func TestParseAccount(t *testing.T) {
 		{
 			Name: "Account 2",
 			Address: map[string]interface{}{
-				"address":      "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
-				"privateKey":   "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				"address":      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+				"privateKey":   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
 				"ptmPublicKey": "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
 			},
 			ExpectedAccount: &ethereum.Account{
-				Address:      "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
-				PrivateKey:   "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				Address:      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+				PrivateKey:   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
 				PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
 			},
 		},
 		{
 			Name: "Account 3",
 			Address: map[string]interface{}{
-				"address":    "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
-				"privateKey": "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				"address":    "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+				"privateKey": "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
 			},
 			ExpectedAccount: &ethereum.Account{
-				Address:    "0x549b5f43a40e1a0522864a004cfff2b0ca473a65",
-				PrivateKey: "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+				Address:    "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+				PrivateKey: "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
 			},
 		},
 	}
@@ -285,40 +289,57 @@ func TestGetConnectorExternal(t *testing.T) {
 
 func TestCreateAccount(t *testing.T) {
 	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
-	testcases := []struct {
-		Name  string
-		Ctx   context.Context
-		Stack *types.Stack
-		Args  []string
+	testCases := []struct {
+		Name           string
+		Ctx            context.Context
+		Stack          *types.Stack
+		TesseraEnabled bool
+		Args           []string
 	}{
 		{
 			Name: "testcase1",
 			Ctx:  ctx,
 			Stack: &types.Stack{
 				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
 			},
-			Args: []string{"Org-1_quorum", "Org-1_quorum", "0", "1"},
+			Args: []string{"Org-1_quorum", "Org-1_quorum", "0"},
 		},
 		{
-			Name: "testcase1",
+			Name: "testcase2",
 			Ctx:  ctx,
 			Stack: &types.Stack{
 				Name:                   "Org-2_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "Ethconnect"),
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
 				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
 				InitDir:                t.TempDir(),
 				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
 			},
-			Args: []string{"Org-2_quorum", "Org-2_quorum", "1", "2"},
+			Args: []string{"Org-2_quorum", "Org-2_quorum", "1"},
+		},
+		{
+			Name: "testcase3",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-3_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "EvmConnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         true,
+			},
+			Args: []string{"Org-3_quorum", "Org-3_quorum", "1"},
 		},
 	}
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			p := NewQuorumProvider(tc.Ctx, tc.Stack)
 			Account, err := p.CreateAccount(tc.Args)
@@ -342,6 +363,248 @@ func TestCreateAccount(t *testing.T) {
 			} else {
 				assert.Empty(t, account.PtmPublicKey)
 			}
+		})
+	}
+}
+
+func TestPostStart(t *testing.T) {
+	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
+	testCases := []struct {
+		Name           string
+		Ctx            context.Context
+		Stack          *types.Stack
+		TesseraEnabled bool
+		Args           []string
+	}{
+		{
+			Name: "testcase1",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				State: &types.StackState{
+					DeployedContracts: make([]*types.DeployedContract, 0),
+				},
+				ExposedBlockchainPort: 8545,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+						Account: &ethereum.Account{
+							Address:      "0x1234567890abcdef0123456789abcdef6789abcd",
+							PrivateKey:   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+					{
+						Index: &[]int{1}[0],
+						Account: &ethereum.Account{
+							Address:      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+							PrivateKey:   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			accounts := make([]interface{}, len(tc.Stack.Members))
+			for memberIndex, member := range tc.Stack.Members {
+				accounts[memberIndex] = member.Account
+
+			}
+			tc.Stack.State.Accounts = accounts
+			p := NewQuorumProvider(tc.Ctx, tc.Stack)
+			utils.StartMockServer(t)
+			// mock quorum rpc response during the unlocking of accounts
+			for _, member := range tc.Stack.Members {
+				rpcUrl := fmt.Sprintf("http://127.0.0.1:%v", p.stack.ExposedBlockchainPort+(*member.Index*ExposedBlockchainPortMultiplier))
+				httpmock.RegisterResponder(
+					"POST",
+					rpcUrl,
+					httpmock.NewStringResponder(200, "{\"JSONRPC\": \"2.0\"}"))
+			}
+			httpmock.Activate()
+			hasRunBefore, _ := p.stack.HasRunBefore()
+			err := p.PostStart(hasRunBefore)
+			assert.Nil(t, err, "post start should not have an error")
+			utils.StopMockServer(t)
+		})
+	}
+}
+
+func TestFirstTimeSetup(t *testing.T) {
+	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
+	testCases := []struct {
+		Name           string
+		Ctx            context.Context
+		Stack          *types.Stack
+		TesseraEnabled bool
+		Args           []string
+	}{
+		{
+			Name: "testcase1_no_members",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
+			},
+		},
+		{
+			Name: "testcase2_with_members",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+					},
+					{
+						Index: &[]int{1}[0],
+					},
+				},
+			},
+		},
+		{
+			Name: "testcase3_with_members_and_tessera_enabled",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         true,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			p := NewQuorumProvider(tc.Ctx, tc.Stack)
+			p.dockerMgr = mocks.NewDockerManager() // docker related functionality should be tested in docker package
+			err := p.FirstTimeSetup()
+			assert.Nil(t, err, "first time setup should not throw an error")
+		})
+	}
+}
+
+func TestWriteConfig(t *testing.T) {
+	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
+	testCases := []struct {
+		Name           string
+		Ctx            context.Context
+		Stack          *types.Stack
+		TesseraEnabled bool
+		Options        *types.InitOptions
+	}{
+		{
+			Name: "testcase1_no_members",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
+			},
+			Options: &types.InitOptions{
+				BlockPeriod: 5,
+			},
+		},
+		{
+			Name: "testcase2_with_members",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         false,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+						Account: &ethereum.Account{
+							Address:      "0x1234567890abcdef0123456789abcdef6789abcd",
+							PrivateKey:   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+					{
+						Index: &[]int{1}[0],
+						Account: &ethereum.Account{
+							Address:      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+							PrivateKey:   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+				},
+			},
+			Options: &types.InitOptions{
+				BlockPeriod:              5,
+				ExtraConnectorConfigPath: "",
+			},
+		},
+		{
+			Name: "testcase3_with_members_and_tessera_enabled",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				Name:                   "Org-1_quorum",
+				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                t.TempDir(),
+				RuntimeDir:             t.TempDir(),
+				TesseraEnabled:         true,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+						Account: &ethereum.Account{
+							Address:      "0x1234567890abcdef0123456789abcdef6789abcd",
+							PrivateKey:   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+					{
+						Index: &[]int{1}[0],
+						Account: &ethereum.Account{
+							Address:      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+							PrivateKey:   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+				},
+			},
+			Options: &types.InitOptions{
+				BlockPeriod:              5,
+				ExtraConnectorConfigPath: "",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			p := NewQuorumProvider(tc.Ctx, tc.Stack)
+			err := p.WriteConfig(tc.Options)
+			assert.Nil(t, err, "writing config should not throw an error")
 		})
 	}
 }

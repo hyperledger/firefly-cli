@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -107,6 +108,10 @@ func CreateGenesis(addresses []string, blockPeriod int, chainID int64) *Genesis 
 
 func (g *Genesis) WriteGenesisJSON(filename string) error {
 	genesisJSONBytes, _ := json.MarshalIndent(g, "", " ")
+	basedir := filepath.Dir(filename)
+	if err := os.MkdirAll(basedir, 0755); err != nil {
+		return err
+	}
 	if err := os.WriteFile(filename, genesisJSONBytes, 0755); err != nil {
 		return err
 	}
