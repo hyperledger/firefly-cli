@@ -35,6 +35,7 @@ type InitOptions struct {
 	MemberCount              int
 	FireFlyBasePort          int
 	ServicesBasePort         int
+	PtmBasePort              int
 	DatabaseProvider         string
 	ExternalProcesses        int
 	OrgNames                 []string
@@ -42,6 +43,8 @@ type InitOptions struct {
 	BlockchainConnector      string
 	BlockchainProvider       string
 	BlockchainNodeProvider   string
+	TesseraEnabled           bool
+	QuorumConsensus          string
 	TokenProviders           []string
 	FireFlyVersion           string
 	ManifestPath             string
@@ -65,6 +68,7 @@ type InitOptions struct {
 	ChaincodeName            string
 	CustomPinSupport         bool
 	RemoteNodeDeploy         bool
+	EnvironmentVars          map[string]string
 }
 
 const IPFSMode = "ipfs_mode"
@@ -96,8 +100,18 @@ const BlockchainNodeProvider = "blockchain_node_provider"
 
 var (
 	BlockchainNodeProviderGeth      = fftypes.FFEnumValue(BlockchainNodeProvider, "geth")
+	BlockchainNodeProviderQuorum    = fftypes.FFEnumValue(BlockchainNodeProvider, "quorum")
 	BlockchainNodeProviderBesu      = fftypes.FFEnumValue(BlockchainNodeProvider, "besu")
 	BlockchainNodeProviderRemoteRPC = fftypes.FFEnumValue(BlockchainNodeProvider, "remote-rpc")
+)
+
+const QuorumConsensus = "quorum_consensus"
+
+var (
+	QuorumConsensusClique = fftypes.FFEnumValue(QuorumConsensus, "clique")
+	QuorumConsensusRaft   = fftypes.FFEnumValue(QuorumConsensus, "raft")
+	QuorumConsensusIbft   = fftypes.FFEnumValue(QuorumConsensus, "ibft")
+	QuorumConsensusQbft   = fftypes.FFEnumValue(QuorumConsensus, "qbft")
 )
 
 const DatabaseSelection = "database_selection"
