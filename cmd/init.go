@@ -88,6 +88,9 @@ func initCommon(args []string) error {
 	if err := validatePrivateTransactionManagerSelection(initOptions.PrivateTransactionManager, initOptions.BlockchainNodeProvider); err != nil {
 		return err
 	}
+	if err := validatePrivateTransactionManagerBlockchainConnectorCombination(initOptions.PrivateTransactionManager, initOptions.BlockchainConnector); err != nil {
+		return err
+	}
 
 	fmt.Println("initializing new FireFly stack...")
 
@@ -232,7 +235,26 @@ func validatePrivateTransactionManagerSelection(privateTransactionManagerInput s
 		}
 
 		if v != types.BlockchainNodeProviderQuorum {
-			return errors.New("private transaction manager can only be enabled if blockchain node provider is quorum")
+			return errors.New("private transaction manager can only be enabled if blockchain node provider is Quorum")
+		}
+	}
+	return nil
+}
+
+func validatePrivateTransactionManagerBlockchainConnectorCombination(privateTransactionManagerInput string, blockchainConnectorInput string) error {
+	privateTransactionManager, err := fftypes.FFEnumParseString(context.Background(), types.PrivateTransactionManager, privateTransactionManagerInput)
+	if err != nil {
+		return err
+	}
+
+	blockchainConnector, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainConnector, blockchainConnectorInput)
+	if err != nil {
+		return nil
+	}
+
+	if !privateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		if !blockchainConnector.Equals(types.BlockchainConnectorEthconnect) {
+			return errors.New("currently only Ethconnect blockchain connector is supported with a private transaction manager")
 		}
 	}
 	return nil
