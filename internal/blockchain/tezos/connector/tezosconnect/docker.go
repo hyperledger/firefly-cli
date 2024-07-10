@@ -42,7 +42,8 @@ func (t *Tezosconnect) GetServiceDefinitions(s *types.Stack, dependentServices m
 					fmt.Sprintf("tezosconnect_config_%s:/tezosconnect/config", member.ID),
 					fmt.Sprintf("tezosconnect_leveldb_%s:/tezosconnect/leveldb", member.ID),
 				},
-				Logging: docker.StandardLogOptions,
+				Logging:     docker.StandardLogOptions,
+				Environment: s.EnvironmentVars,
 			},
 			VolumeNames: []string{
 				fmt.Sprintf("tezosconnect_config_%s", member.ID),

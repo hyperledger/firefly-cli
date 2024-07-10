@@ -172,7 +172,8 @@ func (p *BesuProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition
 			Volumes: []string{
 				"besu:/data",
 			},
-			Logging: docker.StandardLogOptions,
+			Logging:     docker.StandardLogOptions,
+			Environment: p.stack.EnvironmentVars,
 		},
 
 		VolumeNames: []string{"besu"},

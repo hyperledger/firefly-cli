@@ -75,6 +75,19 @@ func TestGetServiceDefinition(t *testing.T) {
 			},
 			ServiceName: "ethconnect_firefly_4",
 		},
+		{
+			Name: "test_env_vars_5",
+			Members: &types.Stack{
+				Members:         []*types.Organization{{ID: "firefly_5", ExposedConnectorPort: 7892}},
+				VersionManifest: &types.VersionManifest{Ethconnect: &getManifest.ManifestEntry},
+				EnvironmentVars: map[string]interface{}{"HTTP_PROXY": ""},
+			},
+			DependentServices: map[string]string{
+				"service1": "running",
+				"service2": "stopped",
+			},
+			ServiceName: "ethconnect_firefly_5",
+		},
 	}
 	for _, tc := range testServices {
 		t.Run(tc.Name, func(t *testing.T) {
