@@ -77,7 +77,7 @@ func (p *QuorumProvider) WriteConfig(options *types.InitOptions) error {
 		}
 
 		// Generate tessera docker-entrypoint for each member
-		if p.stack.TesseraEnabled {
+		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 			l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %d", i))
 			tesseraEntrypointOutputDirectory := filepath.Join(initDir, "tessera", fmt.Sprintf("tessera_%d", i))
 			if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, p.stack.Name, len(p.stack.Members)); err != nil {
@@ -88,7 +88,7 @@ func (p *QuorumProvider) WriteConfig(options *types.InitOptions) error {
 		// Generate quorum docker-entrypoint for each member
 		l.Info(fmt.Sprintf("generating quorum docker-entrypoint file for member %d", i))
 		quorumEntrypointOutputDirectory := filepath.Join(initDir, "blockchain", fmt.Sprintf("quorum_%d", i))
-		if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, p.stack.QuorumConsensus.String(), p.stack.Name, i, int(p.stack.ChainID()), options.BlockPeriod, p.stack.TesseraEnabled); err != nil {
+		if err := CreateQuorumEntrypoint(p.ctx, quorumEntrypointOutputDirectory, p.stack.Consensus.String(), p.stack.Name, i, int(p.stack.ChainID()), options.BlockPeriod, p.stack.PrivateTransactionManager); err != nil {
 			return err
 		}
 	}
@@ -142,7 +142,7 @@ func (p *QuorumProvider) FirstTimeSetup() error {
 			return err
 		}
 
-		if p.stack.TesseraEnabled {
+		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 			// Copy member specific tessera key files
 			if err := p.dockerMgr.MkdirInVolume(p.ctx, tesseraVolumeNameMember, rootDir); err != nil {
 				return err
@@ -238,14 +238,14 @@ func (p *QuorumProvider) DeployFireFlyContract() (*types.ContractDeploymentResul
 func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	memberCount := len(p.stack.Members)
 	serviceDefinitionsCount := memberCount
-	if p.stack.TesseraEnabled {
+	if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 		serviceDefinitionsCount *= 2
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, serviceDefinitionsCount)
 	connectorDependents := map[string]string{}
 	for i := 0; i < memberCount; i++ {
 		var quorumDependsOn map[string]map[string]string
-		if p.stack.TesseraEnabled {
+		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 			quorumDependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}}
 			serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
 				ServiceName: fmt.Sprintf("tessera_%d", i),
@@ -361,7 +361,7 @@ func (p *QuorumProvider) CreateAccount(args []string) (interface{}, error) {
 
 	// Tessera is an optional add-on to the quorum blockchain node provider
 	var tesseraPubKey, tesseraKeysPath string
-	if p.stack.TesseraEnabled {
+	if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
 		_, tesseraPubKey, tesseraKeysPath, err = CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm")
 		if err != nil {

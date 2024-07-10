@@ -82,10 +82,10 @@ func initCommon(args []string) error {
 	if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
 		return err
 	}
-	if err := validateQuorumConsensus(initOptions.QuorumConsensus); err != nil {
+	if err := validateConsensus(initOptions.Consensus); err != nil {
 		return err
 	}
-	if err := validateTesseraSelection(initOptions.TesseraEnabled, initOptions.BlockchainNodeProvider); err != nil {
+	if err := validatePrivateTransactionManagerSelection(initOptions.PrivateTransactionManager, initOptions.BlockchainNodeProvider); err != nil {
 		return err
 	}
 
@@ -206,28 +206,33 @@ func validateBlockchainProvider(providerString, nodeString string) error {
 	return nil
 }
 
-func validateQuorumConsensus(consensusString string) error {
-	v, err := fftypes.FFEnumParseString(context.Background(), types.QuorumConsensus, consensusString)
+func validateConsensus(consensusString string) error {
+	v, err := fftypes.FFEnumParseString(context.Background(), types.Consensus, consensusString)
 	if err != nil {
 		return nil
 	}
 
-	if v != types.QuorumConsensusClique {
-		return errors.New("consensus algorithms such as raft/ibft/qbft for quorum not supported")
+	if v != types.ConsensusClique {
+		return errors.New("currently only Clique consensus is supported")
 	}
 
 	return nil
 }
 
-func validateTesseraSelection(tesseraEnabled bool, nodeString string) error {
-	if tesseraEnabled {
+func validatePrivateTransactionManagerSelection(privateTransactionManagerInput string, nodeString string) error {
+	privateTransactionManager, err := fftypes.FFEnumParseString(context.Background(), types.PrivateTransactionManager, privateTransactionManagerInput)
+	if err != nil {
+		return err
+	}
+
+	if !privateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 		v, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainNodeProvider, nodeString)
 		if err != nil {
 			return nil
 		}
 
 		if v != types.BlockchainNodeProviderQuorum {
-			return errors.New("tessera can only be enabled if blockchain node provider is quorum")
+			return errors.New("private transaction manager can only be enabled if blockchain node provider is quorum")
 		}
 	}
 	return nil
@@ -284,8 +289,8 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "evmconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
-	initCmd.PersistentFlags().BoolVar(&initOptions.TesseraEnabled, "tessera-enabled", false, "Enables private transaction manager Tessera to start alongside with Quorum")
-	initCmd.PersistentFlags().StringVar(&initOptions.QuorumConsensus, "quorum-consensus", "clique", fmt.Sprintf("Consensus algorithm used when Blockchain node type is Quorum. Options are %v", fftypes.FFEnumValues(types.QuorumConsensus)))
+	initCmd.PersistentFlags().StringVar(&initOptions.PrivateTransactionManager, "private-transaction-manager", "none", fmt.Sprintf("Private Transaction Manager to use. Options are: %v", fftypes.FFEnumValues(types.PrivateTransactionManager)))
+	initCmd.PersistentFlags().StringVar(&initOptions.Consensus, "consensus", "clique", fmt.Sprintf("Consensus algorithm to use. Options are %v", fftypes.FFEnumValues(types.Consensus)))
 	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", fmt.Sprintf("Select the FireFly release version to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))

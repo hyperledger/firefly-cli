@@ -23,9 +23,11 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
 
-func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, tesseraEnabled bool) error {
+func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, privateTransactionManager fftypes.FFEnum) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
 	connectTimeout := 15
 	if memberIndex != 0 {
@@ -35,7 +37,7 @@ BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/quorum_0}`, QuorumPort, connectTimeout)
 	}
 
 	tesseraCmd := ""
-	if tesseraEnabled {
+	if !privateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
 		tesseraCmd = fmt.Sprintf(`TESSERA_URL=http://%[5]s_member%[1]dtessera
 TESSERA_TP_PORT=%[2]s
 TESSERA_Q2T_PORT=%[3]s

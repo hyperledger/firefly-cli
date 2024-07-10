@@ -290,23 +290,23 @@ func TestGetConnectorExternal(t *testing.T) {
 func TestCreateAccount(t *testing.T) {
 	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
 	testCases := []struct {
-		Name           string
-		Ctx            context.Context
-		Stack          *types.Stack
-		TesseraEnabled bool
-		Args           []string
+		Name                      string
+		Ctx                       context.Context
+		Stack                     *types.Stack
+		PrivateTransactionManager fftypes.FFEnum
+		Args                      []string
 	}{
 		{
 			Name: "testcase1",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 			},
 			Args: []string{"Org-1_quorum", "Org-1_quorum", "0"},
 		},
@@ -314,13 +314,13 @@ func TestCreateAccount(t *testing.T) {
 			Name: "testcase2",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-2_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-2_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "ethconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 			},
 			Args: []string{"Org-2_quorum", "Org-2_quorum", "1"},
 		},
@@ -328,13 +328,13 @@ func TestCreateAccount(t *testing.T) {
 			Name: "testcase3",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-3_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "EvmConnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         true,
+				Name:                      "Org-3_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "Ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "EvmConnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerTessera,
 			},
 			Args: []string{"Org-3_quorum", "Org-3_quorum", "1"},
 		},
@@ -358,7 +358,7 @@ func TestCreateAccount(t *testing.T) {
 			_, err = hex.DecodeString(account.PrivateKey)
 			assert.NoError(t, err, "invalid private key format")
 			// Check if the tessera public key is a non-empty string
-			if tc.Stack.TesseraEnabled {
+			if tc.Stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 				assert.NotEmpty(t, account.PtmPublicKey)
 			} else {
 				assert.Empty(t, account.PtmPublicKey)
@@ -370,20 +370,50 @@ func TestCreateAccount(t *testing.T) {
 func TestPostStart(t *testing.T) {
 	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
 	testCases := []struct {
-		Name           string
-		Ctx            context.Context
-		Stack          *types.Stack
-		TesseraEnabled bool
-		Args           []string
+		Name                      string
+		Ctx                       context.Context
+		Stack                     *types.Stack
+		PrivateTransactionManager fftypes.FFEnum
+		Args                      []string
 	}{
 		{
-			Name: "testcase1",
+			Name: "testcase1_with_tessera_enabled",
 			Ctx:  ctx,
 			Stack: &types.Stack{
 				State: &types.StackState{
 					DeployedContracts: make([]*types.DeployedContract, 0),
 				},
-				ExposedBlockchainPort: 8545,
+				ExposedBlockchainPort:     8545,
+				PrivateTransactionManager: types.PrivateTransactionManagerTessera,
+				Members: []*types.Organization{
+					{
+						Index: &[]int{0}[0],
+						Account: &ethereum.Account{
+							Address:      "0x1234567890abcdef0123456789abcdef6789abcd",
+							PrivateKey:   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+					{
+						Index: &[]int{1}[0],
+						Account: &ethereum.Account{
+							Address:      "0x618E98197aF52F44D1B05Af0952a59b9f702dea4",
+							PrivateKey:   "1b2b1ac0127957bb57e914993c47bfd69c5b0acc86425ee8ab2108f684a68a15",
+							PtmPublicKey: "SBEV8qc12zSe7XfhqSChloYryb5aDK0XdBF3IwxZADE=",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "testcase2_with_tessera_disabled",
+			Ctx:  ctx,
+			Stack: &types.Stack{
+				State: &types.StackState{
+					DeployedContracts: make([]*types.DeployedContract, 0),
+				},
+				ExposedBlockchainPort:     8545,
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 				Members: []*types.Organization{
 					{
 						Index: &[]int{0}[0],
@@ -435,36 +465,36 @@ func TestPostStart(t *testing.T) {
 func TestFirstTimeSetup(t *testing.T) {
 	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
 	testCases := []struct {
-		Name           string
-		Ctx            context.Context
-		Stack          *types.Stack
-		TesseraEnabled bool
-		Args           []string
+		Name                      string
+		Ctx                       context.Context
+		Stack                     *types.Stack
+		PrivateTransactionManager fftypes.FFEnum
+		Args                      []string
 	}{
 		{
 			Name: "testcase1_no_members",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 			},
 		},
 		{
 			Name: "testcase2_with_members",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 				Members: []*types.Organization{
 					{
 						Index: &[]int{0}[0],
@@ -479,13 +509,13 @@ func TestFirstTimeSetup(t *testing.T) {
 			Name: "testcase3_with_members_and_tessera_enabled",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         true,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerTessera,
 				Members: []*types.Organization{
 					{
 						Index: &[]int{0}[0],
@@ -507,23 +537,23 @@ func TestFirstTimeSetup(t *testing.T) {
 func TestWriteConfig(t *testing.T) {
 	ctx := log.WithVerbosity(log.WithLogger(context.Background(), &log.StdoutLogger{}), false)
 	testCases := []struct {
-		Name           string
-		Ctx            context.Context
-		Stack          *types.Stack
-		TesseraEnabled bool
-		Options        *types.InitOptions
+		Name                      string
+		Ctx                       context.Context
+		Stack                     *types.Stack
+		PrivateTransactionManager fftypes.FFEnum
+		Options                   *types.InitOptions
 	}{
 		{
 			Name: "testcase1_no_members",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 			},
 			Options: &types.InitOptions{
 				BlockPeriod: 5,
@@ -533,13 +563,13 @@ func TestWriteConfig(t *testing.T) {
 			Name: "testcase2_with_members",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         false,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerNone,
 				Members: []*types.Organization{
 					{
 						Index: &[]int{0}[0],
@@ -568,13 +598,13 @@ func TestWriteConfig(t *testing.T) {
 			Name: "testcase3_with_members_and_tessera_enabled",
 			Ctx:  ctx,
 			Stack: &types.Stack{
-				Name:                   "Org-1_quorum",
-				BlockchainProvider:     fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
-				BlockchainConnector:    fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
-				BlockchainNodeProvider: fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
-				InitDir:                t.TempDir(),
-				RuntimeDir:             t.TempDir(),
-				TesseraEnabled:         true,
+				Name:                      "Org-1_quorum",
+				BlockchainProvider:        fftypes.FFEnumValue("BlockchainProvider", "ethereum"),
+				BlockchainConnector:       fftypes.FFEnumValue("BlockChainConnector", "evmconnect"),
+				BlockchainNodeProvider:    fftypes.FFEnumValue("BlockchainNodeProvider", "quorum"),
+				InitDir:                   t.TempDir(),
+				RuntimeDir:                t.TempDir(),
+				PrivateTransactionManager: types.PrivateTransactionManagerTessera,
 				Members: []*types.Organization{
 					{
 						Index: &[]int{0}[0],
