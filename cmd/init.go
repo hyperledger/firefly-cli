@@ -82,6 +82,15 @@ func initCommon(args []string) error {
 	if err := validateIPFSMode(initOptions.IPFSMode); err != nil {
 		return err
 	}
+	if err := validateConsensus(initOptions.Consensus); err != nil {
+		return err
+	}
+	if err := validatePrivateTransactionManagerSelection(initOptions.PrivateTransactionManager, initOptions.BlockchainNodeProvider); err != nil {
+		return err
+	}
+	if err := validatePrivateTransactionManagerBlockchainConnectorCombination(initOptions.PrivateTransactionManager, initOptions.BlockchainConnector); err != nil {
+		return err
+	}
 
 	fmt.Println("initializing new FireFly stack...")
 
@@ -200,6 +209,57 @@ func validateBlockchainProvider(providerString, nodeString string) error {
 	return nil
 }
 
+func validateConsensus(consensusString string) error {
+	v, err := fftypes.FFEnumParseString(context.Background(), types.Consensus, consensusString)
+	if err != nil {
+		return nil
+	}
+
+	if v != types.ConsensusClique {
+		return errors.New("currently only Clique consensus is supported")
+	}
+
+	return nil
+}
+
+func validatePrivateTransactionManagerSelection(privateTransactionManagerInput string, nodeString string) error {
+	privateTransactionManager, err := fftypes.FFEnumParseString(context.Background(), types.PrivateTransactionManager, privateTransactionManagerInput)
+	if err != nil {
+		return err
+	}
+
+	if !privateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		v, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainNodeProvider, nodeString)
+		if err != nil {
+			return nil
+		}
+
+		if v != types.BlockchainNodeProviderQuorum {
+			return errors.New("private transaction manager can only be enabled if blockchain node provider is Quorum")
+		}
+	}
+	return nil
+}
+
+func validatePrivateTransactionManagerBlockchainConnectorCombination(privateTransactionManagerInput string, blockchainConnectorInput string) error {
+	privateTransactionManager, err := fftypes.FFEnumParseString(context.Background(), types.PrivateTransactionManager, privateTransactionManagerInput)
+	if err != nil {
+		return err
+	}
+
+	blockchainConnector, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainConnector, blockchainConnectorInput)
+	if err != nil {
+		return nil
+	}
+
+	if !privateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		if !blockchainConnector.Equals(types.BlockchainConnectorEthconnect) {
+			return errors.New("currently only Ethconnect blockchain connector is supported with a private transaction manager")
+		}
+	}
+	return nil
+}
+
 func validateTokensProvider(input []string, blockchainNodeProviderInput string) error {
 	tokenProviders := make([]fftypes.FFEnum, len(input))
 	for i, t := range input {
@@ -246,10 +306,13 @@ func randomHexString(length int) (string, error) {
 func init() {
 	initCmd.PersistentFlags().IntVarP(&initOptions.FireFlyBasePort, "firefly-base-port", "p", 5000, "Mapped port base of FireFly core API (1 added for each member)")
 	initCmd.PersistentFlags().IntVarP(&initOptions.ServicesBasePort, "services-base-port", "s", 5100, "Mapped port base of services (100 added for each member)")
+	initCmd.PersistentFlags().IntVar(&initOptions.PtmBasePort, "ptm-base-port", 4100, "Mapped port base of private transaction manager (10 added for each member)")
 	initCmd.PersistentFlags().StringVarP(&initOptions.DatabaseProvider, "database", "d", "sqlite3", fmt.Sprintf("Database type to use. Options are: %v", fftypes.FFEnumValues(types.DatabaseSelection)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "evmconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
+	initCmd.PersistentFlags().StringVar(&initOptions.PrivateTransactionManager, "private-transaction-manager", "none", fmt.Sprintf("Private Transaction Manager to use. Options are: %v", fftypes.FFEnumValues(types.PrivateTransactionManager)))
+	initCmd.PersistentFlags().StringVar(&initOptions.Consensus, "consensus", "clique", fmt.Sprintf("Consensus algorithm to use. Options are %v", fftypes.FFEnumValues(types.Consensus)))
 	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", fmt.Sprintf("Select the FireFly release version to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))

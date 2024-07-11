@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -34,6 +35,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/quorum"
 	ethremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/fabric"
 	tezosremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/tezos/remoterpc"
@@ -93,17 +95,20 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		environmentVarsMap[key] = value
 	}
 	s.Stack = &types.Stack{
-		Name:                   options.StackName,
-		Members:                make([]*types.Organization, options.MemberCount),
-		ExposedBlockchainPort:  options.ServicesBasePort,
-		Database:               fftypes.FFEnum(options.DatabaseProvider),
-		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
-		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),
-		BlockchainConnector:    fftypes.FFEnum(options.BlockchainConnector),
-		ContractAddress:        options.ContractAddress,
-		StackDir:               filepath.Join(constants.StacksDir, options.StackName),
-		InitDir:                filepath.Join(constants.StacksDir, options.StackName, "init"),
-		RuntimeDir:             filepath.Join(constants.StacksDir, options.StackName, "runtime"),
+		Name:                      options.StackName,
+		Members:                   make([]*types.Organization, options.MemberCount),
+		ExposedBlockchainPort:     options.ServicesBasePort,
+		ExposedPtmPort:            options.PtmBasePort,
+		Database:                  fftypes.FFEnum(options.DatabaseProvider),
+		BlockchainProvider:        fftypes.FFEnum(options.BlockchainProvider),
+		BlockchainNodeProvider:    fftypes.FFEnum(options.BlockchainNodeProvider),
+		BlockchainConnector:       fftypes.FFEnum(options.BlockchainConnector),
+		PrivateTransactionManager: fftypes.FFEnum(options.PrivateTransactionManager),
+		Consensus:                 fftypes.FFEnum(options.Consensus),
+		ContractAddress:           options.ContractAddress,
+		StackDir:                  filepath.Join(constants.StacksDir, options.StackName),
+		InitDir:                   filepath.Join(constants.StacksDir, options.StackName, "init"),
+		RuntimeDir:                filepath.Join(constants.StacksDir, options.StackName, "runtime"),
 		State: &types.StackState{
 			DeployedContracts: make([]*types.DeployedContract, 0),
 			Accounts:          make([]interface{}, options.MemberCount),
@@ -552,6 +557,7 @@ func (s *StackManager) copyDataExchangeConfigToVolumes() error {
 
 func (s *StackManager) createMember(id string, index int, options *types.InitOptions, external bool) (*types.Organization, error) {
 	serviceBase := options.ServicesBasePort + (index * 100)
+	ptmBase := options.PtmBasePort + (index * 10)
 	member := &types.Organization{
 		ID:                         id,
 		Index:                      &index,
@@ -560,6 +566,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		ExposedConnectorPort:       serviceBase + 2,
 		ExposedUIPort:              serviceBase + 3,
 		ExposedDatabasePort:        serviceBase + 4,
+		ExposePtmTpPort:            ptmBase,
 		External:                   external,
 		OrgName:                    options.OrgNames[index],
 		NodeName:                   options.NodeNames[index],
@@ -584,7 +591,7 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 		nextPort++
 	}
 
-	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName})
+	account, err := s.blockchainProvider.CreateAccount([]string{member.OrgName, member.OrgName, strconv.Itoa(index)})
 	if err != nil {
 		return nil, err
 	}
@@ -685,10 +692,15 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	}
 
 	// Use docker to pull every image - retry on failure
+	hasPulled := map[string]bool{}
 	for _, image := range images {
-		s.Log.Info(fmt.Sprintf("pulling '%s'", image))
-		if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
-			return err
+		if _, ok := hasPulled[image]; !ok {
+			s.Log.Info(fmt.Sprintf("pulling '%s'", image))
+			if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
+				return err
+			} else {
+				hasPulled[image] = true
+			}
 		}
 	}
 	return nil
@@ -773,6 +785,7 @@ func (s *StackManager) checkPortsAvailable() error {
 		ports = append(ports, member.ExposedDatabasePort)
 		ports = append(ports, member.ExposedUIPort)
 		ports = append(ports, member.ExposedTokensPorts...)
+		ports = append(ports, member.ExposePtmTpPort)
 
 		if !member.External {
 			ports = append(ports, member.ExposedFireflyAdminSPIPort)
@@ -1289,6 +1302,11 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderGeth
 	}
 
+	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderQuorum) {
+		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
+		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderQuorum
+	}
+
 	if s.Stack.BlockchainProvider.Equals(types.BlockchainNodeProviderBesu) {
 		s.Stack.BlockchainProvider = types.BlockchainProviderEthereum
 		s.Stack.BlockchainNodeProvider = types.BlockchainNodeProviderBesu
@@ -1297,7 +1315,7 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 	// Fallbacks for old stacks that don't have a specific blockchain connector set
 	if s.Stack.BlockchainConnector == "" {
 		switch s.Stack.BlockchainProvider {
-		case types.BlockchainProviderEthereum, types.BlockchainNodeProviderGeth, types.BlockchainNodeProviderBesu:
+		case types.BlockchainProviderEthereum, types.BlockchainNodeProviderGeth, types.BlockchainNodeProviderQuorum, types.BlockchainNodeProviderBesu:
 			// Ethconnect used to be the only option for ethereum before it was configurable so set it as the fallback
 			s.Stack.BlockchainConnector = types.BlockchainConnectorEthconnect
 		case types.BlockchainProviderFabric:
@@ -1315,6 +1333,8 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 			return geth.NewGethProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderBesu:
 			return besu.NewBesuProvider(s.ctx, s.Stack)
+		case types.BlockchainNodeProviderQuorum:
+			return quorum.NewQuorumProvider(s.ctx, s.Stack)
 		case types.BlockchainNodeProviderRemoteRPC:
 			s.Stack.DisableTokenFactories = true
 			return ethremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)

@@ -31,41 +31,44 @@ type StartOptions struct {
 }
 
 type InitOptions struct {
-	StackName                string
-	MemberCount              int
-	FireFlyBasePort          int
-	ServicesBasePort         int
-	DatabaseProvider         string
-	ExternalProcesses        int
-	OrgNames                 []string
-	NodeNames                []string
-	BlockchainConnector      string
-	BlockchainProvider       string
-	BlockchainNodeProvider   string
-	TokenProviders           []string
-	FireFlyVersion           string
-	ManifestPath             string
-	PrometheusEnabled        bool
-	PrometheusPort           int
-	SandboxEnabled           bool
-	ExtraCoreConfigPath      string
-	ExtraConnectorConfigPath string
-	BlockPeriod              int
-	ContractAddress          string
-	RemoteNodeURL            string
-	ChainID                  int64
-	DisableTokenFactories    bool
-	RequestTimeout           int
-	ReleaseChannel           string
-	MultipartyEnabled        bool
-	IPFSMode                 string
-	CCPYAMLPaths             []string
-	MSPPaths                 []string
-	ChannelName              string
-	ChaincodeName            string
-	CustomPinSupport         bool
-	RemoteNodeDeploy         bool
-	EnvironmentVars          map[string]string
+	StackName                 string
+	MemberCount               int
+	FireFlyBasePort           int
+	ServicesBasePort          int
+	PtmBasePort               int
+	DatabaseProvider          string
+	ExternalProcesses         int
+	OrgNames                  []string
+	NodeNames                 []string
+	BlockchainConnector       string
+	BlockchainProvider        string
+	BlockchainNodeProvider    string
+	PrivateTransactionManager string
+	Consensus                 string
+	TokenProviders            []string
+	FireFlyVersion            string
+	ManifestPath              string
+	PrometheusEnabled         bool
+	PrometheusPort            int
+	SandboxEnabled            bool
+	ExtraCoreConfigPath       string
+	ExtraConnectorConfigPath  string
+	BlockPeriod               int
+	ContractAddress           string
+	RemoteNodeURL             string
+	ChainID                   int64
+	DisableTokenFactories     bool
+	RequestTimeout            int
+	ReleaseChannel            string
+	MultipartyEnabled         bool
+	IPFSMode                  string
+	CCPYAMLPaths              []string
+	MSPPaths                  []string
+	ChannelName               string
+	ChaincodeName             string
+	CustomPinSupport          bool
+	RemoteNodeDeploy          bool
+	EnvironmentVars           map[string]string
 }
 
 const IPFSMode = "ipfs_mode"
@@ -97,8 +100,25 @@ const BlockchainNodeProvider = "blockchain_node_provider"
 
 var (
 	BlockchainNodeProviderGeth      = fftypes.FFEnumValue(BlockchainNodeProvider, "geth")
+	BlockchainNodeProviderQuorum    = fftypes.FFEnumValue(BlockchainNodeProvider, "quorum")
 	BlockchainNodeProviderBesu      = fftypes.FFEnumValue(BlockchainNodeProvider, "besu")
 	BlockchainNodeProviderRemoteRPC = fftypes.FFEnumValue(BlockchainNodeProvider, "remote-rpc")
+)
+
+const Consensus = "consensus"
+
+var (
+	ConsensusClique = fftypes.FFEnumValue(Consensus, "clique")
+	ConsensusRaft   = fftypes.FFEnumValue(Consensus, "raft")
+	ConsensusIbft   = fftypes.FFEnumValue(Consensus, "ibft")
+	ConsensusQbft   = fftypes.FFEnumValue(Consensus, "qbft")
+)
+
+const PrivateTransactionManager = "private_transaction_manager"
+
+var (
+	PrivateTransactionManagerNone    = fftypes.FFEnumValue(PrivateTransactionManager, "none")
+	PrivateTransactionManagerTessera = fftypes.FFEnumValue(PrivateTransactionManager, "tessera")
 )
 
 const DatabaseSelection = "database_selection"

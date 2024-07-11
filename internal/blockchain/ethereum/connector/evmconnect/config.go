@@ -19,6 +19,7 @@ package evmconnect
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -75,6 +76,10 @@ type GasOracleConfig struct {
 
 func (e *Config) WriteConfig(filename string, extraEvmconnectConfigPath string) error {
 	configYamlBytes, _ := yaml.Marshal(e)
+	basedir := filepath.Dir(filename)
+	if err := os.MkdirAll(basedir, 0755); err != nil {
+		return err
+	}
 	if err := os.WriteFile(filename, configYamlBytes, 0755); err != nil {
 		return err
 	}

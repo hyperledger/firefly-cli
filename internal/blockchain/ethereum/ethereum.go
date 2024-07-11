@@ -32,8 +32,9 @@ import (
 )
 
 type Account struct {
-	Address    string `json:"address"`
-	PrivateKey string `json:"privateKey"`
+	Address      string `json:"address"`
+	PrivateKey   string `json:"privateKey"`
+	PtmPublicKey string `json:"ptmPublicKey"` // Public key used for Tessera
 }
 
 func GenerateAddressAndPrivateKey() (address string, privateKey string) {
