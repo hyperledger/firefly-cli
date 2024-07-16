@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/hyperledger/firefly-cli/internal/docker"
@@ -54,7 +55,15 @@ func CreateTesseraKeys(ctx context.Context, image, outputDirectory, prefix, name
 		return "", "", "", err
 	}
 	fmt.Println("generating tessera keys")
-	err = docker.RunDockerCommand(ctx, outputDirectory, "run", "--rm", "-v", fmt.Sprintf("%s:/keystore", outputDirectory), image, "-keygen", "-filename", fmt.Sprintf("/keystore/%s", filename))
+	args := []string{"run"}
+	// Order of args matter and platform argument needs
+	// to be early in the list
+	if runtime.GOARCH == "arm64" {
+		args = append(args, "--platform", "linux/amd64")
+	}
+	args = append(args, "--rm", "-v", fmt.Sprintf("%s:/keystore", outputDirectory), image, "-keygen", "-filename", fmt.Sprintf("/keystore/%s", filename))
+
+	err = docker.RunDockerCommand(ctx, outputDirectory, args...)
 	if err != nil {
 		return "", "", "", err
 	}

@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -257,9 +258,14 @@ func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*ExposedBlockchainPortMultiplier), TmTpPort)}, // defaults 4100, 4110, 4120, 4130
 					Environment:   p.stack.EnvironmentVars,
 					EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
-					Deploy:        map[string]interface{}{"restart_policy": map[string]string{"condition": "on-failure", "max_attempts": "3"}},
+					Deploy:        map[string]interface{}{"restart_policy": map[string]interface{}{"condition": "on-failure", "max_attempts": int64(3)}},
 				},
 				VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
+			}
+
+			// No arm64 images for Tessera
+			if runtime.GOARCH == "arm64" {
+				serviceDefinitions[i+memberCount].Service.Platform = "linux/amd64"
 			}
 		}
 		serviceDefinitions[i] = &docker.ServiceDefinition{

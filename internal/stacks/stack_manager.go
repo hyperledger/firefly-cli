@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,10 @@ type StackManager struct {
 	tokenProviders     []tokens.ITokensProvider
 	IsOldFileStructure bool
 	once               sync.Once
+}
+
+var unsupportedARM64Images map[string]bool = map[string]bool{
+	"quorumengineering/tessera:24.4": true,
 }
 
 func ListStacks() ([]string, error) {
@@ -214,6 +219,7 @@ func (s *StackManager) runDockerComposeCommand(command ...string) error {
 				return err
 			}
 		}
+		return err
 	}
 	return docker.RunDockerComposeCommand(s.ctx, s.Stack.StackDir, command...)
 }
@@ -696,7 +702,11 @@ func (s *StackManager) PullStack(options *types.PullOptions) error {
 	for _, image := range images {
 		if _, ok := hasPulled[image]; !ok {
 			s.Log.Info(fmt.Sprintf("pulling '%s'", image))
-			if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, "pull", image); err != nil {
+			args := []string{"pull", image}
+			if unsupportedARM64Images[image] && runtime.GOARCH == "arm64" {
+				args = append(args, "--platform=linux/amd64")
+			}
+			if err := docker.RunDockerCommandRetry(s.ctx, s.Stack.InitDir, options.Retries, args[0:]...); err != nil {
 				return err
 			} else {
 				hasPulled[image] = true
