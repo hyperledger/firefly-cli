@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -37,14 +38,27 @@ var initEthereumCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
+			return err
+		}
+		// Needs this context for cleaning up as part of Remove Stack
+		// If an error occurs as part of init
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
+
 		stackManager := stacks.NewStackManager(ctx)
 		if err := initCommon(args); err != nil {
 			return err
 		}
 		if err := stackManager.InitStack(&initOptions); err != nil {
-			if err := stackManager.RemoveStack(); err != nil {
-				return err
+			verr := stackManager.RemoveStack()
+
+			// log the remove error if present
+			if verr != nil {
+				l := log.LoggerFromContext(ctx)
+				l.Info(fmt.Sprintf("Error whilst removing the stack: %s", verr.Error()))
 			}
+			// return the init error to not hide the issue
 			return err
 		}
 		fmt.Printf("Stack '%s' created!\nTo start your new stack run:\n\n%s start %s\n", initOptions.StackName, rootCmd.Use, initOptions.StackName)

@@ -61,6 +61,7 @@ type Service struct {
 	EnvFile       string                       `yaml:"env_file,omitempty"`
 	Expose        []int                        `yaml:"expose,omitempty"`
 	Deploy        map[string]interface{}       `yaml:"deploy,omitempty"`
+	Platform      string                       `yaml:"platform,omitempty"`
 }
 
 type DockerComposeConfig struct {
@@ -79,7 +80,7 @@ var StandardLogOptions = &LoggingConfig{
 
 func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 	compose := &DockerComposeConfig{
-		Version:  "2.1",
+		Version:  "2.4",
 		Services: make(map[string]*Service),
 		Volumes:  make(map[string]struct{}),
 	}

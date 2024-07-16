@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug init mode",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "ff/main.go",
+            "args": ["init", "ethereum", "dev", "2"]
+        },
+        {
+            "name": "Debug remove mode",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "ff/main.go",
+            "args": ["remove", "dev", "--force"]
+        },
+        {
+            "name": "Debug start mode",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "ff/main.go",
+            "args": ["start", "dev"]
+        },
+    ]
+}
