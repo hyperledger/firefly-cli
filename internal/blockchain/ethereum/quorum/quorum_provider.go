@@ -247,7 +247,7 @@ func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 	for i := 0; i < memberCount; i++ {
 		var quorumDependsOn map[string]map[string]string
 		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
-			quorumDependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_started"}}
+			quorumDependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_healthy"}}
 			serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
 				ServiceName: fmt.Sprintf("tessera_%d", i),
 				Service: &docker.Service{
@@ -259,6 +259,16 @@ func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefiniti
 					Environment:   p.stack.EnvironmentVars,
 					EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
 					Deploy:        map[string]interface{}{"restart_policy": map[string]interface{}{"condition": "on-failure", "max_attempts": int64(3)}},
+					HealthCheck: &docker.HealthCheck{
+						Test: []string{
+							"CMD",
+							"curl",
+							"--fail",
+							fmt.Sprintf("http://localhost:%s/upcheck", TmTpPort),
+						},
+						Interval: "15s", // 6000 requests in a day
+						Retries:  30,
+					},
 				},
 				VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
 			}
