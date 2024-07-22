@@ -104,6 +104,16 @@ func CreateDockerCompose(s *types.Stack) *DockerComposeConfig {
 				DependsOn:   map[string]map[string]string{},
 				Logging:     StandardLogOptions,
 				Environment: s.EnvironmentVars,
+				HealthCheck: &HealthCheck{
+					Test: []string{
+						"CMD",
+						"curl",
+						"--fail",
+						fmt.Sprintf("http://localhost:%d/api/v1/status", member.ExposedFireflyPort),
+					},
+					Interval: "15s", // 6000 requests in a day
+					Retries:  30,
+				},
 			}
 			compose.Volumes[fmt.Sprintf("%s_data_%s", fireflyCore, member.ID)] = struct{}{}
 			compose.Services[fireflyCore+"_"+member.ID].DependsOn["dataexchange_"+member.ID] = map[string]string{"condition": "service_started"}

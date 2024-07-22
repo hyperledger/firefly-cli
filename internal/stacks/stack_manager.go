@@ -160,7 +160,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 
 	if options.ManifestPath != "" {
 		// If a path to a manifest file is set, read the existing file
-		manifest, err = core.ReadManifestFile(options.ManifestPath)
+		manifest, err = core.ReadManifestFile(s.ctx, options.ManifestPath)
 		if err != nil {
 			return err
 		}
