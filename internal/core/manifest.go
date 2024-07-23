@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/hyperledger/firefly-cli/internal/constants"
 	"github.com/hyperledger/firefly-cli/internal/docker"
+	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
@@ -107,7 +109,7 @@ func getSHA(imageName, imageTag string) (string, error) {
 	}
 }
 
-func ReadManifestFile(p string) (*types.VersionManifest, error) {
+func ReadManifestFile(ctx context.Context, p string) (*types.VersionManifest, error) {
 	d, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
@@ -117,6 +119,8 @@ func ReadManifestFile(p string) (*types.VersionManifest, error) {
 
 	// If core is not specified in the manifest, use a locally built image called "firefly"
 	if manifest.FireFly == nil {
+		log := log.LoggerFromContext(ctx)
+		log.Warn("No FireFly image present in manifest provided, using local image hypeledger/firefly")
 		manifest.FireFly = &types.ManifestEntry{
 			Image: "hyperledger/firefly",
 			Local: true,
