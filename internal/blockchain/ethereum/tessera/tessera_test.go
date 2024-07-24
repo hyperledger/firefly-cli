@@ -1,4 +1,4 @@
-package quorum
+package tessera
 
 import (
 	"context"

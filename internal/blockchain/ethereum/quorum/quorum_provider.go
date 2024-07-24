@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/ethconnect"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/connector/evmconnect"
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/tessera"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -78,10 +79,10 @@ func (p *QuorumProvider) WriteConfig(options *types.InitOptions) error {
 		}
 
 		// Generate tessera docker-entrypoint for each member
-		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		if p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 			l.Info(fmt.Sprintf("generating tessera docker-entrypoint file for member %d", i))
 			tesseraEntrypointOutputDirectory := filepath.Join(initDir, "tessera", fmt.Sprintf("tessera_%d", i))
-			if err := CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, p.stack.Name, len(p.stack.Members)); err != nil {
+			if err := tessera.CreateTesseraEntrypoint(p.ctx, tesseraEntrypointOutputDirectory, p.stack.Name, len(p.stack.Members)); err != nil {
 				return err
 			}
 		}
@@ -143,7 +144,7 @@ func (p *QuorumProvider) FirstTimeSetup() error {
 			return err
 		}
 
-		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		if p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 			// Copy member specific tessera key files
 			if err := p.dockerMgr.MkdirInVolume(p.ctx, tesseraVolumeNameMember, rootDir); err != nil {
 				return err
@@ -153,14 +154,14 @@ func (p *QuorumProvider) FirstTimeSetup() error {
 				return err
 			}
 			// Copy tessera docker-entrypoint file
-			tmEntrypointPath := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), DockerEntrypoint)
+			tmEntrypointPath := filepath.Join(tesseraDir, fmt.Sprintf("tessera_%d", i), tessera.DockerEntrypoint)
 			if err := p.dockerMgr.CopyFileToVolume(p.ctx, tesseraVolumeNameMember, tmEntrypointPath, rootDir); err != nil {
 				return err
 			}
 		}
 
 		// Copy quorum docker-entrypoint file
-		quorumEntrypointPath := filepath.Join(blockchainDir, fmt.Sprintf("quorum_%d", i), DockerEntrypoint)
+		quorumEntrypointPath := filepath.Join(blockchainDir, fmt.Sprintf("quorum_%d", i), tessera.DockerEntrypoint)
 		if err := p.dockerMgr.CopyFileToVolume(p.ctx, quorumVolumeNameMember, quorumEntrypointPath, rootDir); err != nil {
 			return err
 		}
@@ -236,43 +237,46 @@ func (p *QuorumProvider) DeployFireFlyContract() (*types.ContractDeploymentResul
 	return p.connector.DeployContract(contract, "FireFly", p.stack.Members[0], nil)
 }
 
+func (p *QuorumProvider) buildTesseraServiceDefinition(memberIdx int) *docker.ServiceDefinition {
+	return &docker.ServiceDefinition{
+		ServiceName: fmt.Sprintf("tessera_%d", memberIdx),
+		Service: &docker.Service{
+			Image:         tesseraImage,
+			ContainerName: fmt.Sprintf("%s_member%dtessera", p.stack.Name, memberIdx),
+			Volumes:       []string{fmt.Sprintf("tessera_%d:/data", memberIdx)},
+			Logging:       docker.StandardLogOptions,
+			Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(memberIdx*ExposedBlockchainPortMultiplier), tessera.TmTpPort)}, // defaults 4100, 4110, 4120, 4130
+			Environment:   p.stack.EnvironmentVars,
+			EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
+			Deploy:        map[string]interface{}{"restart_policy": map[string]interface{}{"condition": "on-failure", "max_attempts": int64(3)}},
+			HealthCheck: &docker.HealthCheck{
+				Test: []string{
+					"CMD",
+					"curl",
+					"--fail",
+					fmt.Sprintf("http://localhost:%s/upcheck", tessera.TmTpPort),
+				},
+				Interval: "15s", // 6000 requests in a day
+				Retries:  30,
+			},
+		},
+		VolumeNames: []string{fmt.Sprintf("tessera_%d", memberIdx)},
+	}
+}
+
 func (p *QuorumProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
 	memberCount := len(p.stack.Members)
 	serviceDefinitionsCount := memberCount
-	if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+	if p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 		serviceDefinitionsCount *= 2
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, serviceDefinitionsCount)
 	connectorDependents := map[string]string{}
 	for i := 0; i < memberCount; i++ {
 		var quorumDependsOn map[string]map[string]string
-		if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+		if p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 			quorumDependsOn = map[string]map[string]string{fmt.Sprintf("tessera_%d", i): {"condition": "service_healthy"}}
-			serviceDefinitions[i+memberCount] = &docker.ServiceDefinition{
-				ServiceName: fmt.Sprintf("tessera_%d", i),
-				Service: &docker.Service{
-					Image:         tesseraImage,
-					ContainerName: fmt.Sprintf("%s_member%dtessera", p.stack.Name, i),
-					Volumes:       []string{fmt.Sprintf("tessera_%d:/data", i)},
-					Logging:       docker.StandardLogOptions,
-					Ports:         []string{fmt.Sprintf("%d:%s", p.stack.ExposedPtmPort+(i*ExposedBlockchainPortMultiplier), TmTpPort)}, // defaults 4100, 4110, 4120, 4130
-					Environment:   p.stack.EnvironmentVars,
-					EntryPoint:    []string{"/bin/sh", "-c", "/data/docker-entrypoint.sh"},
-					Deploy:        map[string]interface{}{"restart_policy": map[string]interface{}{"condition": "on-failure", "max_attempts": int64(3)}},
-					HealthCheck: &docker.HealthCheck{
-						Test: []string{
-							"CMD",
-							"curl",
-							"--fail",
-							fmt.Sprintf("http://localhost:%s/upcheck", TmTpPort),
-						},
-						Interval: "15s", // 6000 requests in a day
-						Retries:  30,
-					},
-				},
-				VolumeNames: []string{fmt.Sprintf("tessera_%d", i)},
-			}
-
+			serviceDefinitions[i+memberCount] = p.buildTesseraServiceDefinition(i)
 			// No arm64 images for Tessera
 			if runtime.GOARCH == "arm64" {
 				serviceDefinitions[i+memberCount].Service.Platform = "linux/amd64"
@@ -377,9 +381,9 @@ func (p *QuorumProvider) CreateAccount(args []string) (interface{}, error) {
 
 	// Tessera is an optional add-on to the quorum blockchain node provider
 	var tesseraPubKey, tesseraKeysPath string
-	if !p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerNone) {
+	if p.stack.PrivateTransactionManager.Equals(types.PrivateTransactionManagerTessera) {
 		tesseraKeysOutputDirectory := filepath.Join(directory, "tessera", fmt.Sprintf("tessera_%s", memberIndex), "keystore")
-		_, tesseraPubKey, tesseraKeysPath, err = CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm")
+		_, tesseraPubKey, tesseraKeysPath, err = tessera.CreateTesseraKeys(p.ctx, tesseraImage, tesseraKeysOutputDirectory, "", "tm")
 		if err != nil {
 			return nil, err
 		}

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package quorum
+package tessera
 
 import (
 	"context"
@@ -32,7 +32,6 @@ var DockerEntrypoint = "docker-entrypoint.sh"
 var TmQ2tPort = "9101"
 var TmTpPort = "9080"
 var TmP2pPort = "9000"
-var QuorumPort = "8545"
 
 type PrivateKeyData struct {
 	Bytes string `json:"bytes"`
