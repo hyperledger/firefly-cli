@@ -55,8 +55,8 @@ var initCmd = &cobra.Command{
 			return err
 		}
 		if err := stackManager.InitStack(&initOptions); err != nil {
-			if err := stackManager.RemoveStack(); err != nil {
-				return err
+			if cleanupErr := stackManager.RemoveStack(); cleanupErr != nil {
+				fmt.Printf("Cleanup from previous error returned: %s", cleanupErr)
 			}
 			return err
 		}
