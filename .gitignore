@@ -22,3 +22,6 @@ dist/
 .idea/
 docs/command_docs
 coverage.txt
+.vscode
+!.vscode/launch.json
+!.vscode/settings.json

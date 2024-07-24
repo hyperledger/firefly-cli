@@ -22,10 +22,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/tessera"
 	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 	"github.com/hyperledger/firefly-common/pkg/fftypes"
 )
+
+var DockerEntrypoint = "docker-entrypoint.sh"
+var QuorumPort = "8545"
 
 func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, privateTransactionManager fftypes.FFEnum) error {
 	discoveryCmd := "BOOTNODE_CMD=\"\""
@@ -47,7 +51,7 @@ ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --ptm.timeout 5 --ptm.url ${TESSERA_URL}:$
 echo -n "Checking tessera is up ... "
 curl --connect-timeout %[4]d --max-time %[4]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --silent --fail "${TESSERA_UPCHECK_URL}"
 echo ""
-`, memberIndex, TmTpPort, TmQ2tPort, connectTimeout, stackName)
+`, memberIndex, tessera.TmTpPort, tessera.TmQ2tPort, connectTimeout, stackName)
 	}
 
 	blockPeriod := blockPeriodInSeconds
@@ -94,7 +98,7 @@ ADDITIONAL_ARGS=${ADDITIONAL_ARGS:-}
 echo "bootnode discovery command :: $BOOTNODE_CMD"
 IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
 
-exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %[4]s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %[5]d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, QuorumPort, chainID, blockPeriod, blockPeriodInMs)
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %[4]s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %[5]d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 $CONSENSUS_ARGS $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, QuorumPort, chainID, blockPeriod, blockPeriodInMs)
 	filename := filepath.Join(outputDirectory, DockerEntrypoint)
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err
