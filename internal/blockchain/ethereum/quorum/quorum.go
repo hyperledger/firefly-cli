@@ -32,12 +32,14 @@ var DockerEntrypoint = "docker-entrypoint.sh"
 var QuorumPort = "8545"
 
 func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, stackName string, memberIndex, chainID, blockPeriodInSeconds int, privateTransactionManager fftypes.FFEnum) error {
-	discoveryCmd := "BOOTNODE_CMD=\"\""
+	var discoveryCmd string
 	connectTimeout := 15
 	if memberIndex != 0 {
 		discoveryCmd = fmt.Sprintf(`bootnode=$(curl http://quorum_0:%s -s --connect-timeout %[2]d --max-time %[2]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
-BOOTNODE_CMD="--bootnodes $bootnode"
+BOOTNODE_CMD="BOOTNODE_CMD=--bootnodes $bootnode"
 BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/quorum_0}`, QuorumPort, connectTimeout)
+	} else {
+		discoveryCmd = "BOOTNODE_CMD=--nodiscover"
 	}
 
 	tesseraCmd := ""
@@ -98,7 +100,7 @@ ADDITIONAL_ARGS=${ADDITIONAL_ARGS:-}
 echo "bootnode discovery command :: $BOOTNODE_CMD"
 IP_ADDR=$(cat /etc/hosts | tail -n 1 | awk '{print $1}')
 
-exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %[4]s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %[5]d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --nodiscover --verbosity 4 $CONSENSUS_ARGS $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, QuorumPort, chainID, blockPeriod, blockPeriodInMs)
+exec geth --datadir /data --nat extip:$IP_ADDR --syncmode 'full' --revertreason --port 30311 --http --http.addr "0.0.0.0" --http.corsdomain="*" -http.port %[4]s --http.vhosts "*" --http.api admin,personal,eth,net,web3,txpool,miner,debug,$QUORUM_API --networkid %[5]d --miner.gasprice 0 --password /data/password --mine --allow-insecure-unlock --verbosity 4 $CONSENSUS_ARGS $BOOTNODE_CMD $ADDITIONAL_ARGS`, consensus, tesseraCmd, discoveryCmd, QuorumPort, chainID, blockPeriod, blockPeriodInMs)
 	filename := filepath.Join(outputDirectory, DockerEntrypoint)
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return err
