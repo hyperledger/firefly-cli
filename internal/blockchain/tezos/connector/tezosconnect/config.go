@@ -133,7 +133,7 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 		},
 		Persistence: &PersistenceConfig{
 			LevelDB: &LevelDBConfig{
-				Path: "/tezosconnect/leveldb",
+				Path: "/tezosconnect/db/leveldb",
 			},
 		},
 		FFCore: &FFCoreConfig{
