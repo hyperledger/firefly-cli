@@ -36,10 +36,10 @@ func CreateQuorumEntrypoint(ctx context.Context, outputDirectory, consensus, sta
 	connectTimeout := 15
 	if memberIndex != 0 {
 		discoveryCmd = fmt.Sprintf(`bootnode=$(curl http://quorum_0:%s -s --connect-timeout %[2]d --max-time %[2]d --retry 5 --retry-connrefused --retry-delay 0 --retry-max-time 60 --fail --header "Content-Type: application/json" --data '{"jsonrpc":"2.0", "method": "admin_nodeInfo", "params": [], "id": 1}' | grep -o "enode://[a-z0-9@.:]*")
-BOOTNODE_CMD="BOOTNODE_CMD=--bootnodes $bootnode"
+BOOTNODE_CMD="--bootnodes $bootnode"
 BOOTNODE_CMD=${BOOTNODE_CMD/127.0.0.1/quorum_0}`, QuorumPort, connectTimeout)
 	} else {
-		discoveryCmd = "BOOTNODE_CMD=--nodiscover"
+		discoveryCmd = `BOOTNODE_CMD=""`
 	}
 
 	tesseraCmd := ""
