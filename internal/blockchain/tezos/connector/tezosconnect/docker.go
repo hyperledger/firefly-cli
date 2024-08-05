@@ -30,24 +30,24 @@ func (t *Tezosconnect) GetServiceDefinitions(s *types.Stack, dependentServices m
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
 	for i, member := range s.Members {
+		dataVolumeName := fmt.Sprintf("tezosconnect_data_%s", member.ID)
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "tezosconnect_" + member.ID,
 			Service: &docker.Service{
 				Image:         s.VersionManifest.Tezosconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_tezosconnect_%v", s.Name, i),
-				Command:       "-f /tezosconnect/config/config.yaml",
+				Command:       "-f /tezosconnect/config.yaml",
 				DependsOn:     dependsOn,
 				Ports:         []string{fmt.Sprintf("%d:%v", member.ExposedConnectorPort, t.Port())},
 				Volumes: []string{
-					fmt.Sprintf("tezosconnect_config_%s:/tezosconnect/config", member.ID),
-					fmt.Sprintf("tezosconnect_leveldb_%s:/tezosconnect/leveldb", member.ID),
+					fmt.Sprintf("%s/config/tezosconnect_%s.yaml:/tezosconnect/config.yaml", s.RuntimeDir, member.ID),
+					fmt.Sprintf("%s:/tezosconnect/db", dataVolumeName),
 				},
 				Logging:     docker.StandardLogOptions,
 				Environment: s.EnvironmentVars,
 			},
 			VolumeNames: []string{
-				fmt.Sprintf("tezosconnect_config_%s", member.ID),
-				fmt.Sprintf("tezosconnect_leveldb_%s", member.ID),
+				dataVolumeName,
 			},
 		}
 	}

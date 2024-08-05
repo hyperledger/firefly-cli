@@ -83,7 +83,7 @@ func TestGetServiceDefinition(t *testing.T) {
 			serviceDefinitions := tezos.GetServiceDefinitions(tc.Members, tc.DependentServices)
 			assert.NotNil(t, serviceDefinitions)
 
-			expectedCommand := "-f /tezosconnect/config/config.yaml"
+			expectedCommand := "-f /tezosconnect/config.yaml"
 			if serviceDefinitions[0].Service.Command != expectedCommand {
 				t.Errorf("Expected Command %q, got %q", expectedCommand, serviceDefinitions[0].Service.Command)
 			}
