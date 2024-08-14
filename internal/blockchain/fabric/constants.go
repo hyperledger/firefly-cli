@@ -16,6 +16,9 @@
 
 package fabric
 
+// Note: Any change of image tag should be checked if it is published in arm64 format.
+// Refer to this commit for when arm64 support was added and the code workaround was removed:
+// https://github.com/hyperledger/firefly-cli/pull/323/commits/71237b73b07bfee72b355dea83af9cd874b2a2de
 var FabricToolsImageName = "hyperledger/fabric-tools:2.5.6"
 var FabricCAImageName = "hyperledger/fabric-ca:1.5"
 var FabricOrdererImageName = "hyperledger/fabric-orderer:2.5"
