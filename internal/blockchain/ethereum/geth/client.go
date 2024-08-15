@@ -87,7 +87,7 @@ func (g *GethClient) UnlockAccount(address string, password string) error {
 		return err
 	}
 	if rpcResponse.Error != nil {
-		return fmt.Errorf(rpcResponse.Error.Message)
+		return fmt.Errorf("%s", rpcResponse.Error.Message)
 	}
 	return nil
 }

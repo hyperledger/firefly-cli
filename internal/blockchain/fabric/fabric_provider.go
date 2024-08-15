@@ -109,7 +109,6 @@ func (p *FabricProvider) FirstTimeSetup() error {
 		// Run cryptogen to generate MSP
 		if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
 			"run",
-			"--platform", getDockerPlatform(),
 			"--rm",
 			"-v", fmt.Sprintf("%s:/etc/template.yml", cryptogenYamlPath),
 			"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
@@ -124,7 +123,6 @@ func (p *FabricProvider) FirstTimeSetup() error {
 		// Generate genesis block
 		if err := docker.RunDockerCommand(p.ctx, blockchainDirectory,
 			"run",
-			"--platform", getDockerPlatform(),
 			"--rm",
 			"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
 			"-v", fmt.Sprintf("%s:/etc/hyperledger/fabric/configtx.yaml", path.Join(blockchainDirectory, "configtx.yaml")),
@@ -335,7 +333,6 @@ func (p *FabricProvider) createChannel() error {
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, stackDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
@@ -356,7 +353,6 @@ func (p *FabricProvider) joinChannel() error {
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, stackDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-v", fmt.Sprintf("%s:/etc/firefly", volumeName),
@@ -405,7 +401,6 @@ func (p *FabricProvider) installChaincode(packageFilename string) error {
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, contractsDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
@@ -425,7 +420,6 @@ func (p *FabricProvider) queryInstalled() (*QueryInstalledResponse, error) {
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	str, err := docker.RunDockerCommandBuffered(p.ctx, p.stack.RuntimeDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
@@ -454,7 +448,6 @@ func (p *FabricProvider) approveChaincode(channel, chaincode, version, packageID
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, p.stack.RuntimeDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
@@ -482,7 +475,6 @@ func (p *FabricProvider) commitChaincode(channel, chaincode, version string) err
 	volumeName := fmt.Sprintf("%s_firefly_fabric", p.stack.Name)
 	return docker.RunDockerCommand(p.ctx, p.stack.RuntimeDir,
 		"run",
-		"--platform", getDockerPlatform(),
 		"--rm",
 		fmt.Sprintf("--network=%s_default", p.stack.Name),
 		"-e", "CORE_PEER_ADDRESS=fabric_peer:7051",
@@ -615,11 +607,6 @@ func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
 		Name:    accountName,
 		OrgName: orgName,
 	}, nil
-}
-
-// As of release 2.4, Hyperledger Fabric only publishes amd64 images, but no arm64 specific images
-func getDockerPlatform() string {
-	return "linux/amd64"
 }
 
 func (p *FabricProvider) ParseAccount(account interface{}) interface{} {

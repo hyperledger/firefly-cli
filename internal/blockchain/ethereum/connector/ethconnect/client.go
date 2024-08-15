@@ -136,7 +136,7 @@ func (e *Ethconnect) DeployContract(contract *ethtypes.CompiledContract, contrac
 		return nil, err
 	}
 	if reply.Headers.Type != "TransactionSuccess" {
-		return nil, fmt.Errorf(reply.ErrorMessage)
+		return nil, fmt.Errorf("%s", reply.ErrorMessage)
 	}
 
 	result := &types.ContractDeploymentResult{

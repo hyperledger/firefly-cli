@@ -8,7 +8,7 @@ import (
 )
 
 func TestAccountListCmd(t *testing.T) {
-	testNames := []string{"stack-1", "stack-2", "stack-3","stack-4", "stack-5"}
+	testNames := []string{"stack-1", "stack-2", "stack-3", "stack-4", "stack-5"}
 	for _, stackNames := range testNames {
 		createCmd := accountsCreateCmd
 		createCmd.SetArgs([]string{"ff", "create", stackNames})
@@ -16,7 +16,7 @@ func TestAccountListCmd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create account for testing: %v", err)
 		}
-		Args := []string{ "ls"}
+		Args := []string{"ls"}
 		t.Run("Test-Account-List", func(t *testing.T) {
 			cmd := accountsListCmd
 			cmd.SetArgs(Args)

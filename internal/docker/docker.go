@@ -93,7 +93,7 @@ func RunDockerCommand(ctx context.Context, workingDir string, command ...string)
 	dockerCmd.Dir = workingDir
 	output, err := runCommand(ctx, dockerCmd)
 	if err != nil && output != "" {
-		return fmt.Errorf(output)
+		return fmt.Errorf("%s", output)
 	}
 	return err
 }

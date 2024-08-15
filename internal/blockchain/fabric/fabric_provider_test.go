@@ -259,12 +259,6 @@ func TestGetConnectorURL(t *testing.T) {
 
 }
 
-func TestGetDockerPlatform(t *testing.T) {
-	expectedString := "linux/amd64"
-	String := getDockerPlatform()
-	assert.Equal(t, expectedString, String)
-}
-
 func TestGetContracts(t *testing.T) {
 	FilePath := t.TempDir()
 	testContractFile := filepath.Join(FilePath, "/test_contracts.json")
@@ -410,4 +404,3 @@ func TestRegisterIdentity(t *testing.T) {
 	})
 
 }
-
