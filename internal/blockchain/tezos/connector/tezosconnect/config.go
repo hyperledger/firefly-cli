@@ -67,7 +67,8 @@ type FFCoreConfig struct {
 }
 
 type ConfirmationsConfig struct {
-	Required *int `yaml:"required,omitempty"`
+	Required              *int `yaml:"required,omitempty"`
+	FetchReceiptUponEntry bool `yaml:"fetchReceiptUponEntry,omitempty"`
 }
 
 func (c *Config) WriteConfig(filename string, extraTezosconnectConfigPath string) error {
@@ -133,7 +134,7 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 		},
 		Persistence: &PersistenceConfig{
 			LevelDB: &LevelDBConfig{
-				Path: "/tezosconnect/leveldb",
+				Path: "/tezosconnect/db/leveldb",
 			},
 		},
 		FFCore: &FFCoreConfig{
@@ -142,7 +143,8 @@ func (t *Tezosconnect) GenerateConfig(stack *types.Stack, org *types.Organizatio
 		},
 		Metrics: metrics,
 		Confirmations: &ConfirmationsConfig{
-			Required: confirmations,
+			Required:              confirmations,
+			FetchReceiptUponEntry: true,
 		},
 	}
 }
