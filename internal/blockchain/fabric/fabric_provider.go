@@ -522,11 +522,11 @@ func (p *FabricProvider) DeployContract(filename, contractName, instanceName str
 	}
 	switch {
 	case len(extraArgs) < 1:
-		return nil, fmt.Errorf("channel not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("channel not set")
 	case len(extraArgs) < 2:
-		return nil, fmt.Errorf("chaincode not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("chaincode not set")
 	case len(extraArgs) < 3:
-		return nil, fmt.Errorf("version not set. usage: ff deploy <stack_name> <filename> <channel> <chaincode> <version>")
+		return nil, fmt.Errorf("version not set")
 	}
 	channel := extraArgs[0]
 	chaincode := extraArgs[1]
@@ -587,9 +587,9 @@ func (p *FabricProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 	switch {
 	case len(args) < 1:
-		return "", fmt.Errorf("org name not set. usage: ff accounts create <stack_name> <org_name> <account_name>")
+		return "", fmt.Errorf("org name not set")
 	case len(args) < 2:
-		return "", fmt.Errorf("account name not set. usage: ff accounts create <stack_name> <org_name> <account_name>")
+		return "", fmt.Errorf("account name not set")
 	}
 	orgName := args[0]
 	accountName := args[1]

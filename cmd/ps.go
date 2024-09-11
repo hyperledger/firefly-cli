@@ -50,7 +50,7 @@ var psCmd = &cobra.Command{
 				if contains(allStacks, strings.TrimSpace(stackName)) {
 					namedStacks = append(namedStacks, stackName)
 				} else {
-					fmt.Printf("stack name - %s, is not present on your local machine. Run `ff ls` to see all available stacks.\n", stackName)
+					fmt.Printf("stack name - %s, is not present on your local machine. Run `%s ls` to see all available stacks.\n", stackName, ExecutableName)
 				}
 			}
 

@@ -11,7 +11,7 @@ func TestAccountListCmd(t *testing.T) {
 	testNames := []string{"stack-1", "stack-2", "stack-3", "stack-4", "stack-5"}
 	for _, stackNames := range testNames {
 		createCmd := accountsCreateCmd
-		createCmd.SetArgs([]string{"ff", "create", stackNames})
+		createCmd.SetArgs([]string{ExecutableName, "create", stackNames})
 		err := createCmd.Execute()
 		if err != nil {
 			t.Fatalf("Failed to create account for testing: %v", err)

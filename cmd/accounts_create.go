@@ -50,7 +50,7 @@ var accountsCreateCmd = &cobra.Command{
 		}
 		account, err := stackManager.CreateAccount(args[1:])
 		if err != nil {
-			return err
+			return fmt.Errorf("%s. usage: %s accounts create <stack_name> <org_name> <account_name>", err.Error(), ExecutableName)
 		}
 		fmt.Print(account)
 		fmt.Print("\n")

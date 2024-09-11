@@ -51,7 +51,7 @@ var deployFabricCmd = &cobra.Command{
 		}
 		contractAddress, err := stackManager.DeployContract(filename, filename, 0, args[2:])
 		if err != nil {
-			return err
+			return fmt.Errorf("%s. usage: %s deploy <stack_name> <filename> <channel> <chaincode> <version>", err.Error(), ExecutableName)
 		}
 		fmt.Print(contractAddress)
 		return nil
