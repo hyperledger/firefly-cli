@@ -25,8 +25,8 @@ require (
 	github.com/briandowns/spinner v1.23.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/google/go-containerregistry v0.17.0
-	github.com/hyperledger/firefly-common v1.4.2
-	github.com/hyperledger/firefly-signer v1.1.11
+	github.com/hyperledger/firefly-common v1.4.10
+	github.com/hyperledger/firefly-signer v1.1.15
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/miracl/conflate v1.3.2
