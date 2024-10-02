@@ -24,7 +24,7 @@ all: format build lint test tidy
 format: ## Formats all go code
 		gofmt -s -w .
 test: deps
-		$(VGO) test ./internal/... ./pkg/... ./cmd/... -cover -coverprofile=coverage.txt -covermode=atomic -timeout=60s ${TEST_ARGS}
+		$(VGO) test ./internal/... ./pkg/... ./cmd/... -cover -coverprofile=coverage.txt -covermode=atomic -timeout=30s ${TEST_ARGS}
 build: ## Builds all go code
 		cd ff && go build -ldflags="-X 'github.com/hyperledger/firefly-cli/cmd.BuildDate=$(DATE)' -X 'github.com/hyperledger/firefly-cli/cmd.BuildCommit=$(GITREF)'"
 install: ## Installs the package
