@@ -39,6 +39,9 @@ var logger log.Logger = &log.StdoutLogger{
 	LogLevel: log.Debug,
 }
 
+// name of the executable, this is for the help messages
+var ExecutableName string = os.Args[0]
+
 func GetFireflyASCIIArt() string {
 	s := ""
 	s += "\u001b[33m    _______           ________     \u001b[0m\n"   // yellow
@@ -53,7 +56,7 @@ func GetFireflyASCIIArt() string {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ff",
+	Use:   ExecutableName,
 	Short: "FireFly CLI is a developer tool used to manage local development stacks",
 	Long: GetFireflyASCIIArt() + `
 FireFly CLI is a developer tool used to manage local development stacks
@@ -62,7 +65,7 @@ This tool automates creation of stacks with many infrastructure components which
 would otherwise be a time consuming manual task. It also wraps docker compose
 commands to manage the lifecycle of stacks.
 
-To get started run: ff init
+To get started run: ` + ExecutableName + ` init
 Optional: Set FIREFLY_HOME env variable for FireFly stack configuration path.
 	`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

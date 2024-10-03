@@ -72,7 +72,7 @@ solc --combined-json abi,bin contract.sol > contract.json
 		}
 		location, err := stackManager.DeployContract(filename, selectedContractName, 0, args[2:])
 		if err != nil {
-			return err
+			return fmt.Errorf("%s. usage: %s deploy <stack_name> <filename> <channel> <chaincode> <version>", err.Error(), ExecutableName)
 		}
 		fmt.Print(location)
 		return nil

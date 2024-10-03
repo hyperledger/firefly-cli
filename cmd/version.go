@@ -28,9 +28,12 @@ import (
 var shortened = false
 var output = "json"
 
-var BuildDate string            // set by go-releaser
-var BuildCommit string          // set by go-releaser
-var BuildVersionOverride string // set by go-releaser
+// set by go-releaser
+var (
+	BuildDate            string
+	BuildCommit          string
+	BuildVersionOverride string
+)
 
 // Info creates a formattable struct for version output
 type Info struct {
