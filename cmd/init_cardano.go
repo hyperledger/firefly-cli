@@ -28,7 +28,7 @@ import (
 )
 
 var initCardanoCmd = &cobra.Command{
-	Use:   "cardano [network] [stack_name] [member_count]",
+	Use:   "cardano [stack_name] [member_count]",
 	Short: "Create a new FireFly local dev stack using a Cardano blockchain",
 	Long:  "Create a new FireFly local dev stack using a Cardano blockchain",
 	Args:  cobra.MaximumNArgs(3),
@@ -39,6 +39,7 @@ var initCardanoCmd = &cobra.Command{
 		initOptions.BlockchainProvider = types.BlockchainProviderCardano.String()
 		initOptions.BlockchainConnector = types.BlockchainConnectorCardanoConnect.String()
 		initOptions.BlockchainNodeProvider = types.BlockchainNodeProviderRemoteRPC.String()
+		initOptions.TokenProviders = []string{}
 		initOptions.MultipartyEnabled = false
 		if err := initCommon(args); err != nil {
 			return err
@@ -57,7 +58,8 @@ var initCardanoCmd = &cobra.Command{
 
 func init() {
 	initCardanoCmd.Flags().StringVar(&initOptions.Network, "network", "mainnet", "The name of the network to connect to")
-	initCardanoCmd.Flags().StringVar(&initOptions.RemoteNodeURL, "remote-node-url", "", "For cases where the node is pre-existing and running remotely")
+	initCardanoCmd.Flags().StringVar(&initOptions.Socket, "socket", "", "Socket to mount for the cardano node to connect to")
+	initCardanoCmd.Flags().StringVar(&initOptions.BlockfrostKey, "blockfrost-key", "", "Blockfrost key")
 
 	initCmd.AddCommand(initCardanoCmd)
 }

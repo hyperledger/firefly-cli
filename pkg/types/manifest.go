@@ -25,6 +25,7 @@ type GitHubRelease struct {
 type VersionManifest struct {
 	FireFly           *ManifestEntry `json:"firefly,omitempty"`
 	Cardanoconnect    *ManifestEntry `json:"cardanoconnect"`
+	Cardanosigner     *ManifestEntry `json:"cardanoconnect"`
 	Ethconnect        *ManifestEntry `json:"ethconnect"`
 	Evmconnect        *ManifestEntry `json:"evmconnect"`
 	Tezosconnect      *ManifestEntry `json:"tezosconnect"`

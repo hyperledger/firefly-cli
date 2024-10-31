@@ -45,6 +45,8 @@ type Stack struct {
 	ContractAddress           string                 `json:"contractAddress,omitempty"`
 	ChainIDPtr                *int64                 `json:"chainID,omitempty"`
 	Network                   string                 `json:"network,omitempty"`
+	Socket                    string                 `json:"socket,omitempty"`
+	BlockfrostKey             string                 `json:"blockfrostKey,omitempty"`
 	RemoteNodeURL             string                 `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories     bool                   `json:"disableTokenFactories,omitempty"`
 	RequestTimeout            int                    `json:"requestTimeout,omitempty"`

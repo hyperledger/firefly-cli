@@ -123,6 +123,8 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		MultipartyEnabled: options.MultipartyEnabled,
 		ChainIDPtr:        &options.ChainID,
 		Network:           options.Network,
+		BlockfrostKey:     options.BlockfrostKey,
+		Socket:            options.Socket,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),

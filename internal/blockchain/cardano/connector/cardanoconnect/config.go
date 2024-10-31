@@ -19,6 +19,7 @@ package cardanoconnect
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano/connector"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -44,18 +45,17 @@ type APIConfig struct {
 
 type ConnectorConfig struct {
 	Blockchain *BlockchainConfig `yaml:"blockchain,omitempty"`
+	SignerURL  string            `yaml:"signerUrl,omitempty"`
 }
 
 type BlockchainConfig struct {
-	Network string `yaml:"network,omitempty"`
-	Address string `yaml:"address,omitempty"`
+	BlockfrostKey string `yaml:"blockfrostKey,omitempty"`
+	Socket        string `yaml:"socket,omitempty"`
+	Network       string `yaml:"network,omitempty"`
 }
 
 type PersistenceConfig struct {
-	LevelDB *LevelDBConfig `yaml:"leveldb,omitempty"`
-}
-
-type LevelDBConfig struct {
+	Type string `yaml:"type,omitempty"`
 	Path string `yaml:"path,omitempty"`
 }
 
@@ -68,13 +68,20 @@ type ConfirmationsConfig struct {
 	Required *int `yaml:"required,omitempty"`
 }
 
-func (c *Config) WriteConfig(filename string, extraCardanoconnectConfigPath string) error {
-	configYamlBytes, _ := yaml.Marshal(c)
+func (c *Config) WriteConfig(filename string, extraConnectorConfigPath string) error {
+	configYamlBytes, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	basedir := filepath.Dir(filename)
+	if err := os.MkdirAll(basedir, 0755); err != nil {
+		return err
+	}
 	if err := os.WriteFile(filename, configYamlBytes, 0755); err != nil {
 		return err
 	}
-	if extraCardanoconnectConfigPath != "" {
-		c, err := conflate.FromFiles(filename, extraCardanoconnectConfigPath)
+	if extraConnectorConfigPath != "" {
+		c, err := conflate.FromFiles(filename, extraConnectorConfigPath)
 		if err != nil {
 			return err
 		}
@@ -108,6 +115,11 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 		metrics = nil
 	}
 
+	socket := ""
+	if stack.Socket != "" {
+		socket = "/ipc/socket"
+	}
+
 	return &Config{
 		Log: &types.LogConfig{
 			Level: "debug",
@@ -119,14 +131,15 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 		},
 		Connector: &ConnectorConfig{
 			Blockchain: &BlockchainConfig{
-				Address: stack.RemoteNodeURL,
-				Network: stack.Network,
+				BlockfrostKey: stack.BlockfrostKey,
+				Network:       stack.Network,
+				Socket:        socket,
 			},
+			SignerURL: fmt.Sprintf("http://%s_cardanosigner:8555", stack.Name),
 		},
 		Persistence: &PersistenceConfig{
-			LevelDB: &LevelDBConfig{
-				Path: "/cardanoconnect/leveldb",
-			},
+			Type: "sqlite",
+			Path: "/cardanoconnect/sqlite/db.sqlite3",
 		},
 		FFCore: &FFCoreConfig{
 			URL:        getCoreURL(org),

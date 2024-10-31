@@ -18,9 +18,15 @@ package cardanosigner
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/blinklabs-io/bursa"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/cardano"
+	"github.com/hyperledger/firefly-cli/internal/constants"
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/pkg/types"
 )
 
@@ -36,8 +42,97 @@ func NewCardanoSignerProvider(ctx context.Context, stack *types.Stack) *CardanoS
 	}
 }
 
+func (p *CardanoSignerProvider) WriteConfig(_ *types.InitOptions) error {
+	initDir := filepath.Join(constants.StacksDir, p.stack.Name, "init")
+	signerConfigPath := filepath.Join(initDir, "config", "cardanosigner.yaml")
+
+	if err := GenerateSignerConfig().WriteConfig(signerConfigPath); err != nil {
+		return nil
+	}
+
+	return nil
+}
+
+func (p *CardanoSignerProvider) FirstTimeSetup() error {
+	cardanosignerVolumeName := fmt.Sprintf("%s_cardanosigner", p.stack.Name)
+	blockchainDir := filepath.Join(p.stack.RuntimeDir, "blockchain", "keystore")
+
+	if err := docker.CreateVolume(p.ctx, cardanosignerVolumeName); err != nil {
+		return err
+	}
+
+	// Copy the signer config to the volume
+	signerConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", "cardanosigner.yaml")
+	signerConfigVolumeName := fmt.Sprintf("%s_cardanosigner_config", p.stack.Name)
+	if err := docker.CopyFileToVolume(p.ctx, signerConfigVolumeName, signerConfigPath, "cardanosigner.yaml"); err != nil {
+		return err
+	}
+
+	// Copy the members wallets to the volume
+	if err := docker.MkdirInVolume(p.ctx, cardanosignerVolumeName, "wallet"); err != nil {
+		return err
+	}
+
+	for _, member := range p.stack.Members {
+		account := member.Account.(*cardano.Account)
+		filename := filepath.Join(blockchainDir, fmt.Sprintf("%s.skey", account.Address))
+		if err := docker.CopyFileToVolume(p.ctx, cardanosignerVolumeName, filename, fmt.Sprintf("wallet/%s.skey", account.Address)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *CardanoSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.ServiceDefinition {
+	// TODO: once firefly-core is updated, remove the hard-coded default image
+	image := "sundaeswap/firefly-cardanosigner:main"
+	if p.stack.VersionManifest.Cardanosigner != nil {
+		image = p.stack.VersionManifest.Cardanosigner.GetDockerImageString()
+	}
+	return &docker.ServiceDefinition{
+		ServiceName: "cardanosigner",
+		Service: &docker.Service{
+			Image:         image,
+			ContainerName: fmt.Sprintf("%s_cardanosigner", p.stack.Name),
+			User:          "root",
+			Command:       "./firefly-cardanosigner -f /etc/config/cardanosigner.yaml",
+			Volumes: []string{
+				"cardanosigner:/data",
+				"cardanosigner_config:/etc/config",
+			},
+			Logging: docker.StandardLogOptions,
+			Ports: []string{
+				fmt.Sprintf("%d:8555", p.stack.ExposedBlockchainPort),
+				"9583:9583",
+			},
+			Environment: p.stack.EnvironmentVars,
+		},
+		VolumeNames: []string{
+			"cardanosigner",
+			"cardanosigner_config",
+		},
+	}
+}
+
 func (p *CardanoSignerProvider) CreateAccount(args []string) (interface{}, error) {
+	cardanosignerVolumeName := fmt.Sprintf("%s_cardanosigner", p.stack.Name)
 	network := p.stack.Network
+	var directory string
+	stackHasRunBefore, err := p.stack.HasRunBefore()
+	if err != nil {
+		return nil, err
+	}
+	if stackHasRunBefore {
+		directory = p.stack.RuntimeDir
+	} else {
+		directory = p.stack.InitDir
+	}
+
+	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
+	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
+		return nil, err
+	}
 
 	mnemonic, err := bursa.NewMnemonic()
 	if err != nil {
@@ -48,9 +143,24 @@ func (p *CardanoSignerProvider) CreateAccount(args []string) (interface{}, error
 		return nil, err
 	}
 
-	// TODO: probably persist this information
+	contents, err := json.Marshal(wallet.PaymentExtendedSKey)
+	if err != nil {
+		return nil, err
+	}
+	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.skey", wallet.PaymentAddress))
+	if err := os.WriteFile(filename, []byte(contents), 0755); err != nil {
+		return nil, err
+	}
+
+	if stackHasRunBefore {
+		// Copy the signer secret to the volume
+		if err := docker.CopyFileToVolume(p.ctx, cardanosignerVolumeName, filename, fmt.Sprintf("wallet/%s.skey", wallet.PaymentAddress)); err != nil {
+			return nil, err
+		}
+	}
+
 	return &cardano.Account{
 		Address:    wallet.PaymentAddress,
-		PrivateKey: wallet.PaymentSKey.CborHex,
+		PrivateKey: wallet.PaymentExtendedSKey.CborHex,
 	}, nil
 }

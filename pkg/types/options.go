@@ -58,6 +58,8 @@ type InitOptions struct {
 	RemoteNodeURL             string
 	ChainID                   int64
 	Network                   string
+	Socket                    string
+	BlockfrostKey             string
 	DisableTokenFactories     bool
 	RequestTimeout            int
 	ReleaseChannel            string

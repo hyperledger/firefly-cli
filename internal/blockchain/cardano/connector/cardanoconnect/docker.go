@@ -34,27 +34,34 @@ func (c *Cardanoconnect) GetServiceDefinitions(s *types.Stack, dependentServices
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
+	// TODO: once firefly-core is updated, remove the hard-coded default image
+	image := "sundaeswap/firefly-cardanoconnect:main"
+	if s.VersionManifest.Cardanoconnect != nil {
+		image = s.VersionManifest.Cardanoconnect.GetDockerImageString()
+	}
 	for i, member := range s.Members {
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "cardanoconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:         s.VersionManifest.Cardanoconnect.GetDockerImageString(),
+				Image:         image,
 				ContainerName: fmt.Sprintf("%s_cardanoconnect_%v", s.Name, i),
-				Command:       "-f /cardanoconnect/config/config.yaml",
+				Command:       "./firefly-cardanoconnect -f /cardanoconnect/config/config.yaml",
 				DependsOn:     dependsOn,
 				Ports:         []string{fmt.Sprintf("%d:%d", member.ExposedConnectorPort, c.Port())},
-				User:          "1001",
 				ExtraHosts:    extraHosts,
 				Volumes: []string{
 					fmt.Sprintf("cardanoconnect_config_%s:/cardanoconnect/config", member.ID),
-					fmt.Sprintf("cardanoconnect_leveldb_%s:/cardanoconnect/leveldb", member.ID),
+					fmt.Sprintf("cardanoconnect_sqlite_%s:/cardanoconnect/sqlite", member.ID),
 				},
 				Logging: docker.StandardLogOptions,
 			},
 			VolumeNames: []string{
 				fmt.Sprintf("cardanoconnect_config_%s", member.ID),
-				fmt.Sprintf("cardanoconnect_leveldb_%s", member.ID),
+				fmt.Sprintf("cardanoconnect_sqlite_%s", member.ID),
 			},
+		}
+		if s.Socket != "" {
+			serviceDefinitions[i].Service.Volumes = append(serviceDefinitions[i].Service.Volumes, fmt.Sprintf("%s:/ipc/socket", s.Socket))
 		}
 	}
 	return serviceDefinitions

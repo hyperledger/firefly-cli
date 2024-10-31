@@ -56,10 +56,15 @@ func (p *RemoteRPCProvider) WriteConfig(options *types.InitOptions) error {
 			return err
 		}
 	}
-	return nil
+
+	return p.signer.WriteConfig(options)
 }
 
 func (p *RemoteRPCProvider) FirstTimeSetup() error {
+	if err := p.signer.FirstTimeSetup(); err != nil {
+		return err
+	}
+
 	for i := range p.stack.Members {
 		// Copy connector config to each member's volume
 		connectorConfigPath := filepath.Join(p.stack.StackDir, "runtime", "config", fmt.Sprintf("%s_%v.yaml", p.connector.Name(), i))
@@ -84,7 +89,12 @@ func (p *RemoteRPCProvider) PostStart(firstTimeSetup bool) error {
 }
 
 func (p *RemoteRPCProvider) GetDockerServiceDefinitions() []*docker.ServiceDefinition {
-	return p.connector.GetServiceDefinitions(p.stack, map[string]string{})
+	defs := []*docker.ServiceDefinition{
+		p.signer.GetDockerServiceDefinition(p.stack.RemoteNodeURL),
+	}
+	defs = append(defs, p.connector.GetServiceDefinitions(p.stack, map[string]string{})...)
+
+	return defs
 }
 
 func (p *RemoteRPCProvider) GetBlockchainPluginConfig(stack *types.Stack, m *types.Organization) (blockchainConfig *types.BlockchainConfig) {
