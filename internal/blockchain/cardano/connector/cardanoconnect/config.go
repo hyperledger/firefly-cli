@@ -45,6 +45,7 @@ type APIConfig struct {
 
 type ConnectorConfig struct {
 	Blockchain *BlockchainConfig `yaml:"blockchain,omitempty"`
+	Contracts  *ContractsConfig  `yaml:"contracts,omitempty"`
 	SignerURL  string            `yaml:"signerUrl,omitempty"`
 }
 
@@ -52,6 +53,11 @@ type BlockchainConfig struct {
 	BlockfrostKey string `yaml:"blockfrostKey,omitempty"`
 	Socket        string `yaml:"socket,omitempty"`
 	Network       string `yaml:"network,omitempty"`
+}
+
+type ContractsConfig struct {
+	ComponentsPath string `yaml:"componentsPath"`
+	StorePath      string `yaml:"storePath"`
 }
 
 type PersistenceConfig struct {
@@ -134,6 +140,10 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 				BlockfrostKey: stack.BlockfrostKey,
 				Network:       stack.Network,
 				Socket:        socket,
+			},
+			Contracts: &ContractsConfig{
+				ComponentsPath: "/cardanoconnect/contracts/components",
+				StorePath:      "/cardanoconnect/contracts/store.redb",
 			},
 			SignerURL: fmt.Sprintf("http://%s_cardanosigner:8555", stack.Name),
 		},

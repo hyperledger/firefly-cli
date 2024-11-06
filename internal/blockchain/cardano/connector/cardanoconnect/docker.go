@@ -51,12 +51,14 @@ func (c *Cardanoconnect) GetServiceDefinitions(s *types.Stack, dependentServices
 				ExtraHosts:    extraHosts,
 				Volumes: []string{
 					fmt.Sprintf("cardanoconnect_config_%s:/cardanoconnect/config", member.ID),
+					fmt.Sprintf("cardanoconnect_contracts_%s:/cardanoconnect/contracts", member.ID),
 					fmt.Sprintf("cardanoconnect_sqlite_%s:/cardanoconnect/sqlite", member.ID),
 				},
 				Logging: docker.StandardLogOptions,
 			},
 			VolumeNames: []string{
 				fmt.Sprintf("cardanoconnect_config_%s", member.ID),
+				fmt.Sprintf("cardanoconnect_contracts_%s", member.ID),
 				fmt.Sprintf("cardanoconnect_sqlite_%s", member.ID),
 			},
 		}
