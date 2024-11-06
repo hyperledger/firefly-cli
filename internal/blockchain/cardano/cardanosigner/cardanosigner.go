@@ -148,7 +148,7 @@ func (p *CardanoSignerProvider) CreateAccount(args []string) (interface{}, error
 		return nil, err
 	}
 	filename := filepath.Join(outputDirectory, fmt.Sprintf("%s.skey", wallet.PaymentAddress))
-	if err := os.WriteFile(filename, []byte(contents), 0755); err != nil {
+	if err := os.WriteFile(filename, contents, 0755); err != nil {
 		return nil, err
 	}
 
