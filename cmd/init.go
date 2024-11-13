@@ -270,14 +270,14 @@ func validatePrivateTransactionManagerBlockchainConnectorCombination(privateTran
 
 func validateRemoteNodeVsBlockChainNodeFlags(remoteNodeUrl, blockchainNodePorvider string) error {
 	if len(remoteNodeUrl) != 0 && blockchainNodePorvider != "geth" {
-		return errors.New("`remote-noted-url` and `blockchain-node` can't both be specified")
+		return errors.New("both flags `remote-node-url` and `blockchain-node` can't be specified")
 	}
 	return nil
 }
 
 func validateRemoteNodeDeployVsContractAddressFlags(remoteNodeDeploy bool, contractAddress string) error {
 	if remoteNodeDeploy && len(contractAddress) != 0 {
-		return errors.New("`contract-address` and `remote-node-deploy` can't both be specified")
+		return errors.New("both flags `contract-address` and `remote-node-deploy` can't be specified")
 	}
 	return nil
 }
