@@ -611,44 +611,52 @@ func (s *StackManager) createMember(id string, index int, options *types.InitOpt
 
 func (s *StackManager) StartStack(options *types.StartOptions) (messages []string, err error) {
 	fmt.Printf("starting FireFly stack '%s'... ", s.Stack.Name)
-	// Check to make sure all of our ports are available
+
+	// Validate the FirstEvent value
+	if options.FirstEvent != "0" && options.FirstEvent != "newest" {
+		if _, err := strconv.Atoi(options.FirstEvent); err != nil {
+			return messages, fmt.Errorf("invalid FirstEvent value: %s", options.FirstEvent)
+		}
+	}
+
+	// Check port availability
 	err = s.checkPortsAvailable()
 	if err != nil {
 		return messages, err
 	}
+
 	hasBeenRun, err := s.Stack.HasRunBefore()
 	if err != nil {
 		return messages, err
 	}
 	if !hasBeenRun {
-		setupMessages, err := s.runFirstTimeSetup(options)
-		messages = append(messages, setupMessages...)
+		// Pass FirstEvent to the first-time setup
+		setupMessages, err := s.runFirstTimeSetup(&types.StartOptions{
+			NoRollback: false, // Example
+			FirstEvent: "newest", // Or the user-defined value
+		})
+				messages = append(messages, setupMessages...)
 		if err != nil {
-			// Something bad happened during setup
+			// Handle rollback if necessary
 			if options.NoRollback {
 				return messages, err
 			} else {
-				// Rollback changes
 				s.Log.Error(fmt.Errorf("an error occurred - rolling back changes"))
 				resetErr := s.ResetStack()
-
-				var finalErr error
-
 				if resetErr != nil {
-					finalErr = fmt.Errorf("%s - error resetting stack: %s", err.Error(), resetErr.Error())
-				} else {
-					finalErr = fmt.Errorf("%s - all changes rolled back", err.Error())
+					return messages, fmt.Errorf("%s - error resetting stack: %s", err.Error(), resetErr.Error())
 				}
-
-				return messages, finalErr
+				return messages, fmt.Errorf("%s - all changes rolled back", err.Error())
 			}
 		}
 	} else {
+		// Standard startup sequence
 		err = s.runStartupSequence(false)
 		if err != nil {
 			return messages, err
 		}
 	}
+
 	return messages, s.ensureFireflyNodesUp(true)
 }
 
@@ -940,61 +948,73 @@ func (s *StackManager) runFirstTimeSetup(options *types.StartOptions) (messages 
 
 	newConfig.Namespaces.Predefined[0].Plugins = append(newConfig.Namespaces.Predefined[0].Plugins, types.FFEnumArrayToStrings(s.Stack.TokenProviders)...)
 
+	
+		
 	var contractDeploymentResult *types.ContractDeploymentResult
-	if s.Stack.MultipartyEnabled {
-		if s.Stack.ContractAddress == "" {
-			// TODO: This code assumes that there is only one plugin instance per type. When we add support for
-			// multiple namespaces, this code will likely have to change a lot
-			s.Log.Info("deploying FireFly smart contracts")
-			contractDeploymentResult, err = s.blockchainProvider.DeployFireFlyContract()
-			if err != nil {
-				return messages, err
-			}
-			if contractDeploymentResult != nil {
-				if contractDeploymentResult.Message != "" {
-					messages = append(messages, contractDeploymentResult.Message)
-				}
-				s.Stack.State.DeployedContracts = append(s.Stack.State.DeployedContracts, contractDeploymentResult.DeployedContract)
-			}
-		}
-	}
+    if s.Stack.MultipartyEnabled {
+        if s.Stack.ContractAddress == "" {
+            s.Log.Info("deploying FireFly smart contracts")
+            contractDeploymentResult, err = s.blockchainProvider.DeployFireFlyContract()
+            if err != nil {
+                return messages, err
+            }
+        }
+    }
 
-	for _, member := range s.Stack.Members {
-		orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
-		newConfig.Namespaces.Predefined[0].DefaultKey = orgConfig.Key
-		if s.Stack.MultipartyEnabled {
-			var contractLocation interface{}
-			if s.Stack.ContractAddress != "" {
-				contractLocation = map[string]interface{}{
-					"address": s.Stack.ContractAddress,
-				}
-			} else {
-				contractLocation = contractDeploymentResult.DeployedContract.Location
-			}
-			options := make(map[string]interface{})
-			if s.Stack.CustomPinSupport {
-				options["customPinSupport"] = true
-			}
+    for _, member := range s.Stack.Members {
+        orgConfig := s.blockchainProvider.GetOrgConfig(s.Stack, member)
 
-			newConfig.Namespaces.Predefined[0].Multiparty = &types.MultipartyConfig{
-				Enabled: true,
-				Org:     orgConfig,
-				Node: &types.NodeConfig{
-					Name: member.NodeName,
-				},
-				Contract: []*types.ContractConfig{
-					{
-						Location:   contractLocation,
-						FirstEvent: "0",
-						Options:    options,
-					},
-				},
-			}
-		}
+        // Default to "0" if FirstEvent is not provided
+        firstEvent := "0"
+        if options.FirstEvent != "" {
+            firstEvent = options.FirstEvent
+        }
 
-		if err := s.patchFireFlyCoreConfigs(configDir, member, newConfig); err != nil {
-			return messages, err
-		}
+        var contractLocation interface{}
+        if s.Stack.ContractAddress != "" {
+            contractLocation = map[string]interface{}{
+                "address": s.Stack.ContractAddress,
+            }
+        } else {
+            contractLocation = contractDeploymentResult.DeployedContract.Location
+        }
+
+        optionsMap := make(map[string]interface{})
+        if s.Stack.CustomPinSupport {
+            optionsMap["customPinSupport"] = true
+        }
+
+        newConfig := &types.FireflyConfig{
+            Namespaces: &types.NamespacesConfig{
+                Default: "default",
+                Predefined: []*types.Namespace{
+                    {
+                        Name:        "default",
+                        Description: "Default predefined namespace",
+                        Plugins:     []string{"database0", "blockchain0", "dataexchange0", "sharedstorage0"},
+                        Multiparty: &types.MultipartyConfig{
+                            Enabled: true,
+                            Org:     orgConfig,
+                            Node: &types.NodeConfig{
+                                Name: member.NodeName,
+                            },
+                            Contract: []*types.ContractConfig{
+                                {
+                                    Location:   contractLocation,
+                                    FirstEvent: firstEvent, // Now configurable
+                                    Options:    optionsMap,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        if err := s.patchFireFlyCoreConfigs(configDir, member, newConfig); err != nil {
+            return messages, err
+        }
+		
 
 		// Create data directory with correct permissions inside volume
 		dataVolumeName := fmt.Sprintf("%s_firefly_core_data_%s", s.Stack.Name, member.ID)
