@@ -102,8 +102,10 @@ This command will start a stack and run it in the background.
 	},
 }
 
+
+// ... existing code ...
+
 func init() {
 	startCmd.Flags().BoolVarP(&startOptions.NoRollback, "no-rollback", "b", false, "Do not automatically rollback changes if first time setup fails")
-	startCmd.Flags().StringVarP(&startOptions.FirstEvent, "first-event", "f", "0", "Specify the starting block for event processing (default: 0)")
 	rootCmd.AddCommand(startCmd)
 }
