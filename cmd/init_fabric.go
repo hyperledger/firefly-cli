@@ -1,3 +1,4 @@
+///
 // Copyright © 2024 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -23,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hyperledger/firefly-cli/internal/docker"
 	"github.com/hyperledger/firefly-cli/internal/log"
 	"github.com/hyperledger/firefly-cli/internal/stacks"
 	"github.com/hyperledger/firefly-cli/pkg/types"
@@ -36,6 +38,13 @@ var initFabricCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
+
+		version, err := docker.CheckDockerConfig()
+		if err != nil {
+			return err
+		}
+		ctx = context.WithValue(ctx, docker.CtxComposeVersionKey{}, version)
+
 		stackManager := stacks.NewStackManager(ctx)
 		initOptions.BlockchainProvider = types.BlockchainProviderFabric.String()
 		initOptions.TokenProviders = []string{}
