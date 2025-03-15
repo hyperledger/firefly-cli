@@ -34,16 +34,11 @@ func (c *Cardanoconnect) GetServiceDefinitions(s *types.Stack, dependentServices
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 	serviceDefinitions := make([]*docker.ServiceDefinition, len(s.Members))
-	// TODO: once firefly-core is updated, remove the hard-coded default image
-	image := "sundaeswap/firefly-cardanoconnect:main"
-	if s.VersionManifest.Cardanoconnect != nil {
-		image = s.VersionManifest.Cardanoconnect.GetDockerImageString()
-	}
 	for i, member := range s.Members {
 		serviceDefinitions[i] = &docker.ServiceDefinition{
 			ServiceName: "cardanoconnect_" + member.ID,
 			Service: &docker.Service{
-				Image:         image,
+				Image:         s.VersionManifest.Cardanoconnect.GetDockerImageString(),
 				ContainerName: fmt.Sprintf("%s_cardanoconnect_%v", s.Name, i),
 				Command:       "./firefly-cardanoconnect -f /cardanoconnect/config/config.yaml",
 				DependsOn:     dependsOn,

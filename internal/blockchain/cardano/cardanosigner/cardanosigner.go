@@ -85,15 +85,10 @@ func (p *CardanoSignerProvider) FirstTimeSetup() error {
 }
 
 func (p *CardanoSignerProvider) GetDockerServiceDefinition(rpcURL string) *docker.ServiceDefinition {
-	// TODO: once firefly-core is updated, remove the hard-coded default image
-	image := "sundaeswap/firefly-cardanosigner:main"
-	if p.stack.VersionManifest.Cardanosigner != nil {
-		image = p.stack.VersionManifest.Cardanosigner.GetDockerImageString()
-	}
 	return &docker.ServiceDefinition{
 		ServiceName: "cardanosigner",
 		Service: &docker.Service{
-			Image:         image,
+			Image:         p.stack.VersionManifest.Cardanosigner.GetDockerImageString(),
 			ContainerName: fmt.Sprintf("%s_cardanosigner", p.stack.Name),
 			User:          "root",
 			Command:       "./firefly-cardanosigner -f /etc/config/cardanosigner.yaml",
