@@ -1,4 +1,4 @@
-// Copyright © 2024 Kaleido, Inc.
+// Copyright © 2025 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/firefly-cli/internal/blockchain"
+	cardanoremoterpc "github.com/hyperledger/firefly-cli/internal/blockchain/cardano/remoterpc"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/besu"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/geth"
 	"github.com/hyperledger/firefly-cli/internal/blockchain/ethereum/quorum"
@@ -121,6 +122,9 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		SandboxEnabled:    options.SandboxEnabled,
 		MultipartyEnabled: options.MultipartyEnabled,
 		ChainIDPtr:        &options.ChainID,
+		Network:           options.Network,
+		BlockfrostKey:     options.BlockfrostKey,
+		Socket:            options.Socket,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
 		IPFSMode:          fftypes.FFEnum(options.IPFSMode),
@@ -1351,6 +1355,9 @@ func (s *StackManager) getBlockchainProvider() blockchain.IBlockchainProvider {
 		default:
 			return nil
 		}
+	case types.BlockchainProviderCardano:
+		s.Stack.DisableTokenFactories = true
+		return cardanoremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
 	case types.BlockchainProviderTezos:
 		s.Stack.DisableTokenFactories = true
 		return tezosremoterpc.NewRemoteRPCProvider(s.ctx, s.Stack)
