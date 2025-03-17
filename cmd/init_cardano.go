@@ -31,7 +31,7 @@ var initCardanoCmd = &cobra.Command{
 	Use:   "cardano [stack_name]",
 	Short: "Create a new FireFly local dev stack using a Cardano blockchain",
 	Long:  "Create a new FireFly local dev stack using a Cardano blockchain",
-	Args:  cobra.MaximumNArgs(3),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := log.WithVerbosity(context.Background(), verbose)
 		ctx = log.WithLogger(ctx, logger)
@@ -41,6 +41,10 @@ var initCardanoCmd = &cobra.Command{
 		initOptions.BlockchainNodeProvider = types.BlockchainNodeProviderRemoteRPC.String()
 		initOptions.TokenProviders = []string{}
 		initOptions.MultipartyEnabled = false
+		if len(args) == 1 {
+			// stacks are enforced to have 1 member
+			args = append(args, "1")
+		}
 		if err := initCommon(args); err != nil {
 			return err
 		}
