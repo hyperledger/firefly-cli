@@ -28,7 +28,7 @@ import (
 )
 
 var initCardanoCmd = &cobra.Command{
-	Use:   "cardano [stack_name] [member_count]",
+	Use:   "cardano [stack_name]",
 	Short: "Create a new FireFly local dev stack using a Cardano blockchain",
 	Long:  "Create a new FireFly local dev stack using a Cardano blockchain",
 	Args:  cobra.MaximumNArgs(3),
