@@ -47,3 +47,6 @@ changelog:
       - "^test:"
 release:
   prerelease: auto
+git:
+  # Sort Git tags by date, the default behaviour lists release candidates first regardless of date
+  tag_sort: -version:creatordate
