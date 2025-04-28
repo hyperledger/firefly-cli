@@ -1,4 +1,4 @@
-// Copyright © 2024 Kaleido, Inc.
+// Copyright © 2025 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -44,6 +44,9 @@ type Stack struct {
 	ExposedPrometheusPort     int                    `json:"exposedPrometheusPort,omitempty"`
 	ContractAddress           string                 `json:"contractAddress,omitempty"`
 	ChainIDPtr                *int64                 `json:"chainID,omitempty"`
+	Network                   string                 `json:"network,omitempty"`
+	Socket                    string                 `json:"socket,omitempty"`
+	BlockfrostKey             string                 `json:"blockfrostKey,omitempty"`
 	RemoteNodeURL             string                 `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories     bool                   `json:"disableTokenFactories,omitempty"`
 	RequestTimeout            int                    `json:"requestTimeout,omitempty"`

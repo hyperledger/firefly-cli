@@ -1,4 +1,4 @@
-// Copyright © 2024 Kaleido, Inc.
+// Copyright © 2025 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,6 +24,8 @@ type GitHubRelease struct {
 
 type VersionManifest struct {
 	FireFly           *ManifestEntry `json:"firefly,omitempty"`
+	Cardanoconnect    *ManifestEntry `json:"cardanoconnect"`
+	Cardanosigner     *ManifestEntry `json:"cardanosigner"`
 	Ethconnect        *ManifestEntry `json:"ethconnect"`
 	Evmconnect        *ManifestEntry `json:"evmconnect"`
 	Tezosconnect      *ManifestEntry `json:"tezosconnect"`
@@ -40,6 +42,7 @@ func (m *VersionManifest) Entries() []*ManifestEntry {
 	}
 	return []*ManifestEntry{
 		m.FireFly,
+		m.Cardanoconnect,
 		m.Ethconnect,
 		m.Evmconnect,
 		m.Tezosconnect,
