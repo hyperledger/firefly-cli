@@ -57,7 +57,7 @@ type BlockchainConfig struct {
 
 type ContractsConfig struct {
 	ComponentsPath string `yaml:"componentsPath"`
-	StorePath      string `yaml:"storePath"`
+	StoresPath     string `yaml:"storesPath"`
 }
 
 type PersistenceConfig struct {
@@ -128,7 +128,7 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 
 	return &Config{
 		Log: &types.LogConfig{
-			Level: "debug",
+			Level: "info",
 		},
 		API: &APIConfig{
 			Port:      c.Port(),
@@ -143,7 +143,7 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 			},
 			Contracts: &ContractsConfig{
 				ComponentsPath: "/cardanoconnect/contracts/components",
-				StorePath:      "/cardanoconnect/contracts/store.redb",
+				StoresPath:     "/cardanoconnect/contracts/stores",
 			},
 			SignerURL: fmt.Sprintf("http://%s_cardanosigner:8555", stack.Name),
 		},
