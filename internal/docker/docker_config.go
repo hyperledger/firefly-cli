@@ -1,4 +1,4 @@
-// Copyright © 2024 Kaleido, Inc.
+// Copyright © 2025 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -62,6 +62,7 @@ type Service struct {
 	Expose        []int                        `yaml:"expose,omitempty"`
 	Deploy        map[string]interface{}       `yaml:"deploy,omitempty"`
 	Platform      string                       `yaml:"platform,omitempty"`
+	ExtraHosts    []string                     `yaml:"extra_hosts,omitempty"`
 }
 
 type DockerComposeConfig struct {
