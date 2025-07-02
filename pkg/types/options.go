@@ -60,6 +60,7 @@ type InitOptions struct {
 	Network                   string
 	Socket                    string
 	BlockfrostKey             string
+	BlockfrostBaseURL         string
 	DisableTokenFactories     bool
 	RequestTimeout            int
 	ReleaseChannel            string

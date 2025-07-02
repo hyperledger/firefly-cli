@@ -64,6 +64,7 @@ func init() {
 	initCardanoCmd.Flags().StringVar(&initOptions.Network, "network", "mainnet", "The name of the network to connect to")
 	initCardanoCmd.Flags().StringVar(&initOptions.Socket, "socket", "", "Socket to mount for the cardano node to connect to")
 	initCardanoCmd.Flags().StringVar(&initOptions.BlockfrostKey, "blockfrost-key", "", "Blockfrost key")
+	initCardanoCmd.Flags().StringVar(&initOptions.BlockfrostBaseURL, "blockfrost-base-url", "", "Blockfrost base URL (for run-your-own blockfrost setups)")
 
 	initCmd.AddCommand(initCardanoCmd)
 }

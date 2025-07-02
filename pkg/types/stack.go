@@ -47,6 +47,7 @@ type Stack struct {
 	Network                   string                 `json:"network,omitempty"`
 	Socket                    string                 `json:"socket,omitempty"`
 	BlockfrostKey             string                 `json:"blockfrostKey,omitempty"`
+	BlockfrostBaseURL         string                 `json:"blockfrostBaseURL,omitempty"`
 	RemoteNodeURL             string                 `json:"remoteNodeURL,omitempty"`
 	DisableTokenFactories     bool                   `json:"disableTokenFactories,omitempty"`
 	RequestTimeout            int                    `json:"requestTimeout,omitempty"`
