@@ -50,9 +50,10 @@ type ConnectorConfig struct {
 }
 
 type BlockchainConfig struct {
-	BlockfrostKey string `yaml:"blockfrostKey,omitempty"`
-	Socket        string `yaml:"socket,omitempty"`
-	Network       string `yaml:"network,omitempty"`
+	BlockfrostKey     string `yaml:"blockfrostKey,omitempty"`
+	BlockfrostBaseURL string `yaml:"blockfrostBaseUrl,omitempty"`
+	Socket            string `yaml:"socket,omitempty"`
+	Network           string `yaml:"network,omitempty"`
 }
 
 type ContractsConfig struct {
@@ -137,9 +138,10 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 		},
 		Connector: &ConnectorConfig{
 			Blockchain: &BlockchainConfig{
-				BlockfrostKey: stack.BlockfrostKey,
-				Network:       stack.Network,
-				Socket:        socket,
+				BlockfrostKey:     stack.BlockfrostKey,
+				BlockfrostBaseURL: stack.BlockfrostBaseURL,
+				Network:           stack.Network,
+				Socket:            socket,
 			},
 			Contracts: &ContractsConfig{
 				ComponentsPath: "/cardanoconnect/contracts/components",

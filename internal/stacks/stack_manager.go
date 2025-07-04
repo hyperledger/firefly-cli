@@ -124,6 +124,7 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		ChainIDPtr:        &options.ChainID,
 		Network:           options.Network,
 		BlockfrostKey:     options.BlockfrostKey,
+		BlockfrostBaseURL: options.BlockfrostBaseURL,
 		Socket:            options.Socket,
 		RemoteNodeURL:     options.RemoteNodeURL,
 		RequestTimeout:    options.RequestTimeout,
