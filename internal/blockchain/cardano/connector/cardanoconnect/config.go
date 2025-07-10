@@ -30,6 +30,7 @@ import (
 type Config struct {
 	Log           *types.LogConfig           `yaml:"log,omitempty"`
 	Connector     *ConnectorConfig           `yaml:"connector,omitempty"`
+	Contracts     *ContractsConfig           `yaml:"contracts,omitempty"`
 	Metrics       *types.MetricsServerConfig `yaml:"metrics,omitempty"`
 	Persistence   *PersistenceConfig         `yaml:"persistence,omitempty"`
 	FFCore        *FFCoreConfig              `yaml:"ffcore,omitempty"`
@@ -45,7 +46,6 @@ type APIConfig struct {
 
 type ConnectorConfig struct {
 	Blockchain *BlockchainConfig `yaml:"blockchain,omitempty"`
-	Contracts  *ContractsConfig  `yaml:"contracts,omitempty"`
 	SignerURL  string            `yaml:"signerUrl,omitempty"`
 }
 
@@ -143,11 +143,11 @@ func (c *Cardanoconnect) GenerateConfig(stack *types.Stack, org *types.Organizat
 				Network:           stack.Network,
 				Socket:            socket,
 			},
-			Contracts: &ContractsConfig{
-				ComponentsPath: "/cardanoconnect/contracts/components",
-				StoresPath:     "/cardanoconnect/contracts/stores",
-			},
 			SignerURL: fmt.Sprintf("http://%s_cardanosigner:8555", stack.Name),
+		},
+		Contracts: &ContractsConfig{
+			ComponentsPath: "/cardanoconnect/contracts/components",
+			StoresPath:     "/cardanoconnect/contracts/stores",
 		},
 		Persistence: &PersistenceConfig{
 			Type: "sqlite",
